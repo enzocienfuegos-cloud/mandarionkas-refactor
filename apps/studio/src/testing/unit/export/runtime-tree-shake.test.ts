@@ -201,7 +201,7 @@ describe('runtime tree shake', () => {
     expect(script).toContain('smx-runtime-hover-pulse');
   });
 
-  it('includes motion runtime when a widget uses a single animation template without timeline keyframes', () => {
+  it('normalizes template-backed motion into timeline keyframes for export runtime', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
     state.document.metadata.release.targetChannel = 'gam-html5';
@@ -220,13 +220,13 @@ describe('runtime tree shake', () => {
 
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
+    const exportedWidget = adapter.portableProject.scenes[0]?.widgets.find((widget) => widget.id === 'cta_1');
 
-    expect(script).toContain('resolveRuntimeAnimationPresetConfig');
-    expect(script).toContain('getRuntimeAnimationPresetState');
+    expect(exportedWidget?.timeline.keyframes?.length).toBeGreaterThan(0);
     expect(script).toContain('startWidgetTimelineLoop');
   });
 
-  it('includes motion runtime when a widget uses formal motion config without legacy style fields', () => {
+  it('normalizes formal motion config into timeline keyframes for export runtime', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
     state.document.metadata.release.targetChannel = 'gam-html5';
@@ -249,9 +249,9 @@ describe('runtime tree shake', () => {
 
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
+    const exportedWidget = adapter.portableProject.scenes[0]?.widgets.find((widget) => widget.id === 'cta_1');
 
-    expect(script).toContain('resolveRuntimeAnimationPresetConfig');
-    expect(script).toContain('getRuntimeAnimationPresetState');
+    expect(exportedWidget?.timeline.keyframes?.length).toBeGreaterThan(0);
     expect(script).toContain('startWidgetTimelineLoop');
   });
 

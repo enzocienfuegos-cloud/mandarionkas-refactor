@@ -1,5 +1,4 @@
 import { createElement } from 'react';
-import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
@@ -15,26 +14,7 @@ const zoomHoverTemplate: MotionTemplate = {
     { key: 'scale', label: 'Scale', kind: 'number', min: 1.01, max: 1.5, step: 0.01, unit: 'x', defaultValue: 1.05 },
   ],
   defaults,
-  computeState: (config, _elapsedMs, baseOpacity) => {
-    const scale = readConfigNumber(config, 'scale', defaults.scale);
-    return {
-      transform: `scale(${scale})`,
-      opacity: baseOpacity,
-    };
-  },
-  buildWAAPIKeyframes: (config, baseOpacity) => {
-    const scale = readConfigNumber(config, 'scale', defaults.scale);
-    return [
-      { transform: 'scale(1)', opacity: baseOpacity, offset: 0 },
-      { transform: `scale(${scale})`, opacity: baseOpacity, offset: 1 },
-    ];
-  },
-  buildWAAPIOptions: (config) => ({
-    duration: readConfigNumber(config, 'durationMs', defaults.durationMs),
-    easing: 'ease-out',
-    iterations: 1,
-    fill: 'both',
-  }),
+  buildKeyframes: () => [],
   thumbnail: () => createElement(MotionThumbnail, { label: 'Zoom' }),
 };
 

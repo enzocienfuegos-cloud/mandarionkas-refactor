@@ -62,12 +62,6 @@ function sceneHasInteractiveWidget(widget: PortableExportWidget): boolean {
   return INTERACTIVE_WIDGET_TYPES.has(widget.type);
 }
 
-function widgetHasMotionTemplate(widget: PortableExportWidget): boolean {
-  if (widget.motion?.templateId) return true;
-  const preset = String(widget.style?.animationPreset ?? '');
-  return Boolean(preset);
-}
-
 export function analyzeRuntimeCapabilities(document: PortableExportProject): RuntimeCapabilities {
   const widgets = document.scenes.flatMap((scene) => scene.widgets);
   const hasMap = widgets.some((widget) => MAP_WIDGET_TYPES.has(widget.type));
@@ -78,7 +72,7 @@ export function analyzeRuntimeCapabilities(document: PortableExportProject): Run
   const hasWeather = widgets.some((widget) => WEATHER_WIDGET_TYPES.has(widget.type));
   const hasScratchReveal = widgets.some((widget) => SCRATCH_WIDGET_TYPES.has(widget.type) || (widget.type === 'group' && Boolean(widget.props?.scratchEnabled)));
   const hasCountdown = widgets.some((widget) => COUNTDOWN_WIDGET_TYPES.has(widget.type));
-  const hasTimelineAnimations = widgets.some((widget) => (widget.timeline.keyframes?.length ?? 0) > 0 || widgetHasMotionTemplate(widget));
+  const hasTimelineAnimations = widgets.some((widget) => (widget.timeline.keyframes?.length ?? 0) > 0);
   const hasFontFaces = widgets.some((widget) => typeof widget.props?.fontAssetSrc === 'string' && widget.props.fontAssetSrc.trim().length > 0);
   const hasHoverMotion = widgets.some((widget) => {
     if (widget.hoverMotion?.templateId) return true;

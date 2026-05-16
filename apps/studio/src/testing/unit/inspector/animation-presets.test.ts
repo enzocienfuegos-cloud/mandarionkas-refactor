@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WidgetNode } from '../../../domain/document/types';
-import { applyAnimationPreset, getAnimationPresetConfig, getAnimationPresetPreviewState, getHoverMotionConfig, supportsAnimationPresets } from '../../../inspector/sections/animation-presets';
+import { applyAnimationPreset, getAnimationPresetConfig, getHoverMotionConfig, supportsAnimationPresets } from '../../../inspector/sections/animation-presets';
 import { stripMotionManagedKeyframes } from '../../../motion/motion-managed-keyframes';
 
 function createWidget(type: WidgetNode['type']): WidgetNode {
@@ -27,30 +27,33 @@ describe('animation presets', () => {
     expect(supportsAnimationPresets(createWidget('scratch-reveal'))).toBe(false);
   });
 
-  it('stores appear as a single template without creating timeline keyframes', () => {
+  it('translates appear into managed timeline keyframes', () => {
     const { keyframes, stylePatch } = applyAnimationPreset(createWidget('text'), 'appear');
 
     expect(stylePatch.animationPreset).toBe('appear');
-    expect(keyframes).toHaveLength(0);
+    expect(keyframes).toHaveLength(2);
+    expect(keyframes.every((keyframe) => keyframe.managedBy === 'motion:appear')).toBe(true);
   });
 
-  it('stores fade-up as a single template without creating timeline keyframes', () => {
+  it('translates fade-up into managed timeline keyframes', () => {
     const { keyframes } = applyAnimationPreset(createWidget('image'), 'fade-up');
 
-    expect(keyframes).toHaveLength(0);
+    expect(keyframes.some((keyframe) => keyframe.property === 'opacity')).toBe(true);
+    expect(keyframes.some((keyframe) => keyframe.property === 'y')).toBe(true);
   });
 
-  it('stores pulse as a single template without creating timeline keyframes', () => {
+  it('translates pulse into managed timeline keyframes', () => {
     const { keyframes } = applyAnimationPreset(createWidget('cta'), 'pulse');
 
-    expect(keyframes).toHaveLength(0);
+    expect(keyframes.length).toBeGreaterThan(2);
+    expect(keyframes.every((keyframe) => keyframe.property === 'opacity')).toBe(true);
   });
 
   it('replaces previous preset-managed tracks when switching templates', () => {
     const widget = createWidget('cta');
     widget.timeline.keyframes = [
-      { id: 'kf_1', property: 'opacity', atMs: 300, value: 0.2, easing: 'linear' },
-      { id: 'kf_2', property: 'y', atMs: 500, value: 104, easing: 'ease-out' },
+      { id: 'kf_1', property: 'opacity', atMs: 300, value: 0.2, easing: 'linear', managedBy: 'motion:appear' },
+      { id: 'kf_2', property: 'y', atMs: 500, value: 104, easing: 'ease-out', managedBy: 'motion:fade-up' },
       { id: 'kf_3', property: 'x', atMs: 500, value: 64, easing: 'ease-out' },
     ];
     const fadeUp = applyAnimationPreset(widget, 'fade-up');
@@ -62,29 +65,34 @@ describe('animation presets', () => {
 
     const pulse = applyAnimationPreset(widgetWithPreset, 'pulse');
 
-    expect(pulse.keyframes).toHaveLength(1);
-    expect(pulse.keyframes[0]?.property).toBe('x');
+    expect(pulse.keyframes.some((keyframe) => keyframe.property === 'x')).toBe(true);
+    expect(pulse.keyframes.some((keyframe) => keyframe.property === 'opacity' && keyframe.managedBy === 'motion:pulse')).toBe(true);
+    expect(pulse.keyframes.some((keyframe) => keyframe.property === 'y' && !keyframe.managedBy)).toBe(false);
   });
 
   it('strips only motion-managed tracks when removing a template', () => {
     const widget = createWidget('text');
     widget.timeline.keyframes = [
-      { id: 'kf_1', property: 'opacity', atMs: 300, value: 0.2, easing: 'linear' },
-      { id: 'kf_2', property: 'y', atMs: 500, value: 104, easing: 'ease-out' },
-      { id: 'kf_3', property: 'x', atMs: 500, value: 64, easing: 'ease-out' },
+      { id: 'kf_1', property: 'opacity', atMs: 300, value: 0.2, easing: 'linear', managedBy: 'motion:appear' },
+      { id: 'kf_2', property: 'y', atMs: 500, value: 104, easing: 'ease-out', managedBy: 'motion:fade-up' },
+      { id: 'kf_3', property: 'opacity', atMs: 500, value: 0.8, easing: 'ease-out' },
+      { id: 'kf_4', property: 'x', atMs: 500, value: 64, easing: 'ease-out' },
     ];
 
     const keyframes = stripMotionManagedKeyframes(widget.timeline.keyframes);
 
-    expect(keyframes).toHaveLength(1);
-    expect(keyframes[0]?.property).toBe('x');
+    expect(keyframes).toHaveLength(2);
+    expect(keyframes.some((keyframe) => keyframe.property === 'opacity' && !keyframe.managedBy)).toBe(true);
+    expect(keyframes.some((keyframe) => keyframe.property === 'x')).toBe(true);
   });
 
-  it('stores fade-out as a single template without creating timeline keyframes', () => {
+  it('translates fade-out into exit keyframes', () => {
     const { keyframes, stylePatch } = applyAnimationPreset(createWidget('group'), 'fade-out');
 
     expect(stylePatch.animationPreset).toBe('fade-out');
-    expect(keyframes).toHaveLength(0);
+    expect(keyframes).toHaveLength(2);
+    expect(keyframes[0]?.atMs).toBeGreaterThanOrEqual(300);
+    expect(keyframes[1]?.atMs).toBe(2000);
   });
 
   it('reads adjustable motion settings from widget style and persists template config', () => {
@@ -107,25 +115,7 @@ describe('animation presets', () => {
     expect(stylePatch.animationDelayMs).toBe(180);
     expect(stylePatch.animationDistancePx).toBe(36);
     expect(stylePatch.animationRepeatMode).toBe('repeat');
-    expect(keyframes).toHaveLength(0);
-  });
-
-  it('derives preview state for a fade-up preset from the playhead', () => {
-    const widget = createWidget('text');
-    widget.style.animationPreset = 'fade-up';
-    widget.style.animationDurationMs = 1000;
-    widget.style.animationDistancePx = 40;
-
-    const stateAtStart = getAnimationPresetPreviewState(widget, 300);
-    const stateMid = getAnimationPresetPreviewState(widget, 800);
-    const stateEnd = getAnimationPresetPreviewState(widget, 1400);
-
-    expect(stateAtStart?.opacity).toBe(0);
-    expect(stateAtStart?.frame.y).toBe(120);
-    expect((stateMid?.opacity ?? 0) > 0).toBe(true);
-    expect((stateMid?.frame.y ?? 0) < 120).toBe(true);
-    expect(stateEnd?.opacity).toBe(1);
-    expect(stateEnd?.frame.y).toBe(80);
+    expect(keyframes.some((keyframe) => keyframe.property === 'y')).toBe(true);
   });
 
   it('reads hover motion settings with safe defaults', () => {

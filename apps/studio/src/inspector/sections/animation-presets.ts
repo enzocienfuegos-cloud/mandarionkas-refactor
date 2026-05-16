@@ -4,11 +4,10 @@ import {
   buildLegacyMotionStylePatch,
   buildWidgetHoverMotion,
   buildWidgetMotion,
-  computeWidgetMotionState,
   resolveWidgetHoverMotion,
   resolveWidgetMotion,
 } from '../../motion/motion-model';
-import { stripMotionManagedKeyframes } from '../../motion/motion-managed-keyframes';
+import { rebuildWidgetMotionKeyframes } from '../../motion/motion-template-keyframes';
 import { listHoverMotionTemplates, listMotionTemplates } from '../../motion/motion-registry';
 import { widgetSupportsHoverMotion, widgetSupportsMotion } from '../../motion/motion-widget-compatibility';
 
@@ -133,7 +132,7 @@ export function applyAnimationPreset(
     repeatMode: currentConfig.repeatMode,
   });
   return {
-    keyframes: stripMotionManagedKeyframes(widget.timeline.keyframes ?? []),
+    keyframes: rebuildWidgetMotionKeyframes(widget, motion, widget.timeline.keyframes ?? []),
     stylePatch: buildLegacyMotionStylePatch(motion),
     motion,
   };
@@ -157,31 +156,5 @@ export function buildHoverMotionPreset(
   return {
     stylePatch: buildLegacyHoverMotionStylePatch(hoverMotion),
     hoverMotion,
-  };
-}
-
-function extractTranslateOffset(transform: string): { x: number; y: number } {
-  const xMatch = transform.match(/translateX\((-?[0-9.]+)px\)/);
-  const yMatch = transform.match(/translateY\((-?[0-9.]+)px\)/);
-  return {
-    x: xMatch ? Number(xMatch[1]) : 0,
-    y: yMatch ? Number(yMatch[1]) : 0,
-  };
-}
-
-export function getAnimationPresetPreviewState(
-  widget: WidgetNode,
-  playheadMs: number,
-): { frame: WidgetNode['frame']; opacity: number } | null {
-  const state = computeWidgetMotionState(widget, playheadMs, Number(widget.style.opacity ?? 1));
-  if (!state) return null;
-  const offset = extractTranslateOffset(state.transform);
-  return {
-    frame: {
-      ...widget.frame,
-      x: widget.frame.x + offset.x,
-      y: widget.frame.y + offset.y,
-    },
-    opacity: state.opacity,
   };
 }

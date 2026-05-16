@@ -147,7 +147,6 @@ export function ClientPreviewPlayer({
               widgetsById={widgetsById}
               selectedIds={[]}
               previewMode
-              isPlaying={isPlaying}
               editModeWireframe={false}
               zoom={fitScale}
               playheadMs={playheadMs}

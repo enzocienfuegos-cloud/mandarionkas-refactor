@@ -1,14 +1,3 @@
-import { listMotionTemplates } from '../motion/motion-registry';
-import { MOTION_PRESET_SPECS } from '../motion/preset-specs';
-
-function buildRuntimeMotionRegistrySource(): string {
-  return `{${listMotionTemplates().map((template) => (
-    `${JSON.stringify(template.id)}:{id:${JSON.stringify(template.id)},category:${JSON.stringify(template.category)},defaults:${JSON.stringify(template.defaults)},spec:${JSON.stringify(MOTION_PRESET_SPECS[template.id] ?? null)}}`
-  )).join(',')}}`;
-}
-
-const RUNTIME_MOTION_REGISTRY_SOURCE = buildRuntimeMotionRegistrySource();
-
 export const EXPORT_RUNTIME_ENVIRONMENT_SECTION = ``;
 
 export const EXPORT_RUNTIME_FONTS_SECTION = `
@@ -128,8 +117,6 @@ export const EXPORT_RUNTIME_MOTION_SECTION = `
 `;
 
 export const EXPORT_RUNTIME_TIMELINE_SECTION = `
-  const runtimeMotionTemplates = ${RUNTIME_MOTION_REGISTRY_SOURCE};
-
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
@@ -157,126 +144,12 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     return Number(before.value ?? fallback) + (Number(after.value ?? fallback) - Number(before.value ?? fallback)) * eased;
   }
 
-  function resolveRuntimeAnimationPresetConfig(widget) {
-    if (!widget) return null;
-    const style = widget.style || {};
-    const motion = widget.motion && widget.motion.templateId ? widget.motion : null;
-    const legacyTemplateId = String(style.animationPreset || '');
-    const preset = motion && motion.templateId
-      ? String(motion.templateId)
-      : (runtimeMotionTemplates[legacyTemplateId] ? legacyTemplateId : '');
-    if (!preset || !runtimeMotionTemplates[preset]) return null;
-    const template = runtimeMotionTemplates[preset];
-    return {
-      preset,
-      category: template.category,
-      spec: template.spec || null,
-      config: Object.assign({}, template.defaults || {}, motion && motion.templateId === preset ? (motion.config || {}) : {
-        durationMs: style.animationDurationMs,
-        delayMs: style.animationDelayMs,
-        distancePx: style.animationDistancePx,
-        intensity: style.animationIntensity,
-        repeatMode: style.animationRepeatMode,
-      }),
-    };
-  }
-
-  function resolveRuntimeMotionElapsedMs(widget, motionConfig, playheadMs) {
-    const timeline = widget && widget.timeline ? widget.timeline : {};
-    const startMs = Number(timeline.startMs || 0);
-    const endMs = Math.max(startMs, Number(timeline.endMs || startMs));
-    const durationMs = Math.max(120, Number(motionConfig.config.durationMs || motionConfig.config.duration || 700));
-    if (motionConfig.category === 'exit') {
-      return playheadMs - Math.max(startMs, endMs - durationMs);
-    }
-    return playheadMs - startMs;
-  }
-
-  function normalizeLoopProgress(elapsedMs, durationMs) {
-    if (durationMs <= 0) return 0;
-    const normalized = ((elapsedMs % durationMs) + durationMs) % durationMs;
-    return clamp(normalized / durationMs, 0, 1);
-  }
-
-  function normalizeOneShotProgress(elapsedMs, delayMs, durationMs) {
-    if (durationMs <= 0) return 1;
-    return clamp((elapsedMs - delayMs) / durationMs, 0, 1);
-  }
-
-  function getRuntimeAnimationPresetState(widget, playheadMs) {
-    const motionConfig = resolveRuntimeAnimationPresetConfig(widget);
-    if (!motionConfig) return null;
-    const baseOpacity = Number(widget && widget.style ? widget.style.opacity ?? 1 : 1);
-    const baseTransform = 'rotate(' + Number(widget && widget.frame ? widget.frame.rotation || 0 : 0) + 'deg)';
-    const durationMs = Math.max(120, Number(motionConfig.config.durationMs || 700));
-    const elapsedMs = resolveRuntimeMotionElapsedMs(widget, motionConfig, playheadMs);
-    const spec = motionConfig.spec;
-    if (!spec || !spec.mode) return null;
-    const delayMs = Math.max(0, Number(motionConfig.config.delayMs || 0));
-    if (spec.mode === 'fade-in') {
-      const progress = normalizeOneShotProgress(elapsedMs, delayMs, durationMs);
-      return {
-        opacity: baseOpacity * applyTimelineEasing(progress, spec.easing || 'ease-out'),
-        transform: baseTransform,
-      };
-    }
-    if (spec.mode === 'fade-out') {
-      const progress = normalizeOneShotProgress(elapsedMs, 0, durationMs);
-      return {
-        opacity: baseOpacity * (1 - applyTimelineEasing(progress, spec.easing || 'ease-in')),
-        transform: baseTransform,
-      };
-    }
-    if (spec.mode === 'translate-in') {
-      const distancePx = Math.max(0, Number(motionConfig.config.distancePx || 24));
-      const progress = normalizeOneShotProgress(elapsedMs, delayMs, durationMs);
-      const eased = applyTimelineEasing(progress, spec.easing || 'ease-out');
-      const translateAmount = ((Number(spec.sign || 1) * distancePx * (1 - eased)).toFixed(2)) + 'px';
-      const translate = spec.axis === 'x'
-        ? ' translateX(' + translateAmount + ')'
-        : ' translateY(' + translateAmount + ')';
-      return {
-        opacity: spec.fade ? baseOpacity * eased : baseOpacity,
-        transform: baseTransform + translate,
-      };
-    }
-    if (spec.mode === 'pulse') {
-      if (elapsedMs < delayMs) {
-        return { opacity: baseOpacity, transform: baseTransform };
-      }
-      const intensity = clamp(Number(motionConfig.config.intensity || 0.55), 0.1, 1);
-      const loopProgress = normalizeLoopProgress(Math.max(0, elapsedMs - delayMs), durationMs);
-      const pulseOpacity = clamp(baseOpacity - intensity * 0.45, 0.15, baseOpacity);
-      const pulseMix = loopProgress <= 0.5
-        ? loopProgress * 2
-        : (1 - loopProgress) * 2;
-      return {
-        opacity: pulseOpacity + (baseOpacity - pulseOpacity) * pulseMix,
-        transform: baseTransform,
-      };
-    }
-    if (spec.mode === 'float') {
-      if (elapsedMs < delayMs) {
-        return { opacity: baseOpacity, transform: baseTransform };
-      }
-      const loopProgress = normalizeLoopProgress(Math.max(0, elapsedMs - delayMs), durationMs);
-      const distancePx = Math.max(0, Number(motionConfig.config.distancePx || 8));
-      const wave = Math.sin(loopProgress * 2 * Math.PI);
-      return {
-        opacity: baseOpacity,
-        transform: baseTransform + ' translateY(' + ((wave * distancePx).toFixed(2)) + 'px)',
-      };
-    }
-    return null;
-  }
-
   function syncTimelineAnimatedWidgets(sceneRuntime, elapsedMs) {
     if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets)) return;
     sceneRuntime.widgets.forEach((widget) => {
       if (!widget) return;
       const hasKeyframes = Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length);
-      const templateState = getRuntimeAnimationPresetState(widget, elapsedMs);
-      if (!hasKeyframes && !templateState) return;
+      if (!hasKeyframes) return;
       const node = document.querySelector('[data-widget-id="' + widget.id + '"]');
       if (!node) return;
       const frame = widget.frame || {};
@@ -284,12 +157,11 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
       if (!node.getAttribute('data-smx-base-opacity')) {
         node.setAttribute('data-smx-base-opacity', style.opacity || '1');
       }
-      style.left = String(hasKeyframes ? getWidgetTrackValue(widget, 'x', elapsedMs, Number(frame.x || 0)) : Number(frame.x || 0)) + 'px';
-      style.top = String(hasKeyframes ? getWidgetTrackValue(widget, 'y', elapsedMs, Number(frame.y || 0)) : Number(frame.y || 0)) + 'px';
-      style.width = String(hasKeyframes ? getWidgetTrackValue(widget, 'width', elapsedMs, Number(frame.width || 0)) : Number(frame.width || 0)) + 'px';
-      style.height = String(hasKeyframes ? getWidgetTrackValue(widget, 'height', elapsedMs, Number(frame.height || 0)) : Number(frame.height || 0)) + 'px';
-      style.opacity = String(templateState ? templateState.opacity : hasKeyframes ? getWidgetTrackValue(widget, 'opacity', elapsedMs, Number(node.getAttribute('data-smx-base-opacity') || 1)) : Number(node.getAttribute('data-smx-base-opacity') || widget.style?.opacity || 1));
-      if (templateState) style.transform = templateState.transform;
+      style.left = String(getWidgetTrackValue(widget, 'x', elapsedMs, Number(frame.x || 0))) + 'px';
+      style.top = String(getWidgetTrackValue(widget, 'y', elapsedMs, Number(frame.y || 0))) + 'px';
+      style.width = String(getWidgetTrackValue(widget, 'width', elapsedMs, Number(frame.width || 0))) + 'px';
+      style.height = String(getWidgetTrackValue(widget, 'height', elapsedMs, Number(frame.height || 0))) + 'px';
+      style.opacity = String(getWidgetTrackValue(widget, 'opacity', elapsedMs, Number(node.getAttribute('data-smx-base-opacity') || widget.style?.opacity || 1)));
     });
   }
 
@@ -305,9 +177,7 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     const sceneRuntime = getRuntimeScene(sceneIndex);
     if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !sceneRuntime.widgets.some((widget) => {
       if (!widget) return false;
-      const hasKeyframes = Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length);
-      const config = resolveRuntimeAnimationPresetConfig(widget);
-      return hasKeyframes || Boolean(config && config.preset);
+      return Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length);
     })) return;
     const startedAt = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
     const durationMs = Math.max(0, Number(sceneRuntime.durationMs || 0));

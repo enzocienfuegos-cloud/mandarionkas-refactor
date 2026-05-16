@@ -1,6 +1,8 @@
 import { buildResolvedWidgetsById } from '../domain/document/canvas-variants';
 import { resolveWidgetSnapshot } from '../domain/document/resolvers';
 import type { ActionNode, StudioState, WidgetNode } from '../domain/document/types';
+import { buildWidgetHoverMotion, buildWidgetMotion } from '../motion/motion-model';
+import { rebuildWidgetMotionKeyframes } from '../motion/motion-template-keyframes';
 import { getWidgetDefinition } from '../widgets/registry/widget-registry';
 import { isImageAssetWidgetType, isVideoAssetWidgetType } from './widget-type-groups';
 
@@ -159,12 +161,43 @@ function collectInteractions(widget: WidgetNode, actions: Record<string, ActionN
     }));
 }
 
+function resolveExportMotion(widget: WidgetNode): WidgetNode['motion'] {
+  if (widget.motion?.templateId) {
+    return { ...widget.motion, config: { ...widget.motion.config } };
+  }
+  const templateId = typeof widget.style.animationPreset === 'string' ? widget.style.animationPreset : '';
+  if (!templateId) return undefined;
+  return buildWidgetMotion(templateId, {
+    durationMs: Number(widget.style.animationDurationMs ?? undefined),
+    delayMs: Number(widget.style.animationDelayMs ?? undefined),
+    distancePx: Number(widget.style.animationDistancePx ?? undefined),
+    intensity: Number(widget.style.animationIntensity ?? undefined),
+    repeatMode: String(widget.style.animationRepeatMode ?? 'once'),
+  });
+}
+
+function resolveExportHoverMotion(widget: WidgetNode): WidgetNode['hoverMotion'] {
+  if (widget.hoverMotion?.templateId) {
+    return { ...widget.hoverMotion, config: { ...widget.hoverMotion.config } };
+  }
+  const templateId = typeof widget.style.hoverMotionPreset === 'string' ? widget.style.hoverMotionPreset : '';
+  if (!templateId || templateId === 'none') return undefined;
+  return buildWidgetHoverMotion(templateId, {
+    durationMs: Number(widget.style.hoverMotionDurationMs ?? undefined),
+    distancePx: Number(widget.style.hoverMotionDistancePx ?? undefined),
+    scale: Number(widget.style.hoverMotionScale ?? undefined),
+  });
+}
+
 function compileWidget(widget: WidgetNode, state: StudioState): PortableExportWidget {
   const snapshot = resolveWidgetSnapshot(widget, state);
   const interactions = collectInteractions(snapshot, state.document.actions);
   const assetRefs = collectAssetRefs(snapshot);
   const definition = getWidgetDefinition(snapshot.type);
   const customPortable = definition.buildPortableExport?.(snapshot, state);
+  const motion = resolveExportMotion(snapshot);
+  const hoverMotion = resolveExportHoverMotion(snapshot);
+  const keyframes = rebuildWidgetMotionKeyframes(snapshot, motion, snapshot.timeline.keyframes ?? []);
 
   return {
     id: snapshot.id,
@@ -177,9 +210,9 @@ function compileWidget(widget: WidgetNode, state: StudioState): PortableExportWi
     frame: { ...snapshot.frame },
     props: { ...snapshot.props },
     style: { ...snapshot.style },
-    motion: snapshot.motion ? { ...snapshot.motion, config: { ...snapshot.motion.config } } : undefined,
-    hoverMotion: snapshot.hoverMotion ? { ...snapshot.hoverMotion, config: { ...snapshot.hoverMotion.config } } : undefined,
-    timeline: { ...snapshot.timeline, keyframes: snapshot.timeline.keyframes?.map((keyframe) => ({ ...keyframe })) },
+    motion,
+    hoverMotion,
+    timeline: { ...snapshot.timeline, keyframes: keyframes.map((keyframe) => ({ ...keyframe })) },
     variants: snapshot.variants ? { ...snapshot.variants } : undefined,
     conditions: snapshot.conditions ? { ...snapshot.conditions } : undefined,
     interactions,

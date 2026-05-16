@@ -1,8 +1,8 @@
 import { createElement } from 'react';
 import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
-import { computeMotionStateFromSpec, MOTION_PRESET_SPECS } from '../preset-specs';
 import { MotionThumbnail } from '../react/MotionThumbnail';
+import { dedupeMotionKeyframes, motionKeyframe } from './shared';
 
 const defaults = { durationMs: 900, intensity: 0.55, delayMs: 0 };
 
@@ -17,23 +17,24 @@ const pulseTemplate: MotionTemplate = {
     { key: 'delayMs', label: 'Start delay', kind: 'number', min: 0, max: 3000, step: 50, unit: 'ms', defaultValue: 0 },
   ],
   defaults,
-  computeState: (config, elapsedMs, baseOpacity) => computeMotionStateFromSpec(MOTION_PRESET_SPECS.pulse, config, elapsedMs, baseOpacity),
-  buildWAAPIKeyframes: (config, baseOpacity) => {
+  buildKeyframes: (config, _widgetFrame, widgetTimeline) => {
+    const durationMs = Math.max(300, readConfigNumber(config, 'durationMs', defaults.durationMs));
+    const delayMs = Math.max(0, readConfigNumber(config, 'delayMs', defaults.delayMs));
     const intensity = readConfigNumber(config, 'intensity', defaults.intensity);
-    const pulseOpacity = Math.max(0.15, baseOpacity - intensity * 0.45);
-    return [
-      { opacity: baseOpacity, offset: 0 },
-      { opacity: pulseOpacity, offset: 0.5 },
-      { opacity: baseOpacity, offset: 1 },
-    ];
+    const lowOpacity = Math.max(0.15, 1 - intensity * 0.45);
+    const startMs = widgetTimeline.startMs + delayMs;
+    const keyframes = [];
+    for (let cycleStartMs = startMs; cycleStartMs <= widgetTimeline.endMs; cycleStartMs += durationMs) {
+      const midMs = Math.min(widgetTimeline.endMs, cycleStartMs + durationMs / 2);
+      const endMs = Math.min(widgetTimeline.endMs, cycleStartMs + durationMs);
+      keyframes.push(
+        motionKeyframe(`pulse:opacity:${cycleStartMs}:start`, 'opacity', cycleStartMs, 1, 'ease-in-out'),
+        motionKeyframe(`pulse:opacity:${cycleStartMs}:mid`, 'opacity', midMs, lowOpacity, 'ease-in-out'),
+        motionKeyframe(`pulse:opacity:${cycleStartMs}:end`, 'opacity', endMs, 1, 'ease-in-out'),
+      );
+    }
+    return dedupeMotionKeyframes(keyframes);
   },
-  buildWAAPIOptions: (config) => ({
-    duration: readConfigNumber(config, 'durationMs', defaults.durationMs),
-    delay: readConfigNumber(config, 'delayMs', defaults.delayMs),
-    easing: 'ease-in-out',
-    iterations: Number.POSITIVE_INFINITY,
-    fill: 'both',
-  }),
   thumbnail: () => createElement(MotionThumbnail, { label: 'Pulse' }),
 };
 

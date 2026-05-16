@@ -1,8 +1,8 @@
 import { createElement } from 'react';
 import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
-import { computeMotionStateFromSpec, MOTION_PRESET_SPECS } from '../preset-specs';
 import { MotionThumbnail } from '../react/MotionThumbnail';
+import { buildTranslateInKeyframes } from './shared';
 
 const defaults = { durationMs: 700, delayMs: 0, distancePx: 80 };
 
@@ -17,21 +17,17 @@ const slideInRightTemplate: MotionTemplate = {
     { key: 'distancePx', label: 'Distance', kind: 'number', min: 0, max: 400, step: 4, unit: 'px', defaultValue: 80 },
   ],
   defaults,
-  computeState: (config, elapsedMs, baseOpacity) => computeMotionStateFromSpec(MOTION_PRESET_SPECS['slide-in-right'], config, elapsedMs, baseOpacity),
-  buildWAAPIKeyframes: (config, baseOpacity) => {
-    const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);
-    return [
-      { transform: `translateX(${distancePx}px)`, opacity: baseOpacity, offset: 0 },
-      { transform: 'translateX(0px)', opacity: baseOpacity, offset: 1 },
-    ];
-  },
-  buildWAAPIOptions: (config) => ({
-    duration: readConfigNumber(config, 'durationMs', defaults.durationMs),
-    delay: readConfigNumber(config, 'delayMs', defaults.delayMs),
-    easing: 'ease-out',
-    iterations: 1,
-    fill: 'both',
-  }),
+  buildKeyframes: (config, widgetFrame, widgetTimeline) => buildTranslateInKeyframes(
+    'slide-in-right',
+    'x',
+    widgetFrame,
+    widgetTimeline,
+    readConfigNumber(config, 'durationMs', defaults.durationMs),
+    readConfigNumber(config, 'delayMs', defaults.delayMs),
+    readConfigNumber(config, 'distancePx', defaults.distancePx),
+    1,
+    false,
+  ),
   thumbnail: () => createElement(MotionThumbnail, { label: 'Slide →' }),
 };
 

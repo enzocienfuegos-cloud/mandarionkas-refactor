@@ -73,8 +73,8 @@ describe('normalizeStudioState', () => {
         startMs: 0,
         endMs: 15000,
         keyframes: [
-          { id: 'kf_opacity', property: 'opacity', atMs: 0, value: 0, easing: 'linear' },
-          { id: 'kf_y', property: 'y', atMs: 0, value: 48, easing: 'ease-out' },
+          { id: 'kf_opacity', property: 'opacity', atMs: 0, value: 0, easing: 'linear', managedBy: 'motion:appear' },
+          { id: 'kf_y', property: 'y', atMs: 0, value: 48, easing: 'ease-out', managedBy: 'motion:fade-up' },
           { id: 'kf_x', property: 'x', atMs: 400, value: 42, easing: 'ease-out' },
         ],
       },
@@ -83,8 +83,10 @@ describe('normalizeStudioState', () => {
     const normalized = normalizeStudioState(state);
     const keyframes = normalized.document.widgets.hero?.timeline.keyframes ?? [];
 
-    expect(keyframes).toHaveLength(1);
-    expect(keyframes[0]?.property).toBe('x');
+    expect(keyframes.length).toBeGreaterThan(1);
+    expect(keyframes.some((keyframe) => keyframe.property === 'x' && !keyframe.managedBy)).toBe(true);
+    expect(keyframes.some((keyframe) => keyframe.property === 'opacity' && keyframe.managedBy === 'motion:fade-up')).toBe(true);
+    expect(keyframes.some((keyframe) => keyframe.property === 'y' && keyframe.managedBy === 'motion:fade-up')).toBe(true);
   });
 
   it('uses explicit widget capability flags for motion support', () => {

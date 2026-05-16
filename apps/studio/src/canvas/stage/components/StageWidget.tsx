@@ -6,7 +6,6 @@ import type { ResizeHandle } from '../use-stage-controller';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 import { isNativeStageDragWidgetType } from '../../../domain/document/widget-type-groups';
 import { resolveWidgetHoverMotion } from '../../../motion/motion-model';
-import { MotionLayer } from '../../../motion/react/MotionLayer';
 
 const HANDLE_SIZE = 10;
 const showDebugWidgetTags = import.meta.env.DEV && import.meta.env.VITE_SHOW_WIDGET_TAGS === 'true';
@@ -25,7 +24,6 @@ type StageWidgetProps = {
   previewMode: boolean;
   editModeWireframe: boolean;
   playheadMs: number;
-  isPlaying: boolean;
   sceneDurationMs: number;
   hovered: boolean;
   active: boolean;
@@ -48,7 +46,6 @@ export const StageWidget = memo(function StageWidget({
   previewMode,
   editModeWireframe,
   playheadMs,
-  isPlaying,
   sceneDurationMs,
   hovered,
   active,
@@ -72,13 +69,7 @@ export const StageWidget = memo(function StageWidget({
   const widgetContentStyle = buildStageWidgetContentStyle(previewMode);
 
   return (
-    <MotionLayer
-      widget={node}
-      playheadMs={playheadMs}
-      previewMode={previewMode}
-      isPlaying={isPlaying}
-      selected={selected}
-      opacity={opacity}
+    <div
       className={`stage-widget stage-widget--${node.type} ${selected ? 'is-selected' : ''} ${primary ? 'is-primary' : ''} ${hovered ? 'is-hovered' : ''} ${active ? 'is-active' : ''} ${previewMode ? 'is-preview-mode' : 'is-edit-mode'} ${useWireframe ? 'is-wireframe-mode' : ''}`}
       {...createStageInteractionProps(STAGE_INTERACTION.widget)}
       onPointerDown={(event) => {
@@ -123,7 +114,7 @@ export const StageWidget = memo(function StageWidget({
       </div>
       {!previewMode && showBadge && !useWireframe && showDebugWidgetTags ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
       {selected ? <SelectionOverlay primary={primary} onResizePointerDown={onResizePointerDown} /> : null}
-    </MotionLayer>
+    </div>
   );
 }, stageWidgetPropsEqual);
 
@@ -198,7 +189,6 @@ function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProp
     && previous.previewMode === next.previewMode
     && previous.editModeWireframe === next.editModeWireframe
     && previous.playheadMs === next.playheadMs
-    && previous.isPlaying === next.isPlaying
     && previous.sceneDurationMs === next.sceneDurationMs
     && previous.hovered === next.hovered
     && previous.active === next.active;

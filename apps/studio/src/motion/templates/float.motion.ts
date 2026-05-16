@@ -1,8 +1,8 @@
 import { createElement } from 'react';
 import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
-import { computeMotionStateFromSpec, MOTION_PRESET_SPECS } from '../preset-specs';
 import { MotionThumbnail } from '../react/MotionThumbnail';
+import { dedupeMotionKeyframes, motionKeyframe } from './shared';
 
 const defaults = { durationMs: 3000, distancePx: 8, delayMs: 0 };
 
@@ -17,26 +17,31 @@ const floatTemplate: MotionTemplate = {
     { key: 'delayMs', label: 'Start delay', kind: 'number', min: 0, max: 3000, step: 50, unit: 'ms', defaultValue: 0 },
   ],
   defaults,
-  computeState: (config, elapsedMs, baseOpacity) => computeMotionStateFromSpec(MOTION_PRESET_SPECS.float, config, elapsedMs, baseOpacity),
-  buildWAAPIKeyframes: (config, baseOpacity) => {
+  buildKeyframes: (config, widgetFrame, widgetTimeline) => {
+    const durationMs = Math.max(800, readConfigNumber(config, 'durationMs', defaults.durationMs));
     const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);
-    return Array.from({ length: 9 }, (_, index) => {
-      const progress = index / 8;
-      const wave = Math.sin(progress * 2 * Math.PI);
-      return {
-        transform: `translateY(${(wave * distancePx).toFixed(2)}px)`,
-        opacity: baseOpacity,
-        offset: progress,
-      };
-    });
+    const delayMs = Math.max(0, readConfigNumber(config, 'delayMs', defaults.delayMs));
+    const startMs = widgetTimeline.startMs + delayMs;
+    const baseY = widgetFrame.y;
+    const keyframes = [];
+    for (let cycleStartMs = startMs; cycleStartMs <= widgetTimeline.endMs; cycleStartMs += durationMs) {
+      for (let step = 0; step <= 8; step += 1) {
+        const progress = step / 8;
+        const atMs = Math.min(widgetTimeline.endMs, cycleStartMs + durationMs * progress);
+        const wave = Math.sin(progress * 2 * Math.PI);
+        keyframes.push(
+          motionKeyframe(
+            `float:y:${cycleStartMs}:${step}`,
+            'y',
+            atMs,
+            baseY + wave * distancePx,
+            'linear',
+          ),
+        );
+      }
+    }
+    return dedupeMotionKeyframes(keyframes);
   },
-  buildWAAPIOptions: (config) => ({
-    duration: readConfigNumber(config, 'durationMs', defaults.durationMs),
-    delay: readConfigNumber(config, 'delayMs', defaults.delayMs),
-    easing: 'linear',
-    iterations: Number.POSITIVE_INFINITY,
-    fill: 'both',
-  }),
   thumbnail: () => createElement(MotionThumbnail, { label: 'Float' }),
 };
 

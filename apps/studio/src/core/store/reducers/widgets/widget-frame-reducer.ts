@@ -1,6 +1,7 @@
 import type { StudioCommand } from '../../../commands/types';
 import type { StudioState, WidgetFrame } from '../../../../domain/document/types';
 import { buildResolvedWidgetsById, resolveWidgetForCanvasVariant } from '../../../../domain/document/canvas-variants';
+import { rebuildWidgetMotionKeyframes } from '../../../../motion/motion-template-keyframes';
 import { withDirty } from './shared';
 
 function pruneFrameOverride(frame: WidgetFrame, baseFrame: WidgetFrame): Partial<WidgetFrame> | undefined {
@@ -116,7 +117,18 @@ function applyFramePatch(
       ...state.document,
       widgets: {
         ...state.document.widgets,
-        [baseTarget.id]: { ...baseTarget, frame: nextFrame },
+        [baseTarget.id]: {
+          ...baseTarget,
+          frame: nextFrame,
+          timeline: {
+            ...baseTarget.timeline,
+            keyframes: rebuildWidgetMotionKeyframes(
+              { ...baseTarget, frame: nextFrame, timeline: baseTarget.timeline },
+              baseTarget.motion,
+              baseTarget.timeline.keyframes ?? [],
+            ),
+          },
+        },
       },
     },
   });

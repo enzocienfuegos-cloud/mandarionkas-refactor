@@ -1,6 +1,7 @@
 import type { StudioCommand } from '../../commands/types';
 import { createId, defaultKeyframeValue } from '../../../domain/document/factories';
 import type { ActionNode, StudioState } from '../../../domain/document/types';
+import { rebuildWidgetMotionKeyframes } from '../../../motion/motion-template-keyframes';
 import { currentScene, reduceExecutedAction, withDirty } from '../store-utils';
 
 export function timelineUiReducer(state: StudioState, command: StudioCommand): StudioState {
@@ -13,7 +14,27 @@ export function timelineUiReducer(state: StudioState, command: StudioCommand): S
       if (!widget || !scene) return state;
       const startMs = Math.max(0, Math.min(command.patch.startMs ?? widget.timeline.startMs, scene.durationMs));
       const endMs = Math.max(startMs + 100, Math.min(command.patch.endMs ?? widget.timeline.endMs, scene.durationMs));
-      return withDirty({ ...state, document: { ...state.document, widgets: { ...state.document.widgets, [widget.id]: { ...widget, timeline: { ...widget.timeline, ...command.patch, startMs, endMs } } } } });
+      const nextTimeline = { ...widget.timeline, ...command.patch, startMs, endMs };
+      return withDirty({
+        ...state,
+        document: {
+          ...state.document,
+          widgets: {
+            ...state.document.widgets,
+            [widget.id]: {
+              ...widget,
+              timeline: {
+                ...nextTimeline,
+                keyframes: rebuildWidgetMotionKeyframes(
+                  { ...widget, timeline: nextTimeline },
+                  widget.motion,
+                  nextTimeline.keyframes ?? [],
+                ),
+              },
+            },
+          },
+        },
+      });
     }
     case 'SET_PLAYHEAD': {
       const scene = currentScene(state);

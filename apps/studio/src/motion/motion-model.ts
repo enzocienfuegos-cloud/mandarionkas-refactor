@@ -1,7 +1,7 @@
 import type { WidgetHoverMotion, WidgetMotion, WidgetNode } from '../domain/document/types';
-import { resolveMotionCurrentTime, resolveMotionElapsedMs, sanitizeMotionConfig } from './motion-engine';
+import { sanitizeMotionConfig } from './motion-engine';
 import { getHoverMotionTemplate, getMotionTemplate } from './motion-registry';
-import type { MotionConfig, MotionFrameState, MotionSelection, MotionTemplate } from './motion-template-contract';
+import type { MotionConfig, MotionSelection, MotionTemplate } from './motion-template-contract';
 
 const LEGACY_MOTION_TEMPLATE_IDS = new Set(['appear', 'fade-in', 'fade-up', 'fade-out', 'pulse', 'float', 'slide-in-left', 'slide-in-right', 'slide-in-up', 'slide-in-down']);
 const LEGACY_HOVER_TEMPLATE_IDS = new Set(['lift', 'zoom', 'pulse']);
@@ -105,31 +105,4 @@ export function buildLegacyHoverMotionStylePatch(hoverMotion?: WidgetHoverMotion
     hoverMotionDistancePx: hoverMotion.config.distancePx,
     hoverMotionScale: hoverMotion.config.scale,
   };
-}
-
-export function computeWidgetMotionState(
-  widget: WidgetNode,
-  playheadMs: number,
-  baseOpacity: number,
-): MotionFrameState | null {
-  const selection = resolveWidgetMotion(widget);
-  if (!selection) return null;
-  const elapsedMs = resolveMotionElapsedMs({
-    playheadMs,
-    timeline: widget.timeline,
-    config: selection.config,
-    category: selection.template.category,
-  });
-  return selection.template.computeState(selection.config, elapsedMs, baseOpacity);
-}
-
-export function resolveWidgetMotionCurrentTime(widget: WidgetNode, playheadMs: number): number | null {
-  const selection = resolveWidgetMotion(widget);
-  if (!selection) return null;
-  return resolveMotionCurrentTime({
-    playheadMs,
-    timeline: widget.timeline,
-    config: selection.config,
-    category: selection.template.category,
-  });
 }

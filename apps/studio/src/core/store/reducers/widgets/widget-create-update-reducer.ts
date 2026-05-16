@@ -1,7 +1,7 @@
 import type { StudioCommand } from '../../../commands/types';
 import type { StudioState } from '../../../../domain/document/types';
 import { buildResolvedWidgetsById, resolveWidgetForCanvasVariant } from '../../../../domain/document/canvas-variants';
-import { stripMotionManagedKeyframes } from '../../../../motion/motion-managed-keyframes';
+import { rebuildWidgetMotionKeyframes } from '../../../../motion/motion-template-keyframes';
 import { currentScene, getPlacedFrameForPoint, getSmartPlacedFrame, getWidgetDefinition, withDirty } from './shared';
 
 function isMasterVariant(state: StudioState): boolean {
@@ -160,7 +160,27 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
       if (isMasterVariant(state)) {
         const baseTarget = state.document.widgets[command.widgetId];
         if (!baseTarget) return state;
-        return withDirty({ ...state, document: { ...state.document, widgets: { ...state.document.widgets, [baseTarget.id]: { ...baseTarget, style: nextStyle } } } });
+        return withDirty({
+          ...state,
+          document: {
+            ...state.document,
+            widgets: {
+              ...state.document.widgets,
+              [baseTarget.id]: {
+                ...baseTarget,
+                style: nextStyle,
+                timeline: {
+                  ...baseTarget.timeline,
+                  keyframes: rebuildWidgetMotionKeyframes(
+                    { ...baseTarget, style: nextStyle, timeline: baseTarget.timeline },
+                    baseTarget.motion,
+                    baseTarget.timeline.keyframes ?? [],
+                  ),
+                },
+              },
+            },
+          },
+        });
       }
       return withDirty({
         ...state,
@@ -182,9 +202,10 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
             [target.id]: {
               ...target,
               motion: command.motion ? { ...command.motion, config: { ...command.motion.config } } : undefined,
-              timeline: command.motion
-                ? { ...target.timeline, keyframes: stripMotionManagedKeyframes(target.timeline.keyframes ?? []) }
-                : target.timeline,
+              timeline: {
+                ...target.timeline,
+                keyframes: rebuildWidgetMotionKeyframes(target, command.motion ? { ...command.motion, config: { ...command.motion.config } } : undefined, target.timeline.keyframes ?? []),
+              },
             },
           },
         },
@@ -251,9 +272,14 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
                 style: nextStyle,
                 motion: nextMotion,
                 hoverMotion: nextHoverMotion,
-                timeline: nextMotion
-                  ? { ...baseTarget.timeline, keyframes: stripMotionManagedKeyframes(baseTarget.timeline.keyframes ?? []) }
-                  : baseTarget.timeline,
+                timeline: {
+                  ...baseTarget.timeline,
+                  keyframes: rebuildWidgetMotionKeyframes(
+                    { ...baseTarget, frame: target.frame, style: nextStyle, timeline: baseTarget.timeline },
+                    nextMotion,
+                    baseTarget.timeline.keyframes ?? [],
+                  ),
+                },
               },
             },
           },
@@ -279,6 +305,14 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
                   ...rawTarget,
                   motion: nextMotion,
                   hoverMotion: nextHoverMotion,
+                  timeline: {
+                    ...rawTarget.timeline,
+                    keyframes: rebuildWidgetMotionKeyframes(
+                      { ...rawTarget, frame: target.frame, style: nextStyle, timeline: rawTarget.timeline },
+                      nextMotion,
+                      rawTarget.timeline.keyframes ?? [],
+                    ),
+                  },
                 },
               }
             : intermediateState.document.widgets,
