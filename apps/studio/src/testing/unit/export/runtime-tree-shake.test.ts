@@ -173,6 +173,34 @@ describe('runtime tree shake', () => {
     expect(script).toContain('smx-runtime-hover-pulse');
   });
 
+  it('includes hover motion runtime when widgets opt into formal hoverMotion config', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    state.document.widgets.image_1 = {
+      id: 'image_1',
+      type: 'image',
+      name: 'Hero',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 300, height: 160, rotation: 0 },
+      style: {},
+      hoverMotion: {
+        templateId: 'lift',
+        config: { durationMs: 320, distancePx: 14, scale: 1.06 },
+      },
+      props: { src: 'https://cdn.example.com/hero.png', alt: 'Hero' },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('image_1');
+
+    const adapter = buildGamHtml5Adapter(state);
+    const script = compileRuntime(adapter.portableProject, adapter);
+
+    expect(script).toContain('applyRuntimeHoverMotion');
+    expect(script).toContain('smx-runtime-hover-pulse');
+  });
+
   it('includes motion runtime when a widget uses a single animation template without timeline keyframes', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
@@ -185,6 +213,35 @@ describe('runtime tree shake', () => {
       zIndex: 1,
       frame: { x: 24, y: 180, width: 160, height: 44, rotation: 0 },
       style: { animationPreset: 'appear', animationDurationMs: 700, animationRepeatMode: 'once', opacity: 1 },
+      props: { text: 'Shop now', url: 'https://example.com' },
+      timeline: { startMs: 0, endMs: 1000, keyframes: [] },
+    } as any;
+    state.document.scenes[0].widgetIds.push('cta_1');
+
+    const adapter = buildGamHtml5Adapter(state);
+    const script = compileRuntime(adapter.portableProject, adapter);
+
+    expect(script).toContain('resolveRuntimeAnimationPresetConfig');
+    expect(script).toContain('getRuntimeAnimationPresetState');
+    expect(script).toContain('startWidgetTimelineLoop');
+  });
+
+  it('includes motion runtime when a widget uses formal motion config without legacy style fields', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    state.document.widgets.cta_1 = {
+      id: 'cta_1',
+      type: 'cta',
+      name: 'CTA',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 24, y: 180, width: 160, height: 44, rotation: 0 },
+      style: { opacity: 1 },
+      motion: {
+        templateId: 'appear',
+        config: { durationMs: 700, delayMs: 0, distancePx: 24, intensity: 0.55, repeatMode: 'once' },
+      },
       props: { text: 'Shop now', url: 'https://example.com' },
       timeline: { startMs: 0, endMs: 1000, keyframes: [] },
     } as any;
