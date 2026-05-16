@@ -1,8 +1,9 @@
 import { listMotionTemplates } from '../motion/motion-registry';
+import { MOTION_PRESET_SPECS } from '../motion/preset-specs';
 
 function buildRuntimeMotionRegistrySource(): string {
   return `{${listMotionTemplates().map((template) => (
-    `${JSON.stringify(template.id)}:{id:${JSON.stringify(template.id)},category:${JSON.stringify(template.category)},defaults:${JSON.stringify(template.defaults)}}`
+    `${JSON.stringify(template.id)}:{id:${JSON.stringify(template.id)},category:${JSON.stringify(template.category)},defaults:${JSON.stringify(template.defaults)},spec:${JSON.stringify(MOTION_PRESET_SPECS[template.id] ?? null)}}`
   )).join(',')}}`;
 }
 
@@ -169,6 +170,7 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     return {
       preset,
       category: template.category,
+      spec: template.spec || null,
       config: Object.assign({}, template.defaults || {}, motion && motion.templateId === preset ? (motion.config || {}) : {
         durationMs: style.animationDurationMs,
         delayMs: style.animationDelayMs,
@@ -207,70 +209,65 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     const baseOpacity = Number(widget && widget.style ? widget.style.opacity ?? 1 : 1);
     const baseTransform = 'rotate(' + Number(widget && widget.frame ? widget.frame.rotation || 0 : 0) + 'deg)';
     const durationMs = Math.max(120, Number(motionConfig.config.durationMs || 700));
-    const delayMs = Math.max(0, Number(motionConfig.config.delayMs || 0));
-    const distancePx = Math.max(0, Number(motionConfig.config.distancePx || 24));
-    const intensity = clamp(Number(motionConfig.config.intensity || 0.55), 0.1, 1);
     const elapsedMs = resolveRuntimeMotionElapsedMs(widget, motionConfig, playheadMs);
-    const loopProgress = normalizeLoopProgress(Math.max(0, elapsedMs - delayMs), durationMs);
-    const oneShotProgress = normalizeOneShotProgress(elapsedMs, delayMs, durationMs);
-
-    switch (motionConfig.preset) {
-      case 'appear':
-      case 'fade-in':
-        return {
-          opacity: baseOpacity * applyTimelineEasing(oneShotProgress, 'ease-out'),
-          transform: baseTransform,
-        };
-      case 'fade-up': {
-        const eased = applyTimelineEasing(oneShotProgress, 'ease-out');
-        return {
-          opacity: baseOpacity * eased,
-          transform: baseTransform + ' translateY(' + ((distancePx * (1 - eased)).toFixed(2)) + 'px)',
-        };
-      }
-      case 'fade-out': {
-        const exitProgress = clamp(elapsedMs / durationMs, 0, 1);
-        return {
-          opacity: baseOpacity * (1 - applyTimelineEasing(exitProgress, 'ease-in')),
-          transform: baseTransform,
-        };
-      }
-      case 'pulse': {
-        const pulseOpacity = clamp(baseOpacity - intensity * 0.45, 0.15, baseOpacity);
-        const pulseMix = loopProgress <= 0.5
-          ? applyTimelineEasing(loopProgress / 0.5, 'ease-in-out')
-          : applyTimelineEasing((1 - loopProgress) / 0.5, 'ease-in-out');
-        return {
-          opacity: pulseOpacity + (baseOpacity - pulseOpacity) * pulseMix,
-          transform: baseTransform,
-        };
-      }
-      case 'float': {
-        const wave = Math.sin(loopProgress * 2 * Math.PI);
-        return {
-          opacity: baseOpacity,
-          transform: baseTransform + ' translateY(' + ((wave * distancePx).toFixed(2)) + 'px)',
-        };
-      }
-      case 'slide-in-left': {
-        const eased = applyTimelineEasing(oneShotProgress, 'ease-out');
-        return { opacity: baseOpacity, transform: baseTransform + ' translateX(' + ((-distancePx * (1 - eased)).toFixed(2)) + 'px)' };
-      }
-      case 'slide-in-right': {
-        const eased = applyTimelineEasing(oneShotProgress, 'ease-out');
-        return { opacity: baseOpacity, transform: baseTransform + ' translateX(' + ((distancePx * (1 - eased)).toFixed(2)) + 'px)' };
-      }
-      case 'slide-in-up': {
-        const eased = applyTimelineEasing(oneShotProgress, 'ease-out');
-        return { opacity: baseOpacity, transform: baseTransform + ' translateY(' + ((distancePx * (1 - eased)).toFixed(2)) + 'px)' };
-      }
-      case 'slide-in-down': {
-        const eased = applyTimelineEasing(oneShotProgress, 'ease-out');
-        return { opacity: baseOpacity, transform: baseTransform + ' translateY(' + ((-distancePx * (1 - eased)).toFixed(2)) + 'px)' };
-      }
-      default:
-        return null;
+    const spec = motionConfig.spec;
+    if (!spec || !spec.mode) return null;
+    const delayMs = Math.max(0, Number(motionConfig.config.delayMs || 0));
+    if (spec.mode === 'fade-in') {
+      const progress = normalizeOneShotProgress(elapsedMs, delayMs, durationMs);
+      return {
+        opacity: baseOpacity * applyTimelineEasing(progress, spec.easing || 'ease-out'),
+        transform: baseTransform,
+      };
     }
+    if (spec.mode === 'fade-out') {
+      const progress = normalizeOneShotProgress(elapsedMs, 0, durationMs);
+      return {
+        opacity: baseOpacity * (1 - applyTimelineEasing(progress, spec.easing || 'ease-in')),
+        transform: baseTransform,
+      };
+    }
+    if (spec.mode === 'translate-in') {
+      const distancePx = Math.max(0, Number(motionConfig.config.distancePx || 24));
+      const progress = normalizeOneShotProgress(elapsedMs, delayMs, durationMs);
+      const eased = applyTimelineEasing(progress, spec.easing || 'ease-out');
+      const translateAmount = ((Number(spec.sign || 1) * distancePx * (1 - eased)).toFixed(2)) + 'px';
+      const translate = spec.axis === 'x'
+        ? ' translateX(' + translateAmount + ')'
+        : ' translateY(' + translateAmount + ')';
+      return {
+        opacity: spec.fade ? baseOpacity * eased : baseOpacity,
+        transform: baseTransform + translate,
+      };
+    }
+    if (spec.mode === 'pulse') {
+      if (elapsedMs < delayMs) {
+        return { opacity: baseOpacity, transform: baseTransform };
+      }
+      const intensity = clamp(Number(motionConfig.config.intensity || 0.55), 0.1, 1);
+      const loopProgress = normalizeLoopProgress(Math.max(0, elapsedMs - delayMs), durationMs);
+      const pulseOpacity = clamp(baseOpacity - intensity * 0.45, 0.15, baseOpacity);
+      const pulseMix = loopProgress <= 0.5
+        ? loopProgress * 2
+        : (1 - loopProgress) * 2;
+      return {
+        opacity: pulseOpacity + (baseOpacity - pulseOpacity) * pulseMix,
+        transform: baseTransform,
+      };
+    }
+    if (spec.mode === 'float') {
+      if (elapsedMs < delayMs) {
+        return { opacity: baseOpacity, transform: baseTransform };
+      }
+      const loopProgress = normalizeLoopProgress(Math.max(0, elapsedMs - delayMs), durationMs);
+      const distancePx = Math.max(0, Number(motionConfig.config.distancePx || 8));
+      const wave = Math.sin(loopProgress * 2 * Math.PI);
+      return {
+        opacity: baseOpacity,
+        transform: baseTransform + ' translateY(' + ((wave * distancePx).toFixed(2)) + 'px)',
+      };
+    }
+    return null;
   }
 
   function syncTimelineAnimatedWidgets(sceneRuntime, elapsedMs) {

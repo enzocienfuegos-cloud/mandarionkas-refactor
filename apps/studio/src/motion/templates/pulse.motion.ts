@@ -1,6 +1,7 @@
 import { createElement } from 'react';
-import { normalizeLoopProgress, readConfigNumber } from '../motion-engine';
+import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
+import { computeMotionStateFromSpec, MOTION_PRESET_SPECS } from '../preset-specs';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
 const defaults = { durationMs: 900, intensity: 0.55, delayMs: 0 };
@@ -16,23 +17,7 @@ const pulseTemplate: MotionTemplate = {
     { key: 'delayMs', label: 'Start delay', kind: 'number', min: 0, max: 3000, step: 50, unit: 'ms', defaultValue: 0 },
   ],
   defaults,
-  computeState: (config, elapsedMs, baseOpacity) => {
-    const delayMs = readConfigNumber(config, 'delayMs', defaults.delayMs);
-    if (elapsedMs < delayMs) {
-      return { transform: '', opacity: baseOpacity };
-    }
-    const progress = normalizeLoopProgress(
-      elapsedMs - delayMs,
-      readConfigNumber(config, 'durationMs', defaults.durationMs),
-    );
-    const intensity = readConfigNumber(config, 'intensity', defaults.intensity);
-    const pulseOpacity = Math.max(0.15, baseOpacity - intensity * 0.45);
-    const mix = progress <= 0.5 ? progress * 2 : (1 - progress) * 2;
-    return {
-      transform: '',
-      opacity: pulseOpacity + (baseOpacity - pulseOpacity) * mix,
-    };
-  },
+  computeState: (config, elapsedMs, baseOpacity) => computeMotionStateFromSpec(MOTION_PRESET_SPECS.pulse, config, elapsedMs, baseOpacity),
   buildWAAPIKeyframes: (config, baseOpacity) => {
     const intensity = readConfigNumber(config, 'intensity', defaults.intensity);
     const pulseOpacity = Math.max(0.15, baseOpacity - intensity * 0.45);

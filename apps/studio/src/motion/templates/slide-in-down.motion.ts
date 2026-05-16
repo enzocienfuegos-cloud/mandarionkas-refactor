@@ -1,6 +1,7 @@
 import { createElement } from 'react';
-import { applyEasing, normalizeOneShotProgress, readConfigNumber } from '../motion-engine';
+import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
+import { computeMotionStateFromSpec, MOTION_PRESET_SPECS } from '../preset-specs';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
 const defaults = { durationMs: 700, delayMs: 0, distancePx: 80 };
@@ -16,19 +17,7 @@ const slideInDownTemplate: MotionTemplate = {
     { key: 'distancePx', label: 'Distance', kind: 'number', min: 0, max: 400, step: 4, unit: 'px', defaultValue: 80 },
   ],
   defaults,
-  computeState: (config, elapsedMs, baseOpacity) => {
-    const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);
-    const progress = normalizeOneShotProgress(
-      elapsedMs,
-      readConfigNumber(config, 'delayMs', defaults.delayMs),
-      readConfigNumber(config, 'durationMs', defaults.durationMs),
-    );
-    const eased = applyEasing(progress, 'ease-out');
-    return {
-      transform: `translateY(${(-distancePx * (1 - eased)).toFixed(2)}px)`,
-      opacity: baseOpacity,
-    };
-  },
+  computeState: (config, elapsedMs, baseOpacity) => computeMotionStateFromSpec(MOTION_PRESET_SPECS['slide-in-down'], config, elapsedMs, baseOpacity),
   buildWAAPIKeyframes: (config, baseOpacity) => {
     const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);
     return [

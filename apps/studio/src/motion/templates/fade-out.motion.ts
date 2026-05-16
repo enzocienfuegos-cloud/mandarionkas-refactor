@@ -1,6 +1,7 @@
 import { createElement } from 'react';
-import { applyEasing, normalizeOneShotProgress, readConfigNumber } from '../motion-engine';
+import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
+import { computeMotionStateFromSpec, MOTION_PRESET_SPECS } from '../preset-specs';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
 const defaults = { durationMs: 700 };
@@ -14,18 +15,7 @@ const fadeOutTemplate: MotionTemplate = {
     { key: 'durationMs', label: 'Duration', kind: 'number', min: 120, max: 4000, step: 20, unit: 'ms', defaultValue: 700 },
   ],
   defaults,
-  computeState: (config, elapsedMs, baseOpacity) => {
-    const progress = normalizeOneShotProgress(
-      elapsedMs,
-      0,
-      readConfigNumber(config, 'durationMs', defaults.durationMs),
-    );
-    const eased = applyEasing(progress, 'ease-in');
-    return {
-      transform: '',
-      opacity: baseOpacity * (1 - eased),
-    };
-  },
+  computeState: (config, elapsedMs, baseOpacity) => computeMotionStateFromSpec(MOTION_PRESET_SPECS['fade-out'], config, elapsedMs, baseOpacity),
   buildWAAPIKeyframes: (_config, baseOpacity) => [
     { opacity: baseOpacity, offset: 0 },
     { opacity: 0, offset: 1 },

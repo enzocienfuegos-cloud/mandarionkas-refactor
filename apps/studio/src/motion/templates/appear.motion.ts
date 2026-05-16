@@ -1,6 +1,7 @@
 import { createElement } from 'react';
-import { applyEasing, normalizeOneShotProgress, readConfigNumber } from '../motion-engine';
+import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
+import { computeMotionStateFromSpec, MOTION_PRESET_SPECS } from '../preset-specs';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
 const defaults = { durationMs: 700, delayMs: 0 };
@@ -15,17 +16,7 @@ const appearTemplate: MotionTemplate = {
     { key: 'delayMs', label: 'Delay', kind: 'number', min: 0, max: 6000, step: 20, unit: 'ms', defaultValue: 0 },
   ],
   defaults,
-  computeState: (config, elapsedMs, baseOpacity) => {
-    const progress = normalizeOneShotProgress(
-      elapsedMs,
-      readConfigNumber(config, 'delayMs', defaults.delayMs),
-      readConfigNumber(config, 'durationMs', defaults.durationMs),
-    );
-    return {
-      transform: '',
-      opacity: baseOpacity * applyEasing(progress, 'ease-out'),
-    };
-  },
+  computeState: (config, elapsedMs, baseOpacity) => computeMotionStateFromSpec(MOTION_PRESET_SPECS.appear, config, elapsedMs, baseOpacity),
   buildWAAPIKeyframes: (_config, baseOpacity) => [
     { opacity: 0, offset: 0 },
     { opacity: baseOpacity, offset: 1 },
