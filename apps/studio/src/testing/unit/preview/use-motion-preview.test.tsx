@@ -9,14 +9,26 @@ type FakeAnimation = {
   play: ReturnType<typeof vi.fn>;
   cancel: ReturnType<typeof vi.fn>;
   currentTime: number;
+  playState: 'idle' | 'running' | 'paused';
 };
 
 function createFakeAnimation(): FakeAnimation {
+  let playState: FakeAnimation['playState'] = 'idle';
   return {
-    pause: vi.fn(),
-    play: vi.fn(),
+    pause: vi.fn(() => {
+      playState = 'paused';
+    }),
+    play: vi.fn(() => {
+      playState = 'running';
+    }),
     cancel: vi.fn(),
     currentTime: 0,
+    get playState() {
+      return playState;
+    },
+    set playState(nextState) {
+      playState = nextState;
+    },
   };
 }
 
@@ -80,5 +92,65 @@ describe('useMotionPreview', () => {
 
     expect((element.animate as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
     expect(animation.play).toHaveBeenCalled();
+  });
+
+  it('does not pause the animation on every render during free playback', () => {
+    const animation = createFakeAnimation();
+    const element = createFakeElement(animation);
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(<Harness element={element} active scrubTimeMs={null} />);
+    });
+
+    expect(animation.play).toHaveBeenCalledTimes(1);
+    animation.pause.mockClear();
+    animation.play.mockClear();
+
+    for (let index = 0; index < 60; index += 1) {
+      act(() => {
+        renderer!.update(<Harness element={element} active scrubTimeMs={null} />);
+      });
+    }
+
+    expect(animation.pause).not.toHaveBeenCalled();
+    expect(animation.play).not.toHaveBeenCalled();
+  });
+
+  it('preserves currentTime when transitioning from scrub to free playback', () => {
+    const animation = createFakeAnimation();
+    const element = createFakeElement(animation);
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(<Harness element={element} scrubTimeMs={500} />);
+    });
+
+    expect(animation.currentTime).toBe(500);
+    expect(animation.playState).toBe('paused');
+
+    act(() => {
+      renderer!.update(<Harness element={element} active scrubTimeMs={null} />);
+    });
+
+    expect(animation.currentTime).toBe(500);
+    expect(animation.play).toHaveBeenCalled();
+  });
+
+  it('pauses and resets to 0 in idle mode', () => {
+    const animation = createFakeAnimation();
+    const element = createFakeElement(animation);
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(<Harness element={element} active scrubTimeMs={null} />);
+    });
+
+    act(() => {
+      renderer!.update(<Harness element={element} active={false} scrubTimeMs={null} />);
+    });
+
+    expect(animation.pause).toHaveBeenCalled();
+    expect(animation.currentTime).toBe(0);
   });
 });

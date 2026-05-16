@@ -18,6 +18,7 @@ export type StageSurfaceProps = {
   editModeWireframe: boolean;
   zoom: number;
   playheadMs: number;
+  isPlaying: boolean;
   sceneDurationMs: number;
   sceneTransitionType: 'cut' | 'fade' | 'slide-left' | 'slide-right';
   sceneTransitionDurationMs: number;
@@ -52,6 +53,7 @@ export function StageSurface({
   editModeWireframe,
   zoom,
   playheadMs,
+  isPlaying,
   sceneDurationMs,
   sceneTransitionType,
   sceneTransitionDurationMs,
@@ -179,6 +181,7 @@ export function StageSurface({
             previewMode={previewMode}
             editModeWireframe={editModeWireframe}
             playheadMs={playheadMs}
+            isPlaying={isPlaying}
             sceneDurationMs={sceneDurationMs}
             hovered={hoveredWidgetId === renderNode.id}
             active={activeWidgetId === renderNode.id}

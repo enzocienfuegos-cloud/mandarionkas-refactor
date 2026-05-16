@@ -53,21 +53,17 @@ export function resolveMotionCurrentTime({ playheadMs, timeline, config, categor
   const endMs = Math.max(startMs, Number(timeline.endMs ?? startMs));
   const durationMs = Math.max(120, readConfigNumber(config, 'durationMs', 700));
   const delayMs = Math.max(0, readConfigNumber(config, 'delayMs', 0));
-  const effectiveDurationMs = Math.max(durationMs, 1);
 
   if (category === 'exit') {
-    const anchorMs = Math.max(startMs, endMs - effectiveDurationMs);
-    return clamp(playheadMs - anchorMs, 0, effectiveDurationMs);
+    const anchorMs = Math.max(startMs, endMs - durationMs);
+    return clamp(playheadMs - anchorMs, 0, durationMs);
   }
 
   if (category === 'loop') {
-    const elapsedMs = playheadMs - startMs;
-    if (elapsedMs <= delayMs) return 0;
-    const loopTime = normalizeLoopProgress(elapsedMs - delayMs, effectiveDurationMs) * effectiveDurationMs;
-    return delayMs + loopTime;
+    return Math.max(0, playheadMs - startMs - delayMs);
   }
 
-  return clamp(playheadMs - startMs, 0, delayMs + effectiveDurationMs);
+  return clamp(playheadMs - startMs - delayMs, 0, durationMs);
 }
 
 export function resolveMotionElapsedMs({ playheadMs, timeline, config, category }: MotionPlaybackInput): number {

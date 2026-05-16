@@ -8,6 +8,7 @@ type MotionLayerProps = HTMLAttributes<HTMLDivElement> & {
   widget: WidgetNode;
   playheadMs: number;
   previewMode: boolean;
+  isPlaying: boolean;
   selected: boolean;
   opacity: number;
   style?: CSSProperties;
@@ -18,6 +19,7 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
     widget,
     playheadMs,
     previewMode,
+    isPlaying,
     selected,
     opacity,
     style,
@@ -29,7 +31,12 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
   const innerRef = useRef<HTMLDivElement | null>(null);
   const motion = resolveWidgetMotion(widget);
   const baseTransform = useMemo(() => `rotate(${widget.frame.rotation}deg)`, [widget.frame.rotation]);
-  const scrubTimeMs = previewMode ? resolveWidgetMotionCurrentTime(widget, playheadMs) : null;
+  const playbackMode: 'free' | 'scrub' | 'idle' = previewMode
+    ? (isPlaying ? 'free' : 'scrub')
+    : (selected ? 'free' : 'idle');
+  const scrubTimeMs = playbackMode === 'scrub'
+    ? resolveWidgetMotionCurrentTime(widget, playheadMs)
+    : null;
 
   useMotionPreview({
     ref: innerRef,
@@ -37,7 +44,7 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
     config: motion?.config,
     baseOpacity: opacity,
     baseTransform,
-    active: selected,
+    active: playbackMode === 'free',
     scrubTimeMs,
   });
 

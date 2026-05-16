@@ -25,6 +25,7 @@ type StageWidgetProps = {
   previewMode: boolean;
   editModeWireframe: boolean;
   playheadMs: number;
+  isPlaying: boolean;
   sceneDurationMs: number;
   hovered: boolean;
   active: boolean;
@@ -47,6 +48,7 @@ export const StageWidget = memo(function StageWidget({
   previewMode,
   editModeWireframe,
   playheadMs,
+  isPlaying,
   sceneDurationMs,
   hovered,
   active,
@@ -74,6 +76,7 @@ export const StageWidget = memo(function StageWidget({
       widget={node}
       playheadMs={playheadMs}
       previewMode={previewMode}
+      isPlaying={isPlaying}
       selected={selected}
       opacity={opacity}
       className={`stage-widget stage-widget--${node.type} ${selected ? 'is-selected' : ''} ${primary ? 'is-primary' : ''} ${hovered ? 'is-hovered' : ''} ${active ? 'is-active' : ''} ${previewMode ? 'is-preview-mode' : 'is-edit-mode'} ${useWireframe ? 'is-wireframe-mode' : ''}`}
@@ -195,6 +198,7 @@ function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProp
     && previous.previewMode === next.previewMode
     && previous.editModeWireframe === next.editModeWireframe
     && previous.playheadMs === next.playheadMs
+    && previous.isPlaying === next.isPlaying
     && previous.sceneDurationMs === next.sceneDurationMs
     && previous.hovered === next.hovered
     && previous.active === next.active;

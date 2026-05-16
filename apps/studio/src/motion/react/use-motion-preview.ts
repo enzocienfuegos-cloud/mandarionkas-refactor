@@ -60,11 +60,13 @@ export function useMotionPreview({
     }
 
     if (active) {
-      animation.play();
+      if (animation.playState !== 'running') {
+        animation.play();
+      }
       return;
     }
 
     animation.pause();
     animation.currentTime = 0;
-  }, [active, scrubTimeMs, template]);
+  }, [active, scrubTimeMs]);
 }
