@@ -159,6 +159,9 @@ export function StageSurface({
       {widgets.map((widget) => {
         if (!isWidgetVisible(widget.id) || !isVisibleWithinParentTimeline({ widget, widgetsById, isWidgetVisible })) return null;
         if (isCoveredByScratchGroup(widget)) return null;
+        const isPassThroughGroup = widget.type === 'group' && Boolean(widget.childIds?.length) && !Boolean(widget.props.scratchEnabled);
+        const groupSelectedInEditor = !previewMode && selectedIds.includes(widget.id);
+        if (isPassThroughGroup && !groupSelectedInEditor) return null;
         const liveFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
         const baseFrame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
           ? resolveScratchGroupFrame(widget)
