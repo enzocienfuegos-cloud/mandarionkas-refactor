@@ -3,6 +3,7 @@ import type { StudioState, WidgetNode } from '../../domain/document/types';
 import { exportTokens as exportPalette } from '../../export/export-tokens';
 import { escapeHtml, renderGenericExport } from '../registry/export-helpers';
 import { getWidgetDefinition } from '../registry/widget-registry';
+import { getScratchActivationDelayMs } from './group-scratch-activation';
 
 function renderGroupScratchChildren(
   node: WidgetNode,
@@ -97,6 +98,7 @@ export function renderGroupExport(
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
   const autoRevealThresholdPercent = Math.max(0, Math.min(100, Number(node.props.autoRevealThresholdPercent ?? 10)));
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
+  const scratchActivationDelayMs = getScratchActivationDelayMs(node, buildResolvedWidgetsById(state.document));
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -120,6 +122,7 @@ export function renderGroupExport(
       data-scratch-auto-reveal-threshold="${autoRevealThresholdPercent}"
       data-scratch-accent="${escapeHtml(accent)}"
       data-scratch-cover-blur="${coverBlur}"
+      data-scratch-activation-delay="${scratchActivationDelayMs}"
       data-scratch-reveal-animation="none"
       data-scratch-reveal-animation-duration="700"
       data-scratch-reveal-animation-delay="0"

@@ -42,8 +42,18 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
                 onChange={(event) => widgetActions.updateWidgetProps(widget.id, { autoRevealThresholdPercent: Number(event.target.value) })}
               />
             </div>
+            <div>
+              <label>Extra activation delay ms</label>
+              <input
+                type="number"
+                step="50"
+                min="0"
+                value={String(widget.props.scratchActivationDelayMs ?? 0)}
+                onChange={(event) => widgetActions.updateWidgetProps(widget.id, { scratchActivationDelayMs: Number(event.target.value) })}
+              />
+            </div>
             <small className="muted">
-              The grouped child layers become the scratchable cover. Scratching removes that grouped composition and reveals whatever sits underneath in the scene.
+              The grouped child layers become the scratchable cover. Scratch waits for the group and its child motions to settle, then adds this extra delay before the cover becomes scratchable.
             </small>
           </>
         ) : null}

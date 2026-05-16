@@ -28,6 +28,7 @@ export const groupDefinition: WidgetDefinition = {
       coverBlur: 0,
       scratchRadius: 22,
       autoRevealThresholdPercent: 10,
+      scratchActivationDelayMs: 0,
     },
     style: { backgroundColor: 'transparent', accentColor: '#8b5cf6', color: '#ffffff' },
     timeline: { startMs: 0, endMs: 15000 },

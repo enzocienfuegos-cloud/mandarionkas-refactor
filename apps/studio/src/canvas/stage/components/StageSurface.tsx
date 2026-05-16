@@ -8,6 +8,7 @@ import { StageDropPreviewOverlay } from './StageDropPreviewOverlay';
 import { rectStyle, sceneTransitionOpacity, sceneTransitionTransform, toRect } from './stage-utils';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 import { isVisibleWithinParentTimeline, resolveInheritedMotionFrame, resolveInheritedOpacity } from './stage-motion-inheritance';
+import { isScratchGroupActive } from '../../../widgets/group/group-scratch-activation';
 
 export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
@@ -85,7 +86,7 @@ export function StageSurface({
     while (currentParentId) {
       const parent = widgetsById[currentParentId];
       if (!parent) return false;
-      if (parent.type === 'group' && Boolean(parent.props.scratchEnabled)) return true;
+      if (parent.type === 'group' && isScratchGroupActive({ group: parent, widgetsById, playheadMs })) return true;
       currentParentId = parent.parentId;
     }
     return false;
@@ -159,7 +160,10 @@ export function StageSurface({
       {widgets.map((widget) => {
         if (!isWidgetVisible(widget.id) || !isVisibleWithinParentTimeline({ widget, widgetsById, isWidgetVisible })) return null;
         if (isCoveredByScratchGroup(widget)) return null;
-        const isPassThroughGroup = widget.type === 'group' && Boolean(widget.childIds?.length) && !Boolean(widget.props.scratchEnabled);
+        const scratchGroupActive = widget.type === 'group' && isScratchGroupActive({ group: widget, widgetsById, playheadMs });
+        const isPassThroughGroup = widget.type === 'group'
+          && Boolean(widget.childIds?.length)
+          && (!Boolean(widget.props.scratchEnabled) || !scratchGroupActive);
         const groupSelectedInEditor = !previewMode && selectedIds.includes(widget.id);
         if (isPassThroughGroup && !groupSelectedInEditor) return null;
         const liveFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);

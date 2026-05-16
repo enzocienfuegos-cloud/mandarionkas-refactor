@@ -5,6 +5,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
 import { renderWidgetContents } from '../../canvas/stage/render-widget';
+import { isScratchGroupActive } from './group-scratch-activation';
 
 const groupBaseStyle: CSSProperties = {
   width: '100%',
@@ -334,6 +335,9 @@ export function renderGroupWidget(node: WidgetNode, ctx: RenderContext): JSX.Ele
   if (node.props.scratchEnabled) {
     if (!ctx.previewMode) {
       return <div style={scratchEditorOverlayStyle} />;
+    }
+    if (!isScratchGroupActive({ group: node, widgetsById: ctx.widgetsById, playheadMs: ctx.playheadMs })) {
+      return renderDefaultGroup(node, ctx);
     }
     return <ScratchGroupRenderer node={node} ctx={ctx} />;
   }
