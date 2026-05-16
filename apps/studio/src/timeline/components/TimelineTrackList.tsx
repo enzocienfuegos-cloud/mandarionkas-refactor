@@ -1,13 +1,9 @@
-import type { RefObject } from 'react';
-import { useRef } from 'react';
-import { useVirtualWindow, useVirtualWindowPadding } from '../../shared/hooks/use-virtual-window';
 import { TimelineEmptyState } from './TimelineEmptyState';
 import { TimelineTrackRow } from './TimelineTrackRow';
 import type { TimelineDragState, TimelineDisplayRow } from '../types';
 import type { KeyframeProperty } from '../../domain/document/types';
 
 export function TimelineTrackList({
-  scrollContainerRef,
   displayedWidgets,
   selectedIds,
   playheadMs,
@@ -29,7 +25,6 @@ export function TimelineTrackList({
   onFocusKeyframe,
   availableKeyframeProperties,
 }: {
-  scrollContainerRef: RefObject<HTMLDivElement>;
   displayedWidgets: TimelineDisplayRow[];
   selectedIds: string[];
   playheadMs: number;
@@ -51,27 +46,17 @@ export function TimelineTrackList({
   onFocusKeyframe: (widgetId: string, keyframeId: string, atMs: number) => void;
   availableKeyframeProperties: KeyframeProperty[];
 }): JSX.Element {
-  const rowsRef = useRef<HTMLDivElement>(null);
-  const virtualRows = useVirtualWindow(displayedWidgets, {
-    scrollRef: scrollContainerRef,
-    contentOffset: 40,
-    estimateSize: 38,
-    gap: 2,
-    overscan: 10,
-  });
-  useVirtualWindowPadding(rowsRef, 6 + virtualRows.paddingStart, virtualRows.paddingEnd);
-
   if (!displayedWidgets.length) {
     return (
-      <div ref={rowsRef} className="timeline-rows timeline-rows--empty virtual-window-pad" data-collapsed-groups={collapsedGroupIds.length}>
+      <div className="timeline-rows timeline-rows--empty" data-collapsed-groups={collapsedGroupIds.length}>
         <TimelineEmptyState selectedOnly={selectedOnly} />
       </div>
     );
   }
 
   return (
-    <div ref={rowsRef} className="timeline-rows virtual-window-pad" data-collapsed-groups={collapsedGroupIds.length}>
-      {virtualRows.visibleItems.map(({ item: row, index }) => {
+    <div className="timeline-rows" data-collapsed-groups={collapsedGroupIds.length}>
+      {displayedWidgets.map((row, index) => {
         const { widget, timing } = row;
         const selected = selectedIds.includes(widget.id);
         const isActive = playheadMs >= timing.startMs && playheadMs <= timing.endMs;

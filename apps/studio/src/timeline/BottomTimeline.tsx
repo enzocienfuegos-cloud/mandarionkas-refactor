@@ -415,7 +415,6 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
             />
           ) : null}
           <TimelineTrackList
-            scrollContainerRef={timelineScrollRef}
             displayedWidgets={displayedWidgets}
             selectedIds={selectedIds}
             playheadMs={playheadMs}

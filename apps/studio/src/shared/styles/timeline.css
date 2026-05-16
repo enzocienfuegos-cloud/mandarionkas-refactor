@@ -22,12 +22,14 @@
   padding: 0 0 10px;
   overscroll-behavior: contain;
   scrollbar-gutter: stable both-edges;
+  overflow-anchor: none;
 }
 .timeline-grid-shell {
   position: relative;
   min-height: 144px;
   width: var(--timeline-grid-shell-width, auto);
   --timeline-playhead-left: 0px;
+  overflow-anchor: none;
 }
 .timeline-snap-guide-global {
   position: absolute;
@@ -97,6 +99,8 @@
   flex-direction: column;
   gap: var(--space-1);
   padding-top: var(--space-3);
+  padding-bottom: var(--space-4);
+  overflow-anchor: none;
 }
 
 .timeline-rows--empty {
