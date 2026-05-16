@@ -19,7 +19,7 @@ function createMotionWidget(): WidgetNode {
 }
 
 describe('MotionLayer DOM structure', () => {
-  it('renders an outer wrapper and an inner motion target without inline transform or opacity', () => {
+  it('renders an outer wrapper and an inner motion target without inline transform or opacity on the outer node', () => {
     const widget = createMotionWidget();
     const outerStyle = { transform: 'rotate(15deg)', opacity: 0.8, left: 100, top: 50 };
 
@@ -31,7 +31,7 @@ describe('MotionLayer DOM structure', () => {
           playheadMs={0}
           previewMode={false}
           isPlaying={false}
-          selected
+          selected={false}
           opacity={1}
           style={outerStyle}
         >
@@ -50,7 +50,85 @@ describe('MotionLayer DOM structure', () => {
     const inner = tree.children?.[0];
     expect(inner).toBeTruthy();
     if (!inner || typeof inner === 'string' || Array.isArray(inner)) return;
-    expect(inner.props.style).not.toHaveProperty('transform');
-    expect(inner.props.style).not.toHaveProperty('opacity');
+    expect(inner.props.style).toEqual(expect.objectContaining({ opacity: 1 }));
+  });
+
+  it('renders the resting end-state for non-selected entrance motion in edit mode', () => {
+    const widget = createMotionWidget();
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(
+        <MotionLayer
+          widget={widget}
+          playheadMs={0}
+          previewMode={false}
+          isPlaying={false}
+          selected={false}
+          opacity={1}
+        >
+          <span>child</span>
+        </MotionLayer>,
+      );
+    });
+
+    const tree = renderer!.toJSON();
+    expect(tree).toBeTruthy();
+    if (!tree || Array.isArray(tree)) return;
+    const inner = tree.children?.[0];
+    expect(inner).toBeTruthy();
+    if (!inner || typeof inner === 'string' || Array.isArray(inner)) return;
+    expect(inner.props.style).toEqual(expect.objectContaining({ opacity: 1 }));
+  });
+
+  it('derives preview motion state from the playhead during scene playback', () => {
+    const widget = createMotionWidget();
+
+    let renderer: ReturnType<typeof create>;
+    act(() => {
+      renderer = create(
+        <MotionLayer
+          widget={widget}
+          playheadMs={0}
+          previewMode
+          isPlaying
+          selected={false}
+          opacity={1}
+        >
+          <span>child</span>
+        </MotionLayer>,
+      );
+    });
+
+    let tree = renderer!.toJSON();
+    expect(tree).toBeTruthy();
+    if (!tree || Array.isArray(tree)) return;
+    let inner = tree.children?.[0];
+    expect(inner).toBeTruthy();
+    if (!inner || typeof inner === 'string' || Array.isArray(inner)) return;
+    expect(inner.props.style).toEqual(expect.objectContaining({ opacity: 0 }));
+
+    act(() => {
+      renderer!.update(
+        <MotionLayer
+          widget={widget}
+          playheadMs={700}
+          previewMode
+          isPlaying
+          selected={false}
+          opacity={1}
+        >
+          <span>child</span>
+        </MotionLayer>,
+      );
+    });
+
+    tree = renderer!.toJSON();
+    expect(tree).toBeTruthy();
+    if (!tree || Array.isArray(tree)) return;
+    inner = tree.children?.[0];
+    expect(inner).toBeTruthy();
+    if (!inner || typeof inner === 'string' || Array.isArray(inner)) return;
+    expect(inner.props.style).toEqual(expect.objectContaining({ opacity: 1 }));
   });
 });
