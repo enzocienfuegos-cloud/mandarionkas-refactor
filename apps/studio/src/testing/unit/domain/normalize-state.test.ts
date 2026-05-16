@@ -92,11 +92,11 @@ describe('normalizeStudioState', () => {
   it('uses explicit widget capability flags for motion support', () => {
     expect(widgetSupportsMotion({ type: 'text' })).toBe(true);
     expect(widgetSupportsHoverMotion({ type: 'buttons' })).toBe(true);
-    expect(widgetSupportsMotion({ type: 'group' })).toBe(false);
+    expect(widgetSupportsMotion({ type: 'group' })).toBe(true);
     expect(widgetSupportsMotion({ type: 'scratch-reveal' })).toBe(false);
   });
 
-  it('strips motion from group widgets because groups do not support motion', () => {
+  it('preserves motion on group widgets so grouped layers can animate as one', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0]?.id ?? 'scene_1';
 
@@ -127,7 +127,10 @@ describe('normalizeStudioState', () => {
     const normalized = normalizeStudioState(state);
     const group = normalized.document.widgets.group_1;
 
-    expect(group?.motion).toBeUndefined();
-    expect((group?.timeline.keyframes ?? []).filter((keyframe) => keyframe.managedBy?.startsWith('motion:'))).toHaveLength(0);
+    expect(group?.motion).toEqual({
+      templateId: 'fade-up',
+      config: { durationMs: 700, delayMs: 0, distancePx: 24, intensity: 0.55, repeatMode: 'once' },
+    });
+    expect((group?.timeline.keyframes ?? []).filter((keyframe) => keyframe.managedBy?.startsWith('motion:'))).toHaveLength(4);
   });
 });

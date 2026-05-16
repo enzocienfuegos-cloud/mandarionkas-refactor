@@ -7,6 +7,7 @@ import { StageWidget } from './StageWidget';
 import { StageDropPreviewOverlay } from './StageDropPreviewOverlay';
 import { rectStyle, sceneTransitionOpacity, sceneTransitionTransform, toRect } from './stage-utils';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
+import { isVisibleWithinParentTimeline, resolveInheritedMotionFrame, resolveInheritedOpacity } from './stage-motion-inheritance';
 
 export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
@@ -156,14 +157,27 @@ export function StageSurface({
       style={buildStageSurfaceStyle()}
     >
       {widgets.map((widget) => {
+        if (!isWidgetVisible(widget.id) || !isVisibleWithinParentTimeline({ widget, widgetsById, isWidgetVisible })) return null;
+        if (isCoveredByScratchGroup(widget)) return null;
         const liveFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
-        const frame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
+        const baseFrame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
           ? resolveScratchGroupFrame(widget)
           : liveFrame;
-        if (!isWidgetVisible(widget.id)) return null;
-        if (isCoveredByScratchGroup(widget)) return null;
+        const frame = resolveInheritedMotionFrame({
+          widget,
+          widgetsById,
+          liveFrameById,
+          playheadMs,
+          getLiveFrame: getLiveWidgetFrame,
+          ownFrame: baseFrame,
+        });
         const renderNode = frame === widget.frame ? widget : { ...widget, frame };
-        const opacity = getLiveWidgetOpacity(renderNode, playheadMs);
+        const opacity = resolveInheritedOpacity({
+          widget,
+          widgetsById,
+          playheadMs,
+          ownOpacity: getLiveWidgetOpacity(widget, playheadMs),
+        });
 
         return (
           <StageWidget

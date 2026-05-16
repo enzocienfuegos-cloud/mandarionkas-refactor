@@ -120,6 +120,19 @@ function buildScratchMaskStyle(maskUrl: string, blur: number): CSSProperties {
 }
 
 function renderDefaultGroup(node: WidgetNode, ctx: RenderContext): JSX.Element {
+  if (node.childIds?.length) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: Number(node.style.borderRadius ?? 18),
+          background: resolveWidgetBackground(node, 'transparent', ctx),
+          opacity: resolveWidgetOpacity(node, ctx),
+        }}
+      />
+    );
+  }
   return (
     <div
       style={{
