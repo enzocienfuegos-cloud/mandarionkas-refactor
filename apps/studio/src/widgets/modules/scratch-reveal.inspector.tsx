@@ -36,14 +36,14 @@ function ScratchImageSlot({
       <label>{label}</label>
       {imageUrl ? (
         <div className="asset-detail-card">
-          <div className="asset-detail-preview">
-            <img className="asset-detail-img" src={imageUrl} alt={asset?.name ?? label} />
-          </div>
           <div className="meta-line asset-detail-head">
             <div className="asset-detail-title">
               <strong>{asset?.name ?? 'Selected image'}</strong>
-              <small>{imageUrl}</small>
+              <small>{asset ? 'Linked from the asset library.' : 'Attached to this scratch slot.'}</small>
             </div>
+          </div>
+          <div className="asset-detail-preview">
+            <img className="asset-detail-img" src={imageUrl} alt={asset?.name ?? label} />
           </div>
         </div>
       ) : (
@@ -51,10 +51,10 @@ function ScratchImageSlot({
       )}
       <div className="asset-inline-actions">
         <Button size="sm" className="left-button compact-action" onClick={onChoose}>
-          Choose from library
+          {imageUrl ? 'Change image' : 'Choose image'}
         </Button>
         <Button variant="ghost" size="sm" className="compact-action" onClick={onClear} disabled={!imageUrl}>
-          Clear
+          Remove image
         </Button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { assetHasSourceUrl, resolveAssetDeliveryUrl } from '../../assets/policy';
+import { assetHasSourceUrl } from '../../assets/policy';
 import type { AssetRecord } from '../../assets/types';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import type { WidgetNode } from '../../domain/document/types';
@@ -46,54 +46,47 @@ export function ImageInspector({ widget }: { widget: WidgetNode }): JSX.Element 
   const { updateWidgetProps } = useWidgetActions();
   const assets = useImageAssets();
   const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
-  const linkedAssetId = useMemo(() => {
+  const currentSrc = String(widget.props.src ?? '').trim();
+  const linkedAsset = useMemo(() => {
     const explicitAssetId = String(widget.props.assetId ?? '').trim();
-    if (explicitAssetId) return explicitAssetId;
-    const currentSrc = String(widget.props.src ?? '').trim();
-    return assets.find((asset) => assetHasSourceUrl(asset, currentSrc, targetChannel))?.id ?? '';
-  }, [assets, targetChannel, widget.props.assetId, widget.props.src]);
+    if (explicitAssetId) return assets.find((asset) => asset.id === explicitAssetId);
+    return assets.find((asset) => assetHasSourceUrl(asset, currentSrc, targetChannel));
+  }, [assets, currentSrc, targetChannel, widget.props.assetId]);
+  const hasImage = currentSrc.length > 0;
+  const imageTitle = linkedAsset?.name ?? (hasImage ? 'Selected image' : 'No image selected');
 
   return (
     <section className="section section-premium">
       <h3>Image source</h3>
       <div className="field-stack">
-        <div>
-          <label>Source URL</label>
-          <input
-            value={String(widget.props.src ?? '')}
-            placeholder="https://.../image.jpg"
-            onChange={(event) => updateWidgetProps(widget.id, { src: event.target.value, assetId: '' })}
-          />
-        </div>
-        <div>
-          <label>Asset library</label>
-          <div className="asset-inline-actions">
-            <select
-              value={linkedAssetId}
-              onChange={(event) => {
-                const asset = assets.find((item) => item.id === event.target.value);
-                updateWidgetProps(
-                  widget.id,
-                  asset
-                    ? {
-                        assetId: asset.id,
-                        src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
-                        assetQualityPreference: asset.qualityPreference ?? 'auto',
-                        alt: asset.name,
-                      }
-                    : { assetId: '', src: '' },
-                );
-              }}
-            >
-              <option value="">No linked asset</option>
-              {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
-            </select>
-            <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
+        {hasImage ? (
+          <div className="asset-detail-card">
+            <div className="meta-line asset-detail-head">
+              <div className="asset-detail-title">
+                <strong>{imageTitle}</strong>
+                <small>{linkedAsset ? 'Linked from the asset library.' : 'Attached to this widget.'}</small>
+              </div>
+            </div>
+            <div className="asset-detail-preview">
+              <img className="asset-detail-img" src={currentSrc} alt={imageTitle} />
+            </div>
           </div>
-        </div>
-        <div>
-          <label>Alt text</label>
-          <input value={String(widget.props.alt ?? '')} onChange={(event) => updateWidgetProps(widget.id, { alt: event.target.value })} />
+        ) : (
+          <small className="muted">No image selected yet. Choose one from the asset library.</small>
+        )}
+        <div className="asset-inline-actions">
+          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>
+            {hasImage ? 'Change image' : 'Choose image'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="compact-action"
+            disabled={!hasImage}
+            onClick={() => updateWidgetProps(widget.id, { assetId: '', src: '', alt: '' })}
+          >
+            Remove image
+          </Button>
         </div>
       </div>
     </section>
