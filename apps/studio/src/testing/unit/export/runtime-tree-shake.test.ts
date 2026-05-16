@@ -173,6 +173,31 @@ describe('runtime tree shake', () => {
     expect(script).toContain('smx-runtime-hover-pulse');
   });
 
+  it('includes motion runtime when a widget uses a single animation template without timeline keyframes', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    state.document.widgets.cta_1 = {
+      id: 'cta_1',
+      type: 'cta',
+      name: 'CTA',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 24, y: 180, width: 160, height: 44, rotation: 0 },
+      style: { animationPreset: 'appear', animationDurationMs: 700, animationRepeatMode: 'once', opacity: 1 },
+      props: { text: 'Shop now', url: 'https://example.com' },
+      timeline: { startMs: 0, endMs: 1000, keyframes: [] },
+    } as any;
+    state.document.scenes[0].widgetIds.push('cta_1');
+
+    const adapter = buildGamHtml5Adapter(state);
+    const script = compileRuntime(adapter.portableProject, adapter);
+
+    expect(script).toContain('resolveRuntimeAnimationPresetConfig');
+    expect(script).toContain('getRuntimeAnimationPresetState');
+    expect(script).toContain('startWidgetTimelineLoop');
+  });
+
   it('always includes environment scene management and keeps full runtime sections present when needed', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;

@@ -4,7 +4,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import { Button } from '../../shared/ui/Button';
 import { Tile } from '../../shared/ui/Tile';
 import { KEYFRAME_PROPERTIES } from './widget-inspector-shared';
-import { applyAnimationPreset, getAnimationPresetConfig, supportsAnimationPresets, type SupportedAnimationPreset } from './animation-presets';
+import { applyAnimationPreset, getAnimationPresetConfig, stripPresetManagedKeyframes, supportsAnimationPresets, type SupportedAnimationPreset } from './animation-presets';
 
 export function KeyframesSection({
   widget,
@@ -17,9 +17,10 @@ export function KeyframesSection({
 }): JSX.Element {
   const { addKeyframe, setPlayhead, setWidgetKeyframes, removeKeyframe, updateKeyframe } = useTimelineActions();
   const { updateWidgetStyle } = useWidgetActions();
-  const keyframes = widget.timeline.keyframes ?? [];
   const animationConfig = getAnimationPresetConfig(widget);
   const activePreset = animationConfig.preset;
+  const keyframes = widget.timeline.keyframes ?? [];
+  const visibleKeyframes = activePreset ? stripPresetManagedKeyframes(keyframes) : keyframes;
   const focusedKeyframeRef = useRef<HTMLDivElement | null>(null);
 
   const handleApplyPreset = (preset: SupportedAnimationPreset) => {
@@ -42,7 +43,8 @@ export function KeyframesSection({
       handleApplyPreset(value);
       return;
     }
-    updateWidgetStyle(widget.id, { animationPreset: '' });
+    setWidgetKeyframes(widget.id, stripPresetManagedKeyframes(widget.timeline.keyframes ?? []));
+    updateWidgetStyle(widget.id, { animationPreset: '', animationRepeatMode: 'once' });
   };
 
   useEffect(() => {
@@ -60,7 +62,7 @@ export function KeyframesSection({
               <span className="pill">Animation template</span>
               {activePreset ? <span className="pill">Active {activePreset}</span> : <span className="pill">No template</span>}
             </div>
-            <small className="muted">Choose a motion template and tune it here. Studio writes editable keyframes for you so you only fine-tune when you want to.</small>
+            <small className="muted">Choose one motion template per widget. Templates play directly in preview and export, without adding extra visible animation tracks to the timeline.</small>
             <div className="fields-grid">
               <div>
                 <label>Preset</label>
@@ -133,17 +135,23 @@ export function KeyframesSection({
         <Tile>
           <div className="meta-line">
             <span className="pill">Playhead {playheadMs}ms</span>
-            <span className="pill">Tracks {new Set(keyframes.map((item) => item.property)).size}</span>
-            <span className="pill">Total {keyframes.length}</span>
+            <span className="pill">Tracks {new Set(visibleKeyframes.map((item) => item.property)).size}</span>
+            <span className="pill">Total {visibleKeyframes.length}</span>
           </div>
-          <small className="muted">The timeline is now the primary animation surface. Use the row-level keyframe pills below to jump around, and use this panel to fine-tune exact values.</small>
+          <small className="muted">
+            {activePreset
+              ? 'This widget is using a single restricted animation template. Switch the preset to Custom / none if you want to edit manual keyframes.'
+              : 'The timeline is now the primary animation surface. Use the row-level keyframe pills below to jump around, and use this panel to fine-tune exact values.'}
+          </small>
         </Tile>
-        <div className="inline-actions">
-          {KEYFRAME_PROPERTIES.map((property) => (
-            <Button key={property} size="sm" onClick={() => addKeyframe(widget.id, property, playheadMs)}>+ {property}</Button>
-          ))}
-        </div>
-        {keyframes.map((keyframe) => (
+        {!activePreset ? (
+          <div className="inline-actions">
+            {KEYFRAME_PROPERTIES.map((property) => (
+              <Button key={property} size="sm" onClick={() => addKeyframe(widget.id, property, playheadMs)}>+ {property}</Button>
+            ))}
+          </div>
+        ) : null}
+        {visibleKeyframes.map((keyframe) => (
           <Tile
             key={keyframe.id}
             ref={keyframe.id === focusedKeyframeId ? focusedKeyframeRef : undefined}

@@ -1,4 +1,3 @@
-import { createId } from '../../domain/document/factories';
 import type { KeyframeNode, WidgetNode } from '../../domain/document/types';
 
 export type SupportedAnimationPreset = 'appear' | 'fade-up' | 'fade-out' | 'pulse';
@@ -76,30 +75,17 @@ export function getHoverMotionConfig(widget: WidgetNode): HoverMotionConfig {
   };
 }
 
-function buildKeyframe(property: KeyframeNode['property'], atMs: number, value: number, easing?: KeyframeNode['easing']): KeyframeNode {
-  return { id: createId('kf'), property, atMs, value, easing };
-}
+export const PRESET_TRACKS: Array<KeyframeNode['property']> = ['opacity', 'y'];
 
-const PRESET_TRACKS: Array<KeyframeNode['property']> = ['opacity', 'y'];
-
-function replacePresetTracks(existing: KeyframeNode[], replacement: KeyframeNode[], tracks: Array<KeyframeNode['property']>): KeyframeNode[] {
-  return [
-    ...existing.filter((item) => !tracks.includes(item.property)),
-    ...replacement,
-  ].sort((left, right) => left.atMs - right.atMs);
+export function stripPresetManagedKeyframes(keyframes: KeyframeNode[] = []): KeyframeNode[] {
+  return keyframes
+    .filter((item) => !PRESET_TRACKS.includes(item.property))
+    .sort((left, right) => left.atMs - right.atMs);
 }
 
 export function applyAnimationPreset(widget: WidgetNode, preset: SupportedAnimationPreset): { keyframes: KeyframeNode[]; stylePatch: Record<string, unknown> } {
   const config = getAnimationPresetConfig({ ...widget, style: { ...widget.style, animationPreset: preset } });
-  const startMs = Math.max(0, Number(widget.timeline.startMs ?? 0));
-  const endMs = Math.max(startMs + 100, Number(widget.timeline.endMs ?? startMs + 1000));
-  const baseOpacity = Number(widget.style.opacity ?? 1);
-  const baseY = Number(widget.frame.y ?? 0);
-  const durationMs = Math.min(endMs - startMs, config.durationMs);
-  const delayedStartMs = Math.min(endMs, startMs + config.delayMs);
-  const distancePx = config.distancePx;
-  const intensity = config.intensity;
-  const existing = widget.timeline.keyframes ?? [];
+  const existing = stripPresetManagedKeyframes(widget.timeline.keyframes ?? []);
   const stylePatch = {
     animationPreset: preset,
     animationDurationMs: config.durationMs,
@@ -109,48 +95,10 @@ export function applyAnimationPreset(widget: WidgetNode, preset: SupportedAnimat
     animationRepeatMode: config.repeatMode,
   };
 
-  if (preset === 'appear') {
-    return {
-      keyframes: replacePresetTracks(existing, [
-        buildKeyframe('opacity', delayedStartMs, 0),
-        buildKeyframe('opacity', Math.min(endMs, delayedStartMs + durationMs), baseOpacity, 'ease-out'),
-      ], PRESET_TRACKS),
-      stylePatch,
-    };
-  }
-
-  if (preset === 'fade-up') {
-    return {
-      keyframes: replacePresetTracks(existing, [
-        buildKeyframe('opacity', delayedStartMs, 0),
-        buildKeyframe('opacity', Math.min(endMs, delayedStartMs + durationMs), baseOpacity, 'ease-out'),
-        buildKeyframe('y', delayedStartMs, baseY + distancePx),
-        buildKeyframe('y', Math.min(endMs, delayedStartMs + durationMs), baseY, 'ease-out'),
-      ], PRESET_TRACKS),
-      stylePatch,
-    };
-  }
-
-  if (preset === 'fade-out') {
-    const fadeOutStartMs = Math.max(startMs, endMs - durationMs);
-    return {
-      keyframes: replacePresetTracks(existing, [
-        buildKeyframe('opacity', fadeOutStartMs, baseOpacity),
-        buildKeyframe('opacity', endMs, 0, 'ease-in'),
-      ], PRESET_TRACKS),
-      stylePatch,
-    };
-  }
-
-  const pulseDipOpacity = clamp(baseOpacity - intensity * 0.45, 0.15, baseOpacity);
   return {
-    keyframes: replacePresetTracks(existing, [
-      buildKeyframe('opacity', delayedStartMs, baseOpacity),
-      buildKeyframe('opacity', Math.min(endMs, delayedStartMs + Math.round(durationMs * 0.4)), pulseDipOpacity, 'ease-in-out'),
-      buildKeyframe('opacity', Math.min(endMs, delayedStartMs + durationMs), baseOpacity, 'ease-in-out'),
-    ], PRESET_TRACKS),
-      stylePatch,
-    };
+    keyframes: existing,
+    stylePatch,
+  };
 }
 
 function applyEasing(progress: number, easing: KeyframeNode['easing'] = 'linear'): number {

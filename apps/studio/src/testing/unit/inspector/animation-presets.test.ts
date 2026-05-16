@@ -26,33 +26,32 @@ describe('animation presets', () => {
     expect(supportsAnimationPresets(createWidget('scratch-reveal'))).toBe(false);
   });
 
-  it('builds appear keyframes on the opacity track', () => {
+  it('stores appear as a single template without creating timeline keyframes', () => {
     const { keyframes, stylePatch } = applyAnimationPreset(createWidget('text'), 'appear');
 
     expect(stylePatch.animationPreset).toBe('appear');
-    expect(keyframes).toHaveLength(2);
-    expect(keyframes.map((item) => item.property)).toEqual(['opacity', 'opacity']);
-    expect(keyframes[0]?.value).toBe(0);
-    expect(keyframes[1]?.value).toBe(1);
+    expect(keyframes).toHaveLength(0);
   });
 
-  it('builds fade-up keyframes on opacity and y tracks', () => {
+  it('stores fade-up as a single template without creating timeline keyframes', () => {
     const { keyframes } = applyAnimationPreset(createWidget('image'), 'fade-up');
 
-    expect(keyframes.map((item) => item.property)).toEqual(['opacity', 'y', 'opacity', 'y']);
-    expect(keyframes.find((item) => item.property === 'y')?.value).toBe(104);
+    expect(keyframes).toHaveLength(0);
   });
 
-  it('builds pulse keyframes on the opacity track', () => {
+  it('stores pulse as a single template without creating timeline keyframes', () => {
     const { keyframes } = applyAnimationPreset(createWidget('cta'), 'pulse');
 
-    expect(keyframes).toHaveLength(3);
-    expect(keyframes.every((item) => item.property === 'opacity')).toBe(true);
-    expect(keyframes[1]?.value).toBeLessThan(1);
+    expect(keyframes).toHaveLength(0);
   });
 
   it('replaces previous preset-managed tracks when switching templates', () => {
     const widget = createWidget('cta');
+    widget.timeline.keyframes = [
+      { id: 'kf_1', property: 'opacity', atMs: 300, value: 0.2, easing: 'linear' },
+      { id: 'kf_2', property: 'y', atMs: 500, value: 104, easing: 'ease-out' },
+      { id: 'kf_3', property: 'x', atMs: 500, value: 64, easing: 'ease-out' },
+    ];
     const fadeUp = applyAnimationPreset(widget, 'fade-up');
     const widgetWithPreset: WidgetNode = {
       ...widget,
@@ -62,21 +61,18 @@ describe('animation presets', () => {
 
     const pulse = applyAnimationPreset(widgetWithPreset, 'pulse');
 
-    expect(pulse.keyframes).toHaveLength(3);
-    expect(pulse.keyframes.every((item) => item.property === 'opacity')).toBe(true);
+    expect(pulse.keyframes).toHaveLength(1);
+    expect(pulse.keyframes[0]?.property).toBe('x');
   });
 
-  it('builds fade-out keyframes toward the end of the widget timeline', () => {
+  it('stores fade-out as a single template without creating timeline keyframes', () => {
     const { keyframes, stylePatch } = applyAnimationPreset(createWidget('group'), 'fade-out');
 
     expect(stylePatch.animationPreset).toBe('fade-out');
-    expect(keyframes).toHaveLength(2);
-    expect(keyframes.map((item) => item.property)).toEqual(['opacity', 'opacity']);
-    expect(keyframes[0]?.atMs).toBeLessThan(keyframes[1]?.atMs ?? 0);
-    expect(keyframes[1]?.value).toBe(0);
+    expect(keyframes).toHaveLength(0);
   });
 
-  it('reads adjustable motion settings from widget style and applies them to generated keyframes', () => {
+  it('reads adjustable motion settings from widget style and persists template config', () => {
     const widget = createWidget('text');
     widget.style.animationDurationMs = 1200;
     widget.style.animationDelayMs = 180;
@@ -96,8 +92,7 @@ describe('animation presets', () => {
     expect(stylePatch.animationDelayMs).toBe(180);
     expect(stylePatch.animationDistancePx).toBe(36);
     expect(stylePatch.animationRepeatMode).toBe('repeat');
-    expect(keyframes.find((item) => item.property === 'opacity')?.atMs).toBe(480);
-    expect(keyframes.find((item) => item.property === 'y')?.value).toBe(116);
+    expect(keyframes).toHaveLength(0);
   });
 
   it('derives preview state for a fade-up preset from the playhead', () => {

@@ -221,7 +221,10 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
   function syncTimelineAnimatedWidgets(sceneRuntime, elapsedMs) {
     if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets)) return;
     sceneRuntime.widgets.forEach((widget) => {
-      if (!widget || !widget.timeline || !Array.isArray(widget.timeline.keyframes) || !widget.timeline.keyframes.length) return;
+      if (!widget) return;
+      const hasKeyframes = Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length);
+      const templateState = getRuntimeAnimationPresetState(widget, elapsedMs);
+      if (!hasKeyframes && !templateState) return;
       const node = document.querySelector('[data-widget-id="' + widget.id + '"]');
       if (!node) return;
       const frame = widget.frame || {};
@@ -229,12 +232,11 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
       if (!node.getAttribute('data-smx-base-opacity')) {
         node.setAttribute('data-smx-base-opacity', style.opacity || '1');
       }
-      const templateState = getRuntimeAnimationPresetState(widget, elapsedMs);
-      style.left = String(getWidgetTrackValue(widget, 'x', elapsedMs, Number(frame.x || 0))) + 'px';
-      style.top = String(templateState ? templateState.y : getWidgetTrackValue(widget, 'y', elapsedMs, Number(frame.y || 0))) + 'px';
-      style.width = String(getWidgetTrackValue(widget, 'width', elapsedMs, Number(frame.width || 0))) + 'px';
-      style.height = String(getWidgetTrackValue(widget, 'height', elapsedMs, Number(frame.height || 0))) + 'px';
-      style.opacity = String(templateState ? templateState.opacity : getWidgetTrackValue(widget, 'opacity', elapsedMs, Number(node.getAttribute('data-smx-base-opacity') || 1)));
+      style.left = String(hasKeyframes ? getWidgetTrackValue(widget, 'x', elapsedMs, Number(frame.x || 0)) : Number(frame.x || 0)) + 'px';
+      style.top = String(templateState ? templateState.y : hasKeyframes ? getWidgetTrackValue(widget, 'y', elapsedMs, Number(frame.y || 0)) : Number(frame.y || 0)) + 'px';
+      style.width = String(hasKeyframes ? getWidgetTrackValue(widget, 'width', elapsedMs, Number(frame.width || 0)) : Number(frame.width || 0)) + 'px';
+      style.height = String(hasKeyframes ? getWidgetTrackValue(widget, 'height', elapsedMs, Number(frame.height || 0)) : Number(frame.height || 0)) + 'px';
+      style.opacity = String(templateState ? templateState.opacity : hasKeyframes ? getWidgetTrackValue(widget, 'opacity', elapsedMs, Number(node.getAttribute('data-smx-base-opacity') || 1)) : Number(node.getAttribute('data-smx-base-opacity') || widget.style?.opacity || 1));
     });
   }
 
@@ -248,7 +250,12 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
   function startWidgetTimelineLoop(sceneIndex) {
     stopWidgetTimelineLoop();
     const sceneRuntime = getRuntimeScene(sceneIndex);
-    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !sceneRuntime.widgets.some((widget) => widget && widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length)) return;
+    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !sceneRuntime.widgets.some((widget) => {
+      if (!widget) return false;
+      const hasKeyframes = Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length);
+      const config = resolveRuntimeAnimationPresetConfig(widget);
+      return hasKeyframes || Boolean(config.preset);
+    })) return;
     const startedAt = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
     const durationMs = Math.max(0, Number(sceneRuntime.durationMs || 0));
 
