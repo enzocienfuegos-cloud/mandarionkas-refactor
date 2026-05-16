@@ -1,4 +1,4 @@
-import type { ActionNode, ActionTrigger, ActionType, BindingSource, KeyframeEasing, KeyframeNode, KeyframeProperty, VariantName, WidgetBinding, WidgetNode, WidgetType } from '../../domain/document/types';
+import type { ActionNode, ActionTrigger, ActionType, BindingSource, KeyframeEasing, KeyframeNode, KeyframeProperty, VariantName, WidgetBinding, WidgetHoverMotion, WidgetMotion, WidgetNode, WidgetType } from '../../domain/document/types';
 
 export type WidgetCreatePlacement = { x: number; y: number; anchor?: 'center' | 'top-left' };
 export type WidgetClipboardPayload = { widgets: WidgetNode[]; actions: ActionNode[] };
@@ -7,6 +7,8 @@ export type WidgetPropertyClipboardPayload = {
   widgetName: string;
   props: Record<string, unknown>;
   style: Record<string, unknown>;
+  motion?: WidgetMotion;
+  hoverMotion?: WidgetHoverMotion;
   copiedAt: string;
 };
 
@@ -30,6 +32,8 @@ export type StudioCommand =
   | { type: 'UPDATE_WIDGET_FRAMES'; patches: Array<{ widgetId: string; patch: Partial<WidgetNode['frame']> }> }
   | { type: 'UPDATE_WIDGET_PROPS'; widgetId: string; patch: Record<string, unknown> }
   | { type: 'UPDATE_WIDGET_STYLE'; widgetId: string; patch: Record<string, unknown> }
+  | { type: 'UPDATE_WIDGET_MOTION'; widgetId: string; motion: WidgetMotion | undefined }
+  | { type: 'UPDATE_WIDGET_HOVER_MOTION'; widgetId: string; hoverMotion: WidgetHoverMotion | undefined }
   | { type: 'DELETE_SELECTED_WIDGETS' }
   | { type: 'DUPLICATE_SELECTED_WIDGETS' }
   | { type: 'PASTE_WIDGET_CLIPBOARD'; clipboard: WidgetClipboardPayload }

@@ -41,6 +41,8 @@ export type PortableExportWidget = {
   frame: WidgetNode['frame'];
   props: Record<string, unknown>;
   style: Record<string, unknown>;
+  motion?: WidgetNode['motion'];
+  hoverMotion?: WidgetNode['hoverMotion'];
   timeline: WidgetNode['timeline'];
   variants?: WidgetNode['variants'];
   conditions?: WidgetNode['conditions'];
@@ -175,6 +177,8 @@ function compileWidget(widget: WidgetNode, state: StudioState): PortableExportWi
     frame: { ...snapshot.frame },
     props: { ...snapshot.props },
     style: { ...snapshot.style },
+    motion: snapshot.motion ? { ...snapshot.motion, config: { ...snapshot.motion.config } } : undefined,
+    hoverMotion: snapshot.hoverMotion ? { ...snapshot.hoverMotion, config: { ...snapshot.hoverMotion.config } } : undefined,
     timeline: { ...snapshot.timeline, keyframes: snapshot.timeline.keyframes?.map((keyframe) => ({ ...keyframe })) },
     variants: snapshot.variants ? { ...snapshot.variants } : undefined,
     conditions: snapshot.conditions ? { ...snapshot.conditions } : undefined,

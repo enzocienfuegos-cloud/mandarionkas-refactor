@@ -169,6 +169,40 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
         },
       });
     }
+    case 'UPDATE_WIDGET_MOTION': {
+      const target = state.document.widgets[command.widgetId];
+      if (!target) return state;
+      return withDirty({
+        ...state,
+        document: {
+          ...state.document,
+          widgets: {
+            ...state.document.widgets,
+            [target.id]: {
+              ...target,
+              motion: command.motion ? { ...command.motion, config: { ...command.motion.config } } : undefined,
+            },
+          },
+        },
+      });
+    }
+    case 'UPDATE_WIDGET_HOVER_MOTION': {
+      const target = state.document.widgets[command.widgetId];
+      if (!target) return state;
+      return withDirty({
+        ...state,
+        document: {
+          ...state.document,
+          widgets: {
+            ...state.document.widgets,
+            [target.id]: {
+              ...target,
+              hoverMotion: command.hoverMotion ? { ...command.hoverMotion, config: { ...command.hoverMotion.config } } : undefined,
+            },
+          },
+        },
+      });
+    }
     case 'APPLY_WIDGET_PROPERTY_CLIPBOARD': {
       const resolvedWidgets = buildResolvedWidgetsById(state.document);
       const target = resolvedWidgets[command.widgetId];
@@ -177,6 +211,8 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
       const sameType = target.type === command.clipboard.widgetType;
       const nextProps = sameType ? { ...command.clipboard.props } : target.props;
       const nextStyle = sameType ? { ...command.clipboard.style } : { ...target.style, ...command.clipboard.style };
+      const nextMotion = sameType && command.clipboard.motion ? { ...command.clipboard.motion, config: { ...command.clipboard.motion.config } } : rawTarget?.motion;
+      const nextHoverMotion = sameType && command.clipboard.hoverMotion ? { ...command.clipboard.hoverMotion, config: { ...command.clipboard.hoverMotion.config } } : rawTarget?.hoverMotion;
 
       if (rawTarget?.sharedLayerId) {
         const sharedLayer = state.document.sharedLayers[rawTarget.sharedLayerId];
@@ -209,6 +245,8 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
                 ...baseTarget,
                 props: sameType ? nextProps : baseTarget.props,
                 style: nextStyle,
+                motion: nextMotion,
+                hoverMotion: nextHoverMotion,
               },
             },
           },
@@ -227,6 +265,16 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
         document: {
           ...intermediateState.document,
           widgetOverrides: writeObjectOverride(intermediateState, command.widgetId, 'style', nextStyle),
+          widgets: sameType && rawTarget
+            ? {
+                ...intermediateState.document.widgets,
+                [rawTarget.id]: {
+                  ...rawTarget,
+                  motion: nextMotion,
+                  hoverMotion: nextHoverMotion,
+                },
+              }
+            : intermediateState.document.widgets,
         },
       });
     }

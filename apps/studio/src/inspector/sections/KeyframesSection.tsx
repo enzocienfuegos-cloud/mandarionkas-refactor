@@ -3,8 +3,11 @@ import { useTimelineActions, useWidgetActions } from '../../hooks/use-studio-act
 import type { WidgetNode } from '../../domain/document/types';
 import { Button } from '../../shared/ui/Button';
 import { Tile } from '../../shared/ui/Tile';
+import { MotionConfigFields } from '../../motion/react/MotionConfigFields';
+import { MotionTemplateGallery } from '../../motion/react/MotionTemplateGallery';
 import { KEYFRAME_PROPERTIES } from './widget-inspector-shared';
-import { applyAnimationPreset, getAnimationPresetConfig, stripPresetManagedKeyframes, supportsAnimationPresets, type SupportedAnimationPreset } from './animation-presets';
+import { applyAnimationPreset, getAnimationPresetConfig, getAvailableAnimationTemplates, stripPresetManagedKeyframes, supportsAnimationPresets, type SupportedAnimationPreset } from './animation-presets';
+import { buildLegacyMotionStylePatch, buildWidgetMotion } from '../../motion/motion-model';
 
 export function KeyframesSection({
   widget,
@@ -16,35 +19,39 @@ export function KeyframesSection({
   focusedKeyframeId?: string;
 }): JSX.Element {
   const { addKeyframe, setPlayhead, setWidgetKeyframes, removeKeyframe, updateKeyframe } = useTimelineActions();
-  const { updateWidgetStyle } = useWidgetActions();
+  const { updateWidgetMotion, updateWidgetStyle } = useWidgetActions();
   const animationConfig = getAnimationPresetConfig(widget);
   const activePreset = animationConfig.preset;
   const keyframes = widget.timeline.keyframes ?? [];
   const visibleKeyframes = activePreset ? stripPresetManagedKeyframes(keyframes) : keyframes;
   const focusedKeyframeRef = useRef<HTMLDivElement | null>(null);
+  const templates = getAvailableAnimationTemplates(widget);
 
   const handleApplyPreset = (preset: SupportedAnimationPreset) => {
-    const { keyframes: nextKeyframes, stylePatch } = applyAnimationPreset(widget, preset);
+    const { keyframes: nextKeyframes, stylePatch, motion } = applyAnimationPreset(widget, preset);
     setWidgetKeyframes(widget.id, nextKeyframes);
+    updateWidgetMotion(widget.id, motion);
     updateWidgetStyle(widget.id, stylePatch);
   };
 
   const handleAnimationConfigChange = (patch: Record<string, unknown>) => {
-    const nextWidget: WidgetNode = { ...widget, style: { ...widget.style, ...patch } };
-    updateWidgetStyle(widget.id, patch);
     if (!activePreset) return;
-    const { keyframes: nextKeyframes, stylePatch } = applyAnimationPreset(nextWidget, activePreset);
-    setWidgetKeyframes(widget.id, nextKeyframes);
-    updateWidgetStyle(widget.id, stylePatch);
+    const nextMotion = buildWidgetMotion(activePreset, {
+      ...(widget.motion?.config ?? {}),
+      ...(patch as Record<string, number | string>),
+    });
+    updateWidgetMotion(widget.id, nextMotion);
+    updateWidgetStyle(widget.id, buildLegacyMotionStylePatch(nextMotion));
   };
 
-  const handlePresetSelection = (value: string) => {
-    if (value === 'appear' || value === 'fade-up' || value === 'fade-out' || value === 'pulse') {
-      handleApplyPreset(value);
+  const handlePresetSelection = (value: string | null) => {
+    if (templates.some((template) => template.id === value)) {
+      handleApplyPreset(value as SupportedAnimationPreset);
       return;
     }
     setWidgetKeyframes(widget.id, stripPresetManagedKeyframes(widget.timeline.keyframes ?? []));
-    updateWidgetStyle(widget.id, { animationPreset: '', animationRepeatMode: 'once' });
+    updateWidgetMotion(widget.id, undefined);
+    updateWidgetStyle(widget.id, buildLegacyMotionStylePatch(undefined));
   };
 
   useEffect(() => {
@@ -59,76 +66,26 @@ export function KeyframesSection({
         {supportsAnimationPresets(widget) ? (
           <Tile>
             <div className="meta-line">
-              <span className="pill">Animation template</span>
+              <span className="pill">Motion template</span>
               {activePreset ? <span className="pill">Active {activePreset}</span> : <span className="pill">No template</span>}
             </div>
-            <small className="muted">Choose one motion template per widget. Templates play directly in preview and export, without adding extra visible animation tracks to the timeline.</small>
-            <div className="fields-grid">
-              <div>
-                <label>Preset</label>
-                <select value={activePreset} onChange={(event) => handlePresetSelection(event.target.value)}>
-                  <option value="">Custom / none</option>
-                  <option value="appear">Appear</option>
-                  <option value="fade-up">Fade up</option>
-                  <option value="fade-out">Fade out</option>
-                  <option value="pulse">Pulse</option>
-                </select>
-              </div>
-              <div>
-                <label>Duration ms</label>
-                <input
-                  type="number"
-                  min={120}
-                  step={20}
-                  value={animationConfig.durationMs}
-                  onChange={(event) => handleAnimationConfigChange({ animationDurationMs: Number(event.target.value) })}
-                />
-              </div>
-              <div>
-                <label>Delay ms</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={20}
-                  value={animationConfig.delayMs}
-                  onChange={(event) => handleAnimationConfigChange({ animationDelayMs: Number(event.target.value) })}
-                />
-              </div>
-              <div>
-                <label>Repeat</label>
-                <select
-                  value={animationConfig.repeatMode}
-                  onChange={(event) => handleAnimationConfigChange({ animationRepeatMode: event.target.value === 'repeat' ? 'repeat' : 'once' })}
-                >
-                  <option value="once">Play once</option>
-                  <option value="repeat">Repeat</option>
-                </select>
-              </div>
-              <div>
-                <label>Distance px</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={2}
-                  value={animationConfig.distancePx}
-                  onChange={(event) => handleAnimationConfigChange({ animationDistancePx: Number(event.target.value) })}
-                />
-              </div>
-              <div>
-                <label>Intensity</label>
-                <input
-                  type="number"
-                  min={0.1}
-                  max={1}
-                  step={0.05}
-                  value={animationConfig.intensity}
-                  onChange={(event) => handleAnimationConfigChange({ animationIntensity: Number(event.target.value) })}
-                />
-              </div>
-            </div>
+            <small className="muted">Choose one motion template per widget. Entrance and loop motion now live in a dedicated slot instead of fabricating extra timeline tracks.</small>
+            <MotionTemplateGallery
+              templates={templates}
+              selectedTemplateId={activePreset || null}
+              configByTemplateId={activePreset ? { [activePreset]: widget.motion?.config ?? {} } : undefined}
+              onSelect={handlePresetSelection}
+            />
+            {activePreset && widget.motion && templates.some((template) => template.id === activePreset) ? (
+              <MotionConfigFields
+                template={templates.find((template) => template.id === activePreset)!}
+                config={widget.motion.config}
+                onChange={handleAnimationConfigChange}
+              />
+            ) : null}
             <div className="inline-actions">
-              <Button size="sm" onClick={() => handleApplyPreset(activePreset || 'appear')}>{activePreset ? 'Refresh template' : 'Apply template'}</Button>
-              <Button size="sm" variant="ghost" onClick={() => handlePresetSelection('')}>Leave as custom</Button>
+              <Button size="sm" onClick={() => handleApplyPreset((activePreset || 'appear') as SupportedAnimationPreset)}>{activePreset ? 'Re-apply template' : 'Apply template'}</Button>
+              <Button size="sm" variant="ghost" onClick={() => handlePresetSelection('')}>Clear template</Button>
             </div>
           </Tile>
         ) : null}

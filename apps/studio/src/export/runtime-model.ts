@@ -31,6 +31,8 @@ export type ExportRuntimeWidget = {
   sceneId: string;
   frame: PortableExportWidget['frame'];
   style: PortableExportWidget['style'];
+  motion?: PortableExportWidget['motion'];
+  hoverMotion?: PortableExportWidget['hoverMotion'];
   timeline: PortableExportWidget['timeline'];
   hidden: boolean;
   interactive: boolean;
@@ -132,6 +134,8 @@ function buildRuntimeWidget(widget: PortableExportWidget): ExportRuntimeWidget {
     sceneId: widget.sceneId,
     frame: widget.frame,
     style: widget.style,
+    motion: widget.motion ? { ...widget.motion, config: { ...widget.motion.config } } : undefined,
+    hoverMotion: widget.hoverMotion ? { ...widget.hoverMotion, config: { ...widget.hoverMotion.config } } : undefined,
     timeline: widget.timeline,
     hidden: widget.hidden,
     interactive: gestures.length > 0,

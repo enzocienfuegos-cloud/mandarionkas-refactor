@@ -1,6 +1,28 @@
-import type { KeyframeNode, WidgetNode } from '../../domain/document/types';
+import type { KeyframeNode, WidgetHoverMotion, WidgetMotion, WidgetNode } from '../../domain/document/types';
+import {
+  buildLegacyHoverMotionStylePatch,
+  buildLegacyMotionStylePatch,
+  buildWidgetHoverMotion,
+  buildWidgetMotion,
+  computeWidgetMotionState,
+  resolveWidgetHoverMotion,
+  resolveWidgetMotion,
+} from '../../motion/motion-model';
+import { listHoverMotionTemplates, listMotionTemplates } from '../../motion/motion-registry';
+import { widgetSupportsHoverMotion, widgetSupportsMotion } from '../../motion/motion-widget-compatibility';
 
-export type SupportedAnimationPreset = 'appear' | 'fade-up' | 'fade-out' | 'pulse';
+export type SupportedAnimationPreset =
+  | 'appear'
+  | 'fade-in'
+  | 'fade-up'
+  | 'fade-out'
+  | 'pulse'
+  | 'float'
+  | 'slide-in-left'
+  | 'slide-in-right'
+  | 'slide-in-up'
+  | 'slide-in-down';
+
 export type HoverMotionPreset = 'none' | 'lift' | 'zoom' | 'pulse';
 export type AnimationRepeatMode = 'once' | 'repeat';
 
@@ -20,62 +42,80 @@ export type HoverMotionConfig = {
   scale: number;
 };
 
-const DEFAULT_ANIMATION_DURATION_MS = 700;
-const DEFAULT_PULSE_DURATION_MS = 900;
-const DEFAULT_ANIMATION_DELAY_MS = 0;
-const DEFAULT_ANIMATION_DISTANCE_PX = 24;
-const DEFAULT_ANIMATION_INTENSITY = 0.55;
-const DEFAULT_ANIMATION_REPEAT_MODE: AnimationRepeatMode = 'once';
+const DEFAULT_ANIMATION_CONFIG: Omit<AnimationPresetConfig, 'preset'> = {
+  durationMs: 700,
+  delayMs: 0,
+  distancePx: 24,
+  intensity: 0.55,
+  repeatMode: 'once',
+};
 
-const DEFAULT_HOVER_MOTION_DURATION_MS = 240;
-const DEFAULT_HOVER_MOTION_DISTANCE_PX = 12;
-const DEFAULT_HOVER_MOTION_SCALE = 1.04;
+const DEFAULT_HOVER_CONFIG: Omit<HoverMotionConfig, 'preset'> = {
+  durationMs: 240,
+  distancePx: 12,
+  scale: 1.04,
+};
 
-export const ANIMATION_PRESET_WIDGET_TYPES = new Set<WidgetNode['type']>([
-  'text',
-  'image',
-  'cta',
-  'buttons',
-  'group',
-]);
+export const ANIMATION_PRESET_WIDGET_TYPES = new Set<WidgetNode['type']>(['text', 'image', 'cta', 'buttons', 'group']);
+export const PRESET_TRACKS: Array<KeyframeNode['property']> = ['opacity', 'y'];
 
 export function supportsAnimationPresets(widget: WidgetNode): boolean {
-  return ANIMATION_PRESET_WIDGET_TYPES.has(widget.type);
+  return widgetSupportsMotion(widget);
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
+export function supportsHoverPresets(widget: WidgetNode): boolean {
+  return widgetSupportsHoverMotion(widget);
 }
 
-function readNumber(value: unknown, fallback: number): number {
-  const numeric = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
-  return Number.isFinite(numeric) ? numeric : fallback;
+export function getAvailableAnimationTemplates(widget: WidgetNode) {
+  return listMotionTemplates().filter((template) => widgetSupportsMotion(widget, template));
+}
+
+export function getAvailableHoverTemplates(widget: WidgetNode) {
+  return listHoverMotionTemplates().filter((template) => widgetSupportsHoverMotion(widget, template));
 }
 
 export function getAnimationPresetConfig(widget: WidgetNode): AnimationPresetConfig {
-  const rawPreset = String(widget.style.animationPreset ?? '');
-  const rawRepeatMode = String(widget.style.animationRepeatMode ?? DEFAULT_ANIMATION_REPEAT_MODE);
+  const selection = resolveWidgetMotion(widget);
+  if (!selection) {
+    return {
+      preset: '',
+      durationMs: Number(widget.style.animationDurationMs ?? DEFAULT_ANIMATION_CONFIG.durationMs),
+      delayMs: Number(widget.style.animationDelayMs ?? DEFAULT_ANIMATION_CONFIG.delayMs),
+      distancePx: Number(widget.style.animationDistancePx ?? DEFAULT_ANIMATION_CONFIG.distancePx),
+      intensity: Number(widget.style.animationIntensity ?? DEFAULT_ANIMATION_CONFIG.intensity),
+      repeatMode: String(widget.style.animationRepeatMode ?? DEFAULT_ANIMATION_CONFIG.repeatMode) === 'repeat' ? 'repeat' : 'once',
+    };
+  }
   return {
-    preset: rawPreset === 'appear' || rawPreset === 'fade-up' || rawPreset === 'fade-out' || rawPreset === 'pulse' ? rawPreset : '',
-    durationMs: Math.round(clamp(readNumber(widget.style.animationDurationMs, rawPreset === 'pulse' ? DEFAULT_PULSE_DURATION_MS : DEFAULT_ANIMATION_DURATION_MS), 120, 6000)),
-    delayMs: Math.round(clamp(readNumber(widget.style.animationDelayMs, DEFAULT_ANIMATION_DELAY_MS), 0, 6000)),
-    distancePx: clamp(readNumber(widget.style.animationDistancePx, DEFAULT_ANIMATION_DISTANCE_PX), 0, 160),
-    intensity: clamp(readNumber(widget.style.animationIntensity, DEFAULT_ANIMATION_INTENSITY), 0.1, 1),
-    repeatMode: rawRepeatMode === 'repeat' ? 'repeat' : 'once',
+    preset: selection.template.id as SupportedAnimationPreset,
+    durationMs: Number(selection.config.durationMs ?? DEFAULT_ANIMATION_CONFIG.durationMs),
+    delayMs: Number(selection.config.delayMs ?? DEFAULT_ANIMATION_CONFIG.delayMs),
+    distancePx: Number(selection.config.distancePx ?? DEFAULT_ANIMATION_CONFIG.distancePx),
+    intensity: Number(selection.config.intensity ?? DEFAULT_ANIMATION_CONFIG.intensity),
+    repeatMode: String(selection.config.repeatMode ?? DEFAULT_ANIMATION_CONFIG.repeatMode) === 'repeat' ? 'repeat' : 'once',
   };
 }
 
 export function getHoverMotionConfig(widget: WidgetNode): HoverMotionConfig {
-  const rawPreset = String(widget.style.hoverMotionPreset ?? 'none');
+  const selection = resolveWidgetHoverMotion(widget);
+  if (!selection) {
+    return {
+      preset: typeof widget.style.hoverMotionPreset === 'string' && widget.style.hoverMotionPreset !== 'none'
+        ? widget.style.hoverMotionPreset as HoverMotionPreset
+        : 'none',
+      durationMs: Number(widget.style.hoverMotionDurationMs ?? DEFAULT_HOVER_CONFIG.durationMs),
+      distancePx: Number(widget.style.hoverMotionDistancePx ?? DEFAULT_HOVER_CONFIG.distancePx),
+      scale: Number(widget.style.hoverMotionScale ?? DEFAULT_HOVER_CONFIG.scale),
+    };
+  }
   return {
-    preset: rawPreset === 'lift' || rawPreset === 'zoom' || rawPreset === 'pulse' ? rawPreset : 'none',
-    durationMs: Math.round(clamp(readNumber(widget.style.hoverMotionDurationMs, DEFAULT_HOVER_MOTION_DURATION_MS), 120, 3000)),
-    distancePx: clamp(readNumber(widget.style.hoverMotionDistancePx, DEFAULT_HOVER_MOTION_DISTANCE_PX), 0, 80),
-    scale: clamp(readNumber(widget.style.hoverMotionScale, DEFAULT_HOVER_MOTION_SCALE), 1, 1.4),
+    preset: selection.template.id === 'lift' || selection.template.id === 'zoom' || selection.template.id === 'pulse' ? selection.template.id : 'none',
+    durationMs: Number(selection.config.durationMs ?? DEFAULT_HOVER_CONFIG.durationMs),
+    distancePx: Number(selection.config.distancePx ?? DEFAULT_HOVER_CONFIG.distancePx),
+    scale: Number(selection.config.scale ?? DEFAULT_HOVER_CONFIG.scale),
   };
 }
-
-export const PRESET_TRACKS: Array<KeyframeNode['property']> = ['opacity', 'y'];
 
 export function stripPresetManagedKeyframes(keyframes: KeyframeNode[] = []): KeyframeNode[] {
   return keyframes
@@ -83,90 +123,72 @@ export function stripPresetManagedKeyframes(keyframes: KeyframeNode[] = []): Key
     .sort((left, right) => left.atMs - right.atMs);
 }
 
-export function applyAnimationPreset(widget: WidgetNode, preset: SupportedAnimationPreset): { keyframes: KeyframeNode[]; stylePatch: Record<string, unknown> } {
-  const config = getAnimationPresetConfig({ ...widget, style: { ...widget.style, animationPreset: preset } });
-  const existing = stripPresetManagedKeyframes(widget.timeline.keyframes ?? []);
-  const stylePatch = {
-    animationPreset: preset,
-    animationDurationMs: config.durationMs,
-    animationDelayMs: config.delayMs,
-    animationDistancePx: config.distancePx,
-    animationIntensity: config.intensity,
-    animationRepeatMode: config.repeatMode,
-  };
-
+export function applyAnimationPreset(
+  widget: WidgetNode,
+  preset: SupportedAnimationPreset,
+): {
+  keyframes: KeyframeNode[];
+  stylePatch: Record<string, unknown>;
+  motion: WidgetMotion | undefined;
+} {
+  const currentConfig = getAnimationPresetConfig(widget);
+  const motion = buildWidgetMotion(preset, {
+    durationMs: currentConfig.durationMs,
+    delayMs: currentConfig.delayMs,
+    distancePx: currentConfig.distancePx,
+    intensity: currentConfig.intensity,
+    repeatMode: currentConfig.repeatMode,
+  });
   return {
-    keyframes: existing,
-    stylePatch,
+    keyframes: stripPresetManagedKeyframes(widget.timeline.keyframes ?? []),
+    stylePatch: buildLegacyMotionStylePatch(motion),
+    motion,
   };
 }
 
-function applyEasing(progress: number, easing: KeyframeNode['easing'] = 'linear'): number {
-  const clamped = clamp(progress, 0, 1);
-  if (easing === 'ease-in') return clamped * clamped;
-  if (easing === 'ease-out') return 1 - (1 - clamped) * (1 - clamped);
-  if (easing === 'ease-in-out') return clamped < 0.5 ? 2 * clamped * clamped : 1 - Math.pow(-2 * clamped + 2, 2) / 2;
-  return clamped;
+export function buildHoverMotionPreset(
+  widget: WidgetNode,
+  preset: HoverMotionPreset,
+): {
+  stylePatch: Record<string, unknown>;
+  hoverMotion: WidgetHoverMotion | undefined;
+} {
+  const currentConfig = getHoverMotionConfig(widget);
+  const hoverMotion = preset === 'none'
+    ? undefined
+    : buildWidgetHoverMotion(preset, {
+      durationMs: currentConfig.durationMs,
+      distancePx: currentConfig.distancePx,
+      scale: currentConfig.scale,
+    });
+  return {
+    stylePatch: buildLegacyHoverMotionStylePatch(hoverMotion),
+    hoverMotion,
+  };
+}
+
+function extractTranslateOffset(transform: string): { x: number; y: number } {
+  const xMatch = transform.match(/translateX\((-?[0-9.]+)px\)/);
+  const yMatch = transform.match(/translateY\((-?[0-9.]+)px\)/);
+  return {
+    x: xMatch ? Number(xMatch[1]) : 0,
+    y: yMatch ? Number(yMatch[1]) : 0,
+  };
 }
 
 export function getAnimationPresetPreviewState(
   widget: WidgetNode,
   playheadMs: number,
 ): { frame: WidgetNode['frame']; opacity: number } | null {
-  const config = getAnimationPresetConfig(widget);
-  if (!config.preset) return null;
-
-  const baseFrame = { ...widget.frame };
-  const baseOpacity = Number(widget.style.opacity ?? 1);
-  const durationMs = Math.max(120, Math.min(Number(widget.timeline.endMs ?? 0) - Number(widget.timeline.startMs ?? 0), config.durationMs));
-  if (!Number.isFinite(durationMs) || durationMs <= 0) return { frame: baseFrame, opacity: baseOpacity };
-
-  const startMs = Number(widget.timeline.startMs ?? 0);
-  const endMs = Number(widget.timeline.endMs ?? startMs + durationMs);
-  const anchorMs = config.preset === 'fade-out'
-    ? Math.max(startMs, endMs - durationMs)
-    : startMs + config.delayMs;
-  const cycleProgress = (currentPlayheadMs: number): number => {
-    const elapsedMs = currentPlayheadMs - anchorMs;
-    if (config.repeatMode === 'repeat') {
-      const normalized = ((elapsedMs % durationMs) + durationMs) % durationMs;
-      return clamp(normalized / durationMs, 0, 1);
-    }
-    return clamp(elapsedMs / durationMs, 0, 1);
-  };
-
-  if (config.repeatMode === 'once' && playheadMs < anchorMs) {
-    if (config.preset === 'appear') return { frame: baseFrame, opacity: 0 };
-    if (config.preset === 'fade-up') return { frame: { ...baseFrame, y: baseFrame.y + config.distancePx }, opacity: 0 };
-    return { frame: baseFrame, opacity: baseOpacity };
-  }
-
-  const progress = cycleProgress(playheadMs);
-  if (config.preset === 'appear') {
-    const eased = applyEasing(progress, 'ease-out');
-    return { frame: baseFrame, opacity: baseOpacity * eased };
-  }
-
-  if (config.preset === 'fade-up') {
-    const eased = applyEasing(progress, 'ease-out');
-    return {
-      frame: { ...baseFrame, y: baseFrame.y + config.distancePx * (1 - eased) },
-      opacity: baseOpacity * eased,
-    };
-  }
-
-  if (config.preset === 'fade-out') {
-    if (config.repeatMode === 'once' && playheadMs < anchorMs) return { frame: baseFrame, opacity: baseOpacity };
-    const eased = applyEasing(progress, 'ease-in');
-    return { frame: baseFrame, opacity: baseOpacity * (1 - eased) };
-  }
-
-  const easedIn = progress <= 0.5
-    ? applyEasing(progress / 0.5, 'ease-in-out')
-    : applyEasing((1 - progress) / 0.5, 'ease-in-out');
-  const pulseOpacity = clamp(baseOpacity - config.intensity * 0.45, 0.15, baseOpacity);
+  const state = computeWidgetMotionState(widget, playheadMs, Number(widget.style.opacity ?? 1), `rotate(${widget.frame.rotation}deg)`);
+  if (!state) return null;
+  const offset = extractTranslateOffset(state.transform);
   return {
-    frame: baseFrame,
-    opacity: pulseOpacity + (baseOpacity - pulseOpacity) * easedIn,
+    frame: {
+      ...widget.frame,
+      x: widget.frame.x + offset.x,
+      y: widget.frame.y + offset.y,
+    },
+    opacity: state.opacity,
   };
 }

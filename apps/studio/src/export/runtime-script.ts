@@ -63,8 +63,9 @@ function sceneHasInteractiveWidget(widget: PortableExportWidget): boolean {
 }
 
 function widgetHasMotionTemplate(widget: PortableExportWidget): boolean {
+  if (widget.motion?.templateId) return true;
   const preset = String(widget.style?.animationPreset ?? '');
-  return preset === 'appear' || preset === 'fade-up' || preset === 'fade-out' || preset === 'pulse';
+  return Boolean(preset);
 }
 
 export function analyzeRuntimeCapabilities(document: PortableExportProject): RuntimeCapabilities {
@@ -80,8 +81,9 @@ export function analyzeRuntimeCapabilities(document: PortableExportProject): Run
   const hasTimelineAnimations = widgets.some((widget) => (widget.timeline.keyframes?.length ?? 0) > 0 || widgetHasMotionTemplate(widget));
   const hasFontFaces = widgets.some((widget) => typeof widget.props?.fontAssetSrc === 'string' && widget.props.fontAssetSrc.trim().length > 0);
   const hasHoverMotion = widgets.some((widget) => {
+    if (widget.hoverMotion?.templateId) return true;
     const preset = String(widget.style?.hoverMotionPreset ?? 'none');
-    return preset === 'lift' || preset === 'zoom' || preset === 'pulse';
+    return preset !== 'none' && preset.length > 0;
   });
 
   return {

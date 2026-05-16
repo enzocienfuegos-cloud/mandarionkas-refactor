@@ -112,10 +112,11 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
       ...widget,
       props: propertyClipboard.widgetType === widget.type ? { ...propertyClipboard.props } : widget.props,
       style: propertyClipboard.widgetType === widget.type ? { ...propertyClipboard.style } : { ...widget.style, ...propertyClipboard.style },
+      motion: propertyClipboard.widgetType === widget.type ? propertyClipboard.motion : widget.motion,
     };
-    const preset = typeof nextWidget.style.animationPreset === 'string' ? nextWidget.style.animationPreset : '';
-    if (preset !== 'appear' && preset !== 'fade-up' && preset !== 'fade-out' && preset !== 'pulse') return;
-    const { keyframes } = applyAnimationPreset(nextWidget, preset);
+    const preset = typeof nextWidget.motion?.templateId === 'string' ? nextWidget.motion.templateId : typeof nextWidget.style.animationPreset === 'string' ? nextWidget.style.animationPreset : '';
+    if (!preset) return;
+    const { keyframes } = applyAnimationPreset(nextWidget, preset as Parameters<typeof applyAnimationPreset>[1]);
     setWidgetKeyframes(widget.id, keyframes);
   };
 

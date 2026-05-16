@@ -64,6 +64,8 @@ export function useWidgetActions() {
     updateWidgetFrames: (patches: Array<{ widgetId: string; patch: Record<string, unknown> }>) => dispatch({ type: 'UPDATE_WIDGET_FRAMES', patches }),
     updateWidgetProps: (widgetId: string, patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_WIDGET_PROPS', widgetId, patch }),
     updateWidgetStyle: (widgetId: string, patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_WIDGET_STYLE', widgetId, patch }),
+    updateWidgetMotion: (widgetId: string, motion: import('../domain/document/types').WidgetMotion | undefined) => dispatch({ type: 'UPDATE_WIDGET_MOTION', widgetId, motion }),
+    updateWidgetHoverMotion: (widgetId: string, hoverMotion: import('../domain/document/types').WidgetHoverMotion | undefined) => dispatch({ type: 'UPDATE_WIDGET_HOVER_MOTION', widgetId, hoverMotion }),
     updateWidgetTiming: (widgetId: string, patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_WIDGET_TIMING', widgetId, patch }),
     updateWidgetBinding: (widgetId: string, key: string, binding?: WidgetBinding) => dispatch({ type: 'UPDATE_WIDGET_BINDING', widgetId, key, binding }),
     updateWidgetVariant: (widgetId: string, variant: VariantName, area: 'props' | 'style', patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_WIDGET_VARIANT', widgetId, variant, area, patch }),

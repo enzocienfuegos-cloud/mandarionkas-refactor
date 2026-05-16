@@ -1,11 +1,12 @@
-import { memo, useEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { memo, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { getWidgetActions } from '../../../actions/runtime';
 import { renderWidgetContents } from '../render-widget';
 import type { ActionNode, WidgetFrame, WidgetNode, StudioState } from '../../../domain/document/types';
 import type { ResizeHandle } from '../use-stage-controller';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 import { isNativeStageDragWidgetType } from '../../../domain/document/widget-type-groups';
-import { getAnimationPresetConfig } from '../../../inspector/sections/animation-presets';
+import { resolveWidgetHoverMotion } from '../../../motion/motion-model';
+import { MotionLayer } from '../../../motion/react/MotionLayer';
 
 const HANDLE_SIZE = 10;
 const showDebugWidgetTags = import.meta.env.DEV && import.meta.env.VITE_SHOW_WIDGET_TAGS === 'true';
@@ -55,7 +56,6 @@ export const StageWidget = memo(function StageWidget({
 }: StageWidgetProps): JSX.Element {
   const managesNativeDrag = isNativeStageDragWidgetType(node.type);
   const useWireframe = !previewMode && editModeWireframe && !selected && !active && !hovered;
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerWidgetAction = (trigger: ActionNode['trigger'], _metadata?: Record<string, unknown>) => {
     if (!previewMode) return;
     const actions = getWidgetActions(stateRef.current, node.id, trigger);
@@ -69,90 +69,13 @@ export const StageWidget = memo(function StageWidget({
   });
   const widgetContentStyle = buildStageWidgetContentStyle(previewMode);
 
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root || useWireframe || typeof root.animate !== 'function') return;
-    const config = getAnimationPresetConfig(node);
-    if (!config.preset) return;
-
-    root.getAnimations?.().forEach((animation) => animation.cancel());
-    const baseTransform = `rotate(${frame.rotation}deg)`;
-    const baseOpacity = opacity;
-    const distancePx = Math.max(0, config.distancePx);
-    const pulseOpacity = Math.max(0.15, baseOpacity - config.intensity * 0.45);
-    const holdOffset = config.preset === 'fade-out' ? 0.45 : 0.58;
-    const keyframes =
-      config.preset === 'appear'
-        ? [
-            { opacity: 0, transform: baseTransform, offset: 0 },
-            { opacity: baseOpacity, transform: baseTransform, offset: holdOffset },
-            { opacity: baseOpacity, transform: baseTransform, offset: 1 },
-          ]
-        : config.preset === 'fade-up'
-          ? [
-              { opacity: 0, transform: `${baseTransform} translateY(${distancePx}px)`, offset: 0 },
-              { opacity: baseOpacity, transform: baseTransform, offset: holdOffset },
-              { opacity: baseOpacity, transform: baseTransform, offset: 1 },
-            ]
-          : config.preset === 'fade-out'
-            ? [
-                { opacity: baseOpacity, transform: baseTransform, offset: 0 },
-                { opacity: baseOpacity, transform: baseTransform, offset: holdOffset },
-                { opacity: 0, transform: baseTransform, offset: 1 },
-              ]
-            : [
-                { opacity: baseOpacity, transform: baseTransform, offset: 0 },
-                { opacity: pulseOpacity, transform: baseTransform, offset: 0.4 },
-              { opacity: baseOpacity, transform: baseTransform, offset: 1 },
-            ];
-
-    const duration = Math.max(300, Number(config.durationMs || 700));
-    const idlePaddingMs = config.preset === 'pulse' ? 220 : 420;
-    if (previewMode) {
-      const animation = root.animate(keyframes, {
-        duration,
-        delay: Math.max(0, Number(config.delayMs || 0)),
-        easing: config.preset === 'pulse' ? 'ease-in-out' : 'ease-out',
-        iterations: config.repeatMode === 'repeat' ? Number.POSITIVE_INFINITY : 1,
-        fill: 'both',
-      });
-      animation.pause();
-
-      const startMs = Math.max(0, Number(node.timeline.startMs ?? 0));
-      const endMs = Math.max(startMs + 100, Number(node.timeline.endMs ?? startMs + duration));
-      const anchorMs = config.preset === 'fade-out'
-        ? Math.max(startMs, endMs - duration)
-        : startMs;
-      const totalCycleMs = duration + Math.max(0, Number(config.delayMs || 0));
-      const elapsedMs = playheadMs - anchorMs;
-      const currentTime = config.repeatMode === 'repeat'
-        ? (((elapsedMs % totalCycleMs) + totalCycleMs) % totalCycleMs)
-        : Math.max(0, Math.min(totalCycleMs, elapsedMs));
-      animation.currentTime = currentTime;
-
-      return () => {
-        animation.cancel();
-      };
-    }
-
-    if (!selected) return;
-
-    const animation = root.animate(keyframes, {
-      duration: duration + idlePaddingMs,
-      delay: Math.max(0, Number(config.delayMs || 0)),
-      easing: config.preset === 'pulse' ? 'ease-in-out' : 'ease-out',
-      iterations: config.repeatMode === 'repeat' ? Number.POSITIVE_INFINITY : 1,
-      fill: config.repeatMode === 'repeat' ? 'none' : 'both',
-    });
-
-    return () => {
-      animation.cancel();
-    };
-  }, [frame.rotation, node, opacity, playheadMs, previewMode, selected, useWireframe]);
-
   return (
-    <div
-      ref={rootRef}
+    <MotionLayer
+      widget={node}
+      playheadMs={playheadMs}
+      previewMode={previewMode}
+      selected={selected}
+      opacity={opacity}
       className={`stage-widget stage-widget--${node.type} ${selected ? 'is-selected' : ''} ${primary ? 'is-primary' : ''} ${hovered ? 'is-hovered' : ''} ${active ? 'is-active' : ''} ${previewMode ? 'is-preview-mode' : 'is-edit-mode'} ${useWireframe ? 'is-wireframe-mode' : ''}`}
       {...createStageInteractionProps(STAGE_INTERACTION.widget)}
       onPointerDown={(event) => {
@@ -197,7 +120,7 @@ export const StageWidget = memo(function StageWidget({
       </div>
       {!previewMode && showBadge && !useWireframe && showDebugWidgetTags ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
       {selected ? <SelectionOverlay primary={primary} onResizePointerDown={onResizePointerDown} /> : null}
-    </div>
+    </MotionLayer>
   );
 }, stageWidgetPropsEqual);
 
@@ -219,10 +142,11 @@ function buildStageWidgetStyle(
   },
 ): CSSProperties {
   const rotationTransform = `rotate(${frame.rotation}deg)`;
-  const hoverMotionPreset = String(node.style.hoverMotionPreset ?? 'none');
-  const hoverMotionDurationMs = Math.max(120, Number(node.style.hoverMotionDurationMs ?? 240));
-  const hoverMotionDistancePx = Math.max(0, Number(node.style.hoverMotionDistancePx ?? 12));
-  const hoverMotionScale = Math.max(1, Number(node.style.hoverMotionScale ?? 1.04));
+  const hoverMotion = resolveWidgetHoverMotion(node);
+  const hoverMotionPreset = hoverMotion?.template.id ?? 'none';
+  const hoverMotionDurationMs = Math.max(120, Number(hoverMotion?.config.durationMs ?? 240));
+  const hoverMotionDistancePx = Math.max(0, Number(hoverMotion?.config.distancePx ?? 12));
+  const hoverMotionScale = Math.max(1, Number(hoverMotion?.config.scale ?? 1.04));
   const isHoverMotionActive = previewMode && (hovered || active) && hoverMotionPreset !== 'none';
   const hoverTransform = hoverMotionPreset === 'zoom'
     ? `${rotationTransform} scale(${hoverMotionScale})`

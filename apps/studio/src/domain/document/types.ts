@@ -45,6 +45,15 @@ export type KeyframeProperty = 'x' | 'y' | 'width' | 'height' | 'opacity';
 export type KeyframeEasing = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
 export type KeyframeNode = { id: string; atMs: number; property: KeyframeProperty; value: number; easing?: KeyframeEasing; };
 export type WidgetTimeline = { startMs: number; endMs: number; excluded?: boolean; keyframes?: KeyframeNode[]; };
+export type MotionConfigValue = Record<string, number | string>;
+export type WidgetMotion = {
+  templateId: string | null;
+  config: MotionConfigValue;
+};
+export type WidgetHoverMotion = {
+  templateId: string | null;
+  config: MotionConfigValue;
+};
 export type ActionTrigger =
   | 'click'
   | 'hover'
@@ -150,7 +159,7 @@ export type SharedWidgetLayer = {
   sceneWidgetIds: Record<string, string>;
   perSceneOverrides: Record<string, WidgetNodeOverride>;
 };
-export type WidgetNode = { id: string; type: WidgetType; name: string; sceneId: string; zIndex: number; hidden?: boolean; locked?: boolean; parentId?: string; childIds?: string[]; sharedLayerId?: string; frame: WidgetFrame; props: Record<string, unknown>; style: Record<string, unknown>; bindings?: Record<string, WidgetBinding>; variants?: Partial<Record<VariantName, VariantOverride>>; conditions?: WidgetConditions; timeline: WidgetTimeline; };
+export type WidgetNode = { id: string; type: WidgetType; name: string; sceneId: string; zIndex: number; hidden?: boolean; locked?: boolean; parentId?: string; childIds?: string[]; sharedLayerId?: string; frame: WidgetFrame; props: Record<string, unknown>; style: Record<string, unknown>; motion?: WidgetMotion; hoverMotion?: WidgetHoverMotion; bindings?: Record<string, WidgetBinding>; variants?: Partial<Record<VariantName, VariantOverride>>; conditions?: WidgetConditions; timeline: WidgetTimeline; };
 export type SceneNode = { id: string; name: string; order: number; widgetIds: string[]; durationMs: number; conditions?: SceneConditions; flow?: SceneFlow; transition?: SceneTransition; };
 export type CanvasNode = { width: number; height: number; backgroundColor: string; presetId?: string; };
 export type ReleaseTarget = 'generic-html5' | 'google-display' | 'gam-html5' | 'mraid' | 'meta-story' | 'tiktok-vertical' | 'vast-simid';

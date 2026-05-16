@@ -73,6 +73,8 @@ export const WIDGET_LIBRARY_GROUP_LABELS: Record<WidgetLibraryGroup, string> = {
 };
 
 export type WidgetCapabilities = {
+  supportsMotion?: boolean;
+  supportsHoverMotion?: boolean;
   acceptsImageAsset?: boolean;
   acceptsVideoAsset?: boolean;
   acceptsFontAsset?: boolean;

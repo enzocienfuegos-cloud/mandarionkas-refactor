@@ -1,3 +1,13 @@
+import { listMotionTemplates } from '../motion/motion-registry';
+
+function buildRuntimeMotionRegistrySource(): string {
+  return `{${listMotionTemplates().map((template) => (
+    `${JSON.stringify(template.id)}:{id:${JSON.stringify(template.id)},category:${JSON.stringify(template.category)},defaults:${JSON.stringify(template.defaults)}}`
+  )).join(',')}}`;
+}
+
+const RUNTIME_MOTION_REGISTRY_SOURCE = buildRuntimeMotionRegistrySource();
+
 export const EXPORT_RUNTIME_ENVIRONMENT_SECTION = ``;
 
 export const EXPORT_RUNTIME_FONTS_SECTION = `
@@ -50,12 +60,13 @@ export const EXPORT_RUNTIME_MOTION_SECTION = `
 
   function resolveRuntimeHoverMotionConfig(widget) {
     const style = widget && widget.style ? widget.style : {};
-    const preset = String(style.hoverMotionPreset || 'none');
+    const hoverMotion = widget && widget.hoverMotion && widget.hoverMotion.templateId ? widget.hoverMotion : null;
+    const preset = String((hoverMotion && hoverMotion.templateId) || style.hoverMotionPreset || 'none');
     return {
       preset: preset === 'lift' || preset === 'zoom' || preset === 'pulse' ? preset : 'none',
-      durationMs: Math.max(120, Number(style.hoverMotionDurationMs || 240)),
-      distancePx: Math.max(0, Number(style.hoverMotionDistancePx || 12)),
-      scale: Math.max(1, Number(style.hoverMotionScale || 1.04)),
+      durationMs: Math.max(120, Number((hoverMotion && hoverMotion.config ? hoverMotion.config.durationMs : null) || style.hoverMotionDurationMs || 240)),
+      distancePx: Math.max(0, Number((hoverMotion && hoverMotion.config ? hoverMotion.config.distancePx : null) || style.hoverMotionDistancePx || 12)),
+      scale: Math.max(1, Number((hoverMotion && hoverMotion.config ? hoverMotion.config.scale : null) || style.hoverMotionScale || 1.04)),
     };
   }
 
@@ -83,13 +94,11 @@ export const EXPORT_RUNTIME_MOTION_SECTION = `
       node.setAttribute('data-smx-hover-motion-bound', 'true');
       node.style.setProperty('--smx-motion-base-transform', motion.baseTransform);
       node.style.setProperty('--smx-motion-hover-transform', motion.hoverTransform);
-      node.style.transform = motion.baseTransform;
       node.style.transition = 'transform ' + motion.config.durationMs + 'ms ease, box-shadow ' + motion.config.durationMs + 'ms ease, filter ' + motion.config.durationMs + 'ms ease, opacity ' + motion.config.durationMs + 'ms ease';
 
       const activate = () => {
         if (motion.config.preset === 'pulse') {
           node.style.animation = 'smx-runtime-hover-pulse ' + motion.config.durationMs + 'ms ease-in-out infinite';
-          node.style.transform = motion.baseTransform;
           return;
         }
         node.style.animation = 'none';
@@ -118,8 +127,14 @@ export const EXPORT_RUNTIME_MOTION_SECTION = `
 `;
 
 export const EXPORT_RUNTIME_TIMELINE_SECTION = `
+  const runtimeMotionTemplates = ${RUNTIME_MOTION_REGISTRY_SOURCE};
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
   function applyTimelineEasing(progress, easing) {
-    const clamped = Math.max(0, Math.min(1, progress));
+    const clamped = clamp(progress, 0, 1);
     if (easing === 'ease-in') return clamped * clamped;
     if (easing === 'ease-out') return 1 - (1 - clamped) * (1 - clamped);
     if (easing === 'ease-in-out') return clamped < 0.5 ? 2 * clamped * clamped : 1 - Math.pow(-2 * clamped + 2, 2) / 2;
@@ -142,80 +157,120 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
   }
 
   function resolveRuntimeAnimationPresetConfig(widget) {
-    const style = widget && widget.style ? widget.style : {};
-    const preset = String(style.animationPreset || '');
+    if (!widget) return null;
+    const style = widget.style || {};
+    const motion = widget.motion && widget.motion.templateId ? widget.motion : null;
+    const legacyTemplateId = String(style.animationPreset || '');
+    const preset = motion && motion.templateId
+      ? String(motion.templateId)
+      : (runtimeMotionTemplates[legacyTemplateId] ? legacyTemplateId : '');
+    if (!preset || !runtimeMotionTemplates[preset]) return null;
+    const template = runtimeMotionTemplates[preset];
     return {
-      preset: preset === 'appear' || preset === 'fade-up' || preset === 'fade-out' || preset === 'pulse' ? preset : '',
-      durationMs: Math.max(120, Number(style.animationDurationMs || (preset === 'pulse' ? 900 : 700))),
-      delayMs: Math.max(0, Number(style.animationDelayMs || 0)),
-      distancePx: Math.max(0, Number(style.animationDistancePx || 24)),
-      intensity: Math.max(0.1, Math.min(1, Number(style.animationIntensity || 0.55))),
-      repeatMode: String(style.animationRepeatMode || 'once') === 'repeat' ? 'repeat' : 'once',
+      preset,
+      category: template.category,
+      config: Object.assign({}, template.defaults || {}, motion && motion.templateId === preset ? (motion.config || {}) : {
+        durationMs: style.animationDurationMs,
+        delayMs: style.animationDelayMs,
+        distancePx: style.animationDistancePx,
+        intensity: style.animationIntensity,
+        repeatMode: style.animationRepeatMode,
+      }),
     };
   }
 
-  function getRuntimeAnimationPresetState(widget, elapsedMs) {
-    const config = resolveRuntimeAnimationPresetConfig(widget);
-    if (!config.preset) return null;
-    const frame = widget && widget.frame ? widget.frame : {};
+  function resolveRuntimeMotionElapsedMs(widget, motionConfig, playheadMs) {
     const timeline = widget && widget.timeline ? widget.timeline : {};
     const startMs = Number(timeline.startMs || 0);
-    const endMs = Number(timeline.endMs || startMs + config.durationMs);
-    const durationMs = Math.max(120, Math.min(Math.max(0, endMs - startMs) || config.durationMs, config.durationMs));
+    const endMs = Math.max(startMs, Number(timeline.endMs || startMs));
+    const durationMs = Math.max(120, Number(motionConfig.config.durationMs || motionConfig.config.duration || 700));
+    if (motionConfig.category === 'exit') {
+      return playheadMs - Math.max(startMs, endMs - durationMs);
+    }
+    return playheadMs - startMs;
+  }
+
+  function normalizeLoopProgress(elapsedMs, durationMs) {
+    if (durationMs <= 0) return 0;
+    const normalized = ((elapsedMs % durationMs) + durationMs) % durationMs;
+    return clamp(normalized / durationMs, 0, 1);
+  }
+
+  function normalizeOneShotProgress(elapsedMs, delayMs, durationMs) {
+    if (durationMs <= 0) return 1;
+    return clamp((elapsedMs - delayMs) / durationMs, 0, 1);
+  }
+
+  function getRuntimeAnimationPresetState(widget, playheadMs) {
+    const motionConfig = resolveRuntimeAnimationPresetConfig(widget);
+    if (!motionConfig) return null;
     const baseOpacity = Number(widget && widget.style ? widget.style.opacity ?? 1 : 1);
-    const anchorMs = config.preset === 'fade-out'
-      ? Math.max(startMs, endMs - durationMs)
-      : startMs + config.delayMs;
+    const baseTransform = 'rotate(' + Number(widget && widget.frame ? widget.frame.rotation || 0 : 0) + 'deg)';
+    const durationMs = Math.max(120, Number(motionConfig.config.durationMs || 700));
+    const delayMs = Math.max(0, Number(motionConfig.config.delayMs || 0));
+    const distancePx = Math.max(0, Number(motionConfig.config.distancePx || 24));
+    const intensity = clamp(Number(motionConfig.config.intensity || 0.55), 0.1, 1);
+    const elapsedMs = resolveRuntimeMotionElapsedMs(widget, motionConfig, playheadMs);
+    const loopProgress = normalizeLoopProgress(Math.max(0, elapsedMs - delayMs), durationMs);
+    const oneShotProgress = normalizeOneShotProgress(elapsedMs, delayMs, durationMs);
 
-    function resolveProgress(nowMs) {
-      const elapsedFromAnchor = nowMs - anchorMs;
-      if (config.repeatMode === 'repeat') {
-        const normalized = ((elapsedFromAnchor % durationMs) + durationMs) % durationMs;
-        return Math.max(0, Math.min(1, normalized / durationMs));
+    switch (motionConfig.preset) {
+      case 'appear':
+      case 'fade-in':
+        return {
+          opacity: baseOpacity * applyTimelineEasing(oneShotProgress, 'ease-out'),
+          transform: baseTransform,
+        };
+      case 'fade-up': {
+        const eased = applyTimelineEasing(oneShotProgress, 'ease-out');
+        return {
+          opacity: baseOpacity * eased,
+          transform: baseTransform + ' translateY(' + ((distancePx * (1 - eased)).toFixed(2)) + 'px)',
+        };
       }
-      return Math.max(0, Math.min(1, elapsedFromAnchor / durationMs));
-    }
-
-    if (config.repeatMode === 'once' && elapsedMs < anchorMs) {
-      if (config.preset === 'appear') return { opacity: 0, y: Number(frame.y || 0) };
-      if (config.preset === 'fade-up') return { opacity: 0, y: Number(frame.y || 0) + config.distancePx };
-      return { opacity: baseOpacity, y: Number(frame.y || 0) };
-    }
-
-    const progress = resolveProgress(elapsedMs);
-    if (config.preset === 'appear') {
-      return {
-        opacity: baseOpacity * applyTimelineEasing(progress, 'ease-out'),
-        y: Number(frame.y || 0),
-      };
-    }
-
-    if (config.preset === 'fade-up') {
-      const eased = applyTimelineEasing(progress, 'ease-out');
-      return {
-        opacity: baseOpacity * eased,
-        y: Number(frame.y || 0) + config.distancePx * (1 - eased),
-      };
-    }
-
-    if (config.preset === 'fade-out') {
-      if (config.repeatMode === 'once' && elapsedMs < anchorMs) {
-        return { opacity: baseOpacity, y: Number(frame.y || 0) };
+      case 'fade-out': {
+        const exitProgress = clamp(elapsedMs / durationMs, 0, 1);
+        return {
+          opacity: baseOpacity * (1 - applyTimelineEasing(exitProgress, 'ease-in')),
+          transform: baseTransform,
+        };
       }
-      return {
-        opacity: baseOpacity * (1 - applyTimelineEasing(progress, 'ease-in')),
-        y: Number(frame.y || 0),
-      };
+      case 'pulse': {
+        const pulseOpacity = clamp(baseOpacity - intensity * 0.45, 0.15, baseOpacity);
+        const pulseMix = loopProgress <= 0.5
+          ? applyTimelineEasing(loopProgress / 0.5, 'ease-in-out')
+          : applyTimelineEasing((1 - loopProgress) / 0.5, 'ease-in-out');
+        return {
+          opacity: pulseOpacity + (baseOpacity - pulseOpacity) * pulseMix,
+          transform: baseTransform,
+        };
+      }
+      case 'float': {
+        const wave = Math.sin(loopProgress * 2 * Math.PI);
+        return {
+          opacity: baseOpacity,
+          transform: baseTransform + ' translateY(' + ((wave * distancePx).toFixed(2)) + 'px)',
+        };
+      }
+      case 'slide-in-left': {
+        const eased = applyTimelineEasing(oneShotProgress, 'ease-out');
+        return { opacity: baseOpacity, transform: baseTransform + ' translateX(' + ((-distancePx * (1 - eased)).toFixed(2)) + 'px)' };
+      }
+      case 'slide-in-right': {
+        const eased = applyTimelineEasing(oneShotProgress, 'ease-out');
+        return { opacity: baseOpacity, transform: baseTransform + ' translateX(' + ((distancePx * (1 - eased)).toFixed(2)) + 'px)' };
+      }
+      case 'slide-in-up': {
+        const eased = applyTimelineEasing(oneShotProgress, 'ease-out');
+        return { opacity: baseOpacity, transform: baseTransform + ' translateY(' + ((distancePx * (1 - eased)).toFixed(2)) + 'px)' };
+      }
+      case 'slide-in-down': {
+        const eased = applyTimelineEasing(oneShotProgress, 'ease-out');
+        return { opacity: baseOpacity, transform: baseTransform + ' translateY(' + ((-distancePx * (1 - eased)).toFixed(2)) + 'px)' };
+      }
+      default:
+        return null;
     }
-
-    const pulseOpacity = Math.max(0.15, Math.min(baseOpacity, baseOpacity - config.intensity * 0.45));
-    const pulseMix = progress <= 0.5
-      ? applyTimelineEasing(progress / 0.5, 'ease-in-out')
-      : applyTimelineEasing((1 - progress) / 0.5, 'ease-in-out');
-    return {
-      opacity: pulseOpacity + (baseOpacity - pulseOpacity) * pulseMix,
-      y: Number(frame.y || 0),
-    };
   }
 
   function syncTimelineAnimatedWidgets(sceneRuntime, elapsedMs) {
@@ -233,10 +288,11 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
         node.setAttribute('data-smx-base-opacity', style.opacity || '1');
       }
       style.left = String(hasKeyframes ? getWidgetTrackValue(widget, 'x', elapsedMs, Number(frame.x || 0)) : Number(frame.x || 0)) + 'px';
-      style.top = String(templateState ? templateState.y : hasKeyframes ? getWidgetTrackValue(widget, 'y', elapsedMs, Number(frame.y || 0)) : Number(frame.y || 0)) + 'px';
+      style.top = String(hasKeyframes ? getWidgetTrackValue(widget, 'y', elapsedMs, Number(frame.y || 0)) : Number(frame.y || 0)) + 'px';
       style.width = String(hasKeyframes ? getWidgetTrackValue(widget, 'width', elapsedMs, Number(frame.width || 0)) : Number(frame.width || 0)) + 'px';
       style.height = String(hasKeyframes ? getWidgetTrackValue(widget, 'height', elapsedMs, Number(frame.height || 0)) : Number(frame.height || 0)) + 'px';
       style.opacity = String(templateState ? templateState.opacity : hasKeyframes ? getWidgetTrackValue(widget, 'opacity', elapsedMs, Number(node.getAttribute('data-smx-base-opacity') || 1)) : Number(node.getAttribute('data-smx-base-opacity') || widget.style?.opacity || 1));
+      if (templateState) style.transform = templateState.transform;
     });
   }
 
@@ -254,7 +310,7 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
       if (!widget) return false;
       const hasKeyframes = Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length);
       const config = resolveRuntimeAnimationPresetConfig(widget);
-      return hasKeyframes || Boolean(config.preset);
+      return hasKeyframes || Boolean(config && config.preset);
     })) return;
     const startedAt = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
     const durationMs = Math.max(0, Number(sceneRuntime.durationMs || 0));
@@ -404,8 +460,8 @@ export const EXPORT_RUNTIME_WEATHER_SECTION = `
     }
   }
 
-  document.querySelectorAll('.widget-weather-conditions[data-widget-id]').forEach((root) => {
-    void initWeatherWidget(root);
+  document.querySelectorAll('.widget-weather-conditions[data-widget-id]').forEach((node) => {
+    initWeatherWidget(node);
   });
 `;
 
@@ -530,106 +586,92 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
         ? [{ opacity: 0 }, { opacity: 1 }]
         : preset === 'fade-up'
           ? [{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'translateY(0px)' }]
-          : [{ opacity: 0.35, transform: 'scale(0.92)' }, { opacity: 1, transform: 'scale(1)' }];
-    node.animate(keyframes, { duration, delay, easing: 'ease-out', fill: 'backwards' });
+          : preset === 'zoom-in'
+            ? [{ opacity: 0, transform: 'scale(0.92)' }, { opacity: 1, transform: 'scale(1)' }]
+            : [{ opacity: 0 }, { opacity: 1 }];
+    node.animate(keyframes, {
+      duration,
+      delay,
+      easing: 'ease-out',
+      fill: 'both',
+      iterations: 1,
+    });
   }
 
   function initScratchReveal(root) {
-    const canvas = root?.querySelector('[data-scratch-canvas]');
-    if (!canvas) return;
-    const revealMedia = root.querySelector('[data-scratch-reveal-media]');
+    const shell = root.querySelector('[data-scratch-shell]');
     const maskTarget = root.querySelector('[data-scratch-mask-target]');
-    const accent = root.getAttribute('data-scratch-accent') || '#f97316';
-    const coverImage = root.getAttribute('data-scratch-cover-image') || '';
-    const coverBlur = Number(root.getAttribute('data-scratch-cover-blur') || 0);
-    const scratchRadius = Math.max(8, Number(root.getAttribute('data-scratch-radius') || 22));
-    const autoRevealThreshold = Math.max(0, Math.min(100, Number(root.getAttribute('data-scratch-auto-reveal-threshold') || 10)));
-    const revealAnimationPreset = root.getAttribute('data-scratch-reveal-animation') || 'none';
-    const revealAnimationDuration = Number(root.getAttribute('data-scratch-reveal-animation-duration') || 700);
-    const revealAnimationDelay = Number(root.getAttribute('data-scratch-reveal-animation-delay') || 0);
-    const state = { pointerActive: false, completed: false, progressCanvas: null };
+    const canvas = root.querySelector('[data-scratch-canvas]');
+    if (!shell || !maskTarget || !canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const width = Math.max(1, shell.clientWidth || shell.offsetWidth || canvas.width);
+    const height = Math.max(1, shell.clientHeight || shell.offsetHeight || canvas.height);
+    canvas.width = width;
+    canvas.height = height;
+    initializeScratchMask(canvas);
+    applyScratchMask(maskTarget, canvas);
 
-    function syncCanvasSize() {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.max(1, Math.round(rect.width));
-      canvas.height = Math.max(1, Math.round(rect.height));
-      state.progressCanvas = createScratchProgressCanvas(canvas.width, canvas.height);
-      state.completed = false;
-      revealMedia?.getAnimations?.().forEach((animation) => animation.cancel());
-      if (maskTarget) {
-        maskTarget.style.opacity = '1';
-        initializeScratchMask(canvas);
-        applyScratchMask(maskTarget, canvas);
-        canvas.style.opacity = '0';
-        return;
-      }
-      paintScratchCover(canvas, coverImage, coverBlur, accent, () => {
-        canvas.style.opacity = '1';
-      });
+    const progressCanvas = createScratchProgressCanvas(width, height);
+    if (progressCanvas) {
+      initializeScratchMask(progressCanvas);
     }
 
-    function scratchAtEvent(event) {
-      if (state.completed) return;
-      const rect = canvas.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width;
-      const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height;
+    const scratchRadius = Math.max(4, Number(root.getAttribute('data-scratch-radius') || 18));
+    const completeThreshold = Math.max(0, Math.min(100, Number(root.getAttribute('data-scratch-threshold') || 100)));
+    const coverImage = root.getAttribute('data-cover-image') || '';
+    const coverBlur = Number(root.getAttribute('data-cover-blur') || 0);
+    const accent = root.getAttribute('data-scratch-accent') || '#ffffff';
+    const revealMotionPreset = root.getAttribute('data-reveal-motion-preset') || 'none';
+    const revealMotionDurationMs = Number(root.getAttribute('data-reveal-motion-duration') || 700);
+    const revealMotionDelayMs = Number(root.getAttribute('data-reveal-motion-delay') || 0);
+    const revealContent = root.querySelector('[data-scratch-reveal-content]');
+    const completeTarget = root.getAttribute('data-scratch-complete-target') || '';
+
+    paintScratchCover(canvas, coverImage, coverBlur, accent, () => {
+      applyScratchMask(maskTarget, canvas);
+    });
+
+    let completed = false;
+    let pointerActive = false;
+
+    function completeScratch() {
+      if (completed) return;
+      completed = true;
+      shell.classList.add('is-scratch-complete');
+      maskTarget.style.webkitMaskImage = 'none';
+      maskTarget.style.maskImage = 'none';
+      if (revealContent) playScratchRevealRevealAnimation(revealContent, revealMotionPreset, revealMotionDurationMs, revealMotionDelayMs);
+      if (completeTarget && window.smxRuntime && typeof window.smxRuntime.showScene === 'function') {
+        // hook left intentionally simple; actions runtime owns more complex routing
+      }
+    }
+
+    function scratchAt(clientX, clientY) {
+      const rect = shell.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
       eraseScratch(canvas, x, y, scratchRadius);
-      if (maskTarget) applyScratchMask(maskTarget, canvas);
-      if (!state.progressCanvas || autoRevealThreshold <= 0) return;
-      const clearedPercent = eraseScratchProgress(state.progressCanvas, x, y, scratchRadius, canvas.width, canvas.height);
-      if (clearedPercent < autoRevealThreshold) return;
-      state.completed = true;
-      if (maskTarget) {
-        maskTarget.style.opacity = '0';
-        maskTarget.style.webkitMaskImage = 'none';
-        maskTarget.style.maskImage = 'none';
-      }
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      playScratchRevealRevealAnimation(revealMedia, revealAnimationPreset, revealAnimationDuration, revealAnimationDelay);
-      if (typeof triggerRuntimeGesture === 'function') {
-        triggerRuntimeGesture(root.getAttribute('data-scratch-widget-id') || '', 'scratch-complete');
-      }
+      applyScratchMask(maskTarget, canvas);
+      const progress = progressCanvas ? eraseScratchProgress(progressCanvas, x, y, scratchRadius, width, height) : 100;
+      if (progress >= completeThreshold) completeScratch();
     }
 
-    canvas.style.opacity = '0';
-    syncCanvasSize();
-
-    if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver(() => syncCanvasSize());
-      observer.observe(canvas);
-    } else {
-      window.addEventListener('resize', syncCanvasSize);
-    }
-
-    canvas.addEventListener('pointerdown', (event) => {
-      if (!event.isPrimary) return;
-      event.preventDefault();
-      state.pointerActive = true;
-      canvas.setPointerCapture?.(event.pointerId);
-      scratchAtEvent(event);
+    shell.addEventListener('pointerdown', (event) => {
+      pointerActive = true;
+      scratchAt(event.clientX, event.clientY);
     });
-    canvas.addEventListener('pointermove', (event) => {
-      event.preventDefault();
-      if (!state.pointerActive) return;
-      scratchAtEvent(event);
+    shell.addEventListener('pointermove', (event) => {
+      if (!pointerActive) return;
+      scratchAt(event.clientX, event.clientY);
     });
-    canvas.addEventListener('pointerup', (event) => {
-      state.pointerActive = false;
-      canvas.releasePointerCapture?.(event.pointerId);
-    });
-    canvas.addEventListener('pointercancel', (event) => {
-      state.pointerActive = false;
-      canvas.releasePointerCapture?.(event.pointerId);
-    });
-    canvas.addEventListener('lostpointercapture', () => {
-      state.pointerActive = false;
+    window.addEventListener('pointerup', () => {
+      pointerActive = false;
     });
   }
 
-  document.querySelectorAll('.scratch-reveal-shell[data-scratch-widget-id]').forEach((node) => {
-    initScratchReveal(node);
+  document.querySelectorAll('[data-scratch-shell]').forEach((node) => {
+    initScratchReveal(node.closest('[data-widget-id]') || node.parentElement || node);
   });
 `;
 

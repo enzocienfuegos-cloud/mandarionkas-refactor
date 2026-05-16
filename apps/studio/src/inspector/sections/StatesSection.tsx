@@ -2,11 +2,16 @@ import { ColorControl } from '../../shared/ui/ColorControl';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import type { WidgetNode } from '../../domain/document/types';
 import { Tile } from '../../shared/ui/Tile';
-import { getHoverMotionConfig } from './animation-presets';
+import { MotionConfigFields } from '../../motion/react/MotionConfigFields';
+import { MotionTemplateGallery } from '../../motion/react/MotionTemplateGallery';
+import { buildLegacyHoverMotionStylePatch, buildWidgetHoverMotion } from '../../motion/motion-model';
+import { buildHoverMotionPreset, getAvailableHoverTemplates, getHoverMotionConfig } from './animation-presets';
 
 export function StatesSection({ widget }: { widget: WidgetNode }): JSX.Element {
-  const { updateWidgetStyle } = useWidgetActions();
+  const { updateWidgetHoverMotion, updateWidgetStyle } = useWidgetActions();
   const hoverMotion = getHoverMotionConfig(widget);
+  const hoverTemplates = getAvailableHoverTemplates(widget);
+  const activeHoverTemplate = widget.hoverMotion?.templateId ? hoverTemplates.find((template) => template.id === widget.hoverMotion?.templateId) : undefined;
 
   return (
     <section className="section section-premium">
@@ -18,29 +23,28 @@ export function StatesSection({ widget }: { widget: WidgetNode }): JSX.Element {
             {hoverMotion.preset !== 'none' ? <span className="pill">Active {hoverMotion.preset}</span> : <span className="pill">Static</span>}
           </div>
           <small className="muted">Use this for quick hover movement without building a timeline. Great for CTA, text and image emphasis in preview and publish.</small>
-          <div className="fields-grid">
-            <div>
-              <label>Preset</label>
-              <select value={hoverMotion.preset} onChange={(event) => updateWidgetStyle(widget.id, { hoverMotionPreset: event.target.value })}>
-                <option value="none">None</option>
-                <option value="lift">Lift</option>
-                <option value="zoom">Zoom</option>
-                <option value="pulse">Pulse</option>
-              </select>
-            </div>
-            <div>
-              <label>Duration ms</label>
-              <input type="number" min={120} step={20} value={hoverMotion.durationMs} onChange={(event) => updateWidgetStyle(widget.id, { hoverMotionDurationMs: Number(event.target.value) })} />
-            </div>
-            <div>
-              <label>Lift px</label>
-              <input type="number" min={0} step={2} value={hoverMotion.distancePx} onChange={(event) => updateWidgetStyle(widget.id, { hoverMotionDistancePx: Number(event.target.value) })} />
-            </div>
-            <div>
-              <label>Scale</label>
-              <input type="number" min={1} max={1.4} step={0.01} value={hoverMotion.scale} onChange={(event) => updateWidgetStyle(widget.id, { hoverMotionScale: Number(event.target.value) })} />
-            </div>
-          </div>
+          <MotionTemplateGallery
+            templates={hoverTemplates}
+            selectedTemplateId={hoverMotion.preset !== 'none' ? hoverMotion.preset : null}
+            configByTemplateId={widget.hoverMotion?.templateId ? { [widget.hoverMotion.templateId]: widget.hoverMotion.config } : undefined}
+            onSelect={(templateId) => {
+              const { hoverMotion: nextHoverMotion, stylePatch } = buildHoverMotionPreset(widget, (templateId ?? 'none') as 'none' | 'lift' | 'zoom' | 'pulse');
+              updateWidgetHoverMotion(widget.id, nextHoverMotion);
+              updateWidgetStyle(widget.id, stylePatch);
+            }}
+            emptyLabel="No hover motion"
+          />
+          {activeHoverTemplate && widget.hoverMotion ? (
+            <MotionConfigFields
+              template={activeHoverTemplate}
+              config={widget.hoverMotion.config}
+              onChange={(patch) => {
+                const nextHoverMotion = buildWidgetHoverMotion(activeHoverTemplate.id, { ...widget.hoverMotion?.config, ...patch });
+                updateWidgetHoverMotion(widget.id, nextHoverMotion);
+                updateWidgetStyle(widget.id, buildLegacyHoverMotionStylePatch(nextHoverMotion));
+              }}
+            />
+          ) : null}
         </Tile>
       </div>
       <div className="fields-grid">
