@@ -69,4 +69,18 @@ describe('timeline action runtime helpers', () => {
     const result = getWidgetActions(state, 'w1', 'hover-enter');
     expect(result.map((action) => action.id)).toEqual(['hover-1']);
   });
+
+  it('supports scratch-complete as a widget trigger', () => {
+    const state = makeState([
+      makeAction({ id: 'scratch-1', widgetId: 'w1', trigger: 'scratch-complete', type: 'show-widget', targetWidgetId: 'w2' }),
+      makeAction({ id: 'scratch-2', widgetId: 'w1', trigger: 'click', type: 'show-widget', targetWidgetId: 'w3' }),
+    ], {
+      w1: { timeline: { startMs: 0, endMs: 3000 } },
+      w2: { timeline: { startMs: 0, endMs: 3000 } },
+      w3: { timeline: { startMs: 0, endMs: 3000 } },
+    });
+
+    const result = getWidgetActions(state, 'w1', 'scratch-complete');
+    expect(result.map((action) => action.id)).toEqual(['scratch-1']);
+  });
 });

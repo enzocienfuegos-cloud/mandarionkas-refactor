@@ -263,6 +263,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     const clearedPercent = eraseScratchProgress(progressCanvas, x, y, scratchRadius, canvas.width, canvas.height);
     if (clearedPercent < autoRevealThresholdPercent) return;
     setScratchCompleted(true);
+    ctx.triggerWidgetAction('scratch-complete', { clearedPercent, thresholdPercent: autoRevealThresholdPercent });
   };
 
   return (

@@ -6,6 +6,7 @@ export type ExportRuntimeGesture =
   | 'drag'
   | 'slider'
   | 'scratch'
+  | 'scratch-complete'
   | 'hover'
   | 'timeline-enter'
   | 'scene-enter';
@@ -20,6 +21,8 @@ export type ExportRuntimeInteraction = {
   targetSceneId?: string;
   url?: string;
   label?: string;
+  text?: string;
+  eventName?: string;
 };
 
 export type ExportRuntimeWidget = {
@@ -80,6 +83,7 @@ function inferWidgetGestures(widget: PortableExportWidget): ExportRuntimeGesture
   widget.interactions.forEach((interaction) => {
     if (interaction.trigger === 'click') gestures.add('tap');
     if (interaction.trigger === 'hover') gestures.add('hover');
+    if (interaction.trigger === 'scratch-complete') gestures.add('scratch-complete');
     if (interaction.trigger === 'timeline-enter') gestures.add('timeline-enter');
   });
 
@@ -143,6 +147,8 @@ function buildRuntimeInteractions(scene: PortableExportScene): ExportRuntimeInte
       gesture:
         interaction.trigger === 'hover'
           ? 'hover'
+          : interaction.trigger === 'scratch-complete'
+            ? 'scratch-complete'
           : interaction.trigger === 'timeline-enter'
             ? 'timeline-enter'
             : 'tap',
@@ -151,6 +157,8 @@ function buildRuntimeInteractions(scene: PortableExportScene): ExportRuntimeInte
       targetSceneId: interaction.targetSceneId,
       url: interaction.url,
       label: interaction.label,
+      text: interaction.text,
+      eventName: interaction.eventName,
     })),
   );
 }

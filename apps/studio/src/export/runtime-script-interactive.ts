@@ -1,4 +1,66 @@
 export const EXPORT_RUNTIME_INTERACTIVE_SECTION = `
+  function getRuntimeInteractionsByGesture(widgetId, gesture) {
+    if (!runtime || !Array.isArray(runtime.interactions)) return [];
+    return runtime.interactions.filter((interaction) => interaction && interaction.widgetId === widgetId && interaction.gesture === gesture);
+  }
+
+  function getRuntimeWidgetNode(widgetId) {
+    return document.querySelector('[data-widget-id="' + widgetId + '"]');
+  }
+
+  function applyRuntimeWidgetVisibility(widgetId, hidden) {
+    const target = getRuntimeWidgetNode(widgetId);
+    if (!target) return;
+    target.style.display = hidden ? 'none' : '';
+    target.setAttribute('data-smx-hidden', hidden ? 'true' : 'false');
+  }
+
+  function executeRuntimeInteraction(interaction) {
+    if (!interaction || !interaction.actionType) return;
+    if (interaction.actionType === 'show-widget' && interaction.targetWidgetId) {
+      applyRuntimeWidgetVisibility(interaction.targetWidgetId, false);
+      return;
+    }
+    if (interaction.actionType === 'hide-widget' && interaction.targetWidgetId) {
+      applyRuntimeWidgetVisibility(interaction.targetWidgetId, true);
+      return;
+    }
+    if (interaction.actionType === 'toggle-widget' && interaction.targetWidgetId) {
+      const target = getRuntimeWidgetNode(interaction.targetWidgetId);
+      const hidden = target?.getAttribute('data-smx-hidden') === 'true' || target?.style.display === 'none';
+      applyRuntimeWidgetVisibility(interaction.targetWidgetId, !hidden);
+      return;
+    }
+    if (interaction.actionType === 'set-text' && interaction.targetWidgetId) {
+      const target = getRuntimeWidgetNode(interaction.targetWidgetId);
+      if (target) target.textContent = interaction.text || interaction.label || '';
+      return;
+    }
+    if (interaction.actionType === 'go-to-scene') {
+      const sceneIndex = interaction.targetSceneId ? findSceneIndexById(interaction.targetSceneId) : -1;
+      if (sceneIndex >= 0) showScene(sceneIndex);
+      else nextScene();
+      return;
+    }
+    if (interaction.actionType === 'open-url') {
+      performExit(interaction.url || '');
+      return;
+    }
+    if (interaction.actionType === 'emit-analytics-event') {
+      window.dispatchEvent(new CustomEvent('smx:analytics-event', {
+        detail: {
+          widgetId: interaction.widgetId,
+          eventName: interaction.eventName || interaction.label || '',
+          interactionId: interaction.id,
+        },
+      }));
+    }
+  }
+
+  function triggerRuntimeGesture(widgetId, gesture) {
+    getRuntimeInteractionsByGesture(widgetId, gesture).forEach((interaction) => executeRuntimeInteraction(interaction));
+  }
+
   function updateCarousel(widgetId, nextIndex) {
     const root = document.querySelector('[data-widget-id="' + widgetId + '"].widget-image-carousel');
     if (!root) return;
@@ -337,4 +399,3 @@ export const EXPORT_RUNTIME_INTERACTIVE_SECTION = `
     });
   });
 `;
-

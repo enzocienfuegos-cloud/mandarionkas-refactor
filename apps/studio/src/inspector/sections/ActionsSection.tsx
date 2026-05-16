@@ -10,6 +10,7 @@ const ACTION_TRIGGERS: ActionNode['trigger'][] = [
   'hover',
   'hover-enter',
   'hover-exit',
+  'scratch-complete',
   'timeline-enter',
   'timeline-exit',
   'video-play',
@@ -38,7 +39,7 @@ export function ActionsSection({ widget, actions }: { widget: WidgetNode; action
       <h3>Actions</h3>
       <div className="field-stack">
         <Button size="sm" onClick={() => addWidgetAction(widget.id)}>Add action</Button>
-        {!actions.length ? <small className="muted">No actions yet. Add click, hover or timeline-enter behavior here.</small> : null}
+        {!actions.length ? <small className="muted">No actions yet. Add click, hover, scratch-complete or timeline-enter behavior here.</small> : null}
         {actions.map((action) => (
           <Tile key={action.id}>
             <div className="fields-grid">

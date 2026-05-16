@@ -503,6 +503,9 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       if (!ctx) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       playScratchRevealRevealAnimation(revealMedia, revealAnimationPreset, revealAnimationDuration, revealAnimationDelay);
+      if (typeof triggerRuntimeGesture === 'function') {
+        triggerRuntimeGesture(root.getAttribute('data-scratch-widget-id') || '', 'scratch-complete');
+      }
     }
 
     canvas.style.opacity = '0';

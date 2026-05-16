@@ -50,6 +50,7 @@ export type ActionTrigger =
   | 'hover'
   | 'hover-enter'
   | 'hover-exit'
+  | 'scratch-complete'
   | 'load'
   | 'timeline-enter'
   | 'timeline-exit'
