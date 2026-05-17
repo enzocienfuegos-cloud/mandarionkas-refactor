@@ -437,6 +437,36 @@
   border-color: var(--border-strong);
   color: var(--text-primary);
 }
+.inspector-range-field {
+  display: grid;
+  gap: var(--space-2);
+}
+.inspector-range-field__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.inspector-range-field__value {
+  padding: 2px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--bg-overlay-low);
+  color: var(--text-primary);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.inspector-range-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.inspector-range-field__ticks {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xs);
+}
 .motion-panel-card {
   display: grid;
   gap: var(--space-3);

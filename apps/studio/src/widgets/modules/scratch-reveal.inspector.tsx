@@ -9,6 +9,7 @@ import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events'
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { Button } from '../../shared/ui/Button';
+import { InspectorRangeField } from '../../shared/ui/InspectorRangeField';
 import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 function resolveLinkedImageAsset(assets: AssetRecord[], assetId: string, imageUrl: string, targetChannel: ReleaseTarget): AssetRecord | undefined {
@@ -127,25 +128,35 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
           onChoose={() => requestOpenAssetLibrary({ target: 'scratch-reveal' })}
           onClear={() => widgetActions.updateWidgetProps(widget.id, { afterAssetId: '', afterImage: '' })}
         />
-        <div>
-          <label>Cover blur</label>
-          <input type="number" step="1" value={String(widget.props.coverBlur ?? 0)} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { coverBlur: Number(event.target.value) })} />
-        </div>
-        <div>
-          <label>Scratch radius</label>
-          <input type="number" step="1" value={String(widget.props.scratchRadius ?? 22)} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { scratchRadius: Number(event.target.value) })} />
-        </div>
-        <div>
-          <label>Auto reveal %</label>
-          <input
-            type="number"
-            step="1"
-            min="0"
-            max="100"
-            value={String(widget.props.autoRevealThresholdPercent ?? 10)}
-            onChange={(event) => widgetActions.updateWidgetProps(widget.id, { autoRevealThresholdPercent: Number(event.target.value) })}
-          />
-        </div>
+        <InspectorRangeField
+          label="Cover blur"
+          min={0}
+          max={20}
+          step={1}
+          unit="px"
+          value={Number(widget.props.coverBlur ?? 0)}
+          onChange={(coverBlur) => widgetActions.updateWidgetProps(widget.id, { coverBlur })}
+        />
+        <InspectorRangeField
+          label="Scratch radius"
+          min={8}
+          max={80}
+          step={1}
+          unit="px"
+          value={Number(widget.props.scratchRadius ?? 22)}
+          onChange={(scratchRadius) => widgetActions.updateWidgetProps(widget.id, { scratchRadius })}
+          helpText="Larger radius makes each swipe clear more cover."
+        />
+        <InspectorRangeField
+          label="Auto reveal"
+          min={0}
+          max={100}
+          step={1}
+          unit="%"
+          value={Number(widget.props.autoRevealThresholdPercent ?? 10)}
+          onChange={(autoRevealThresholdPercent) => widgetActions.updateWidgetProps(widget.id, { autoRevealThresholdPercent })}
+          helpText="Set 0% to disable automatic completion."
+        />
         <div>
           <label>Reveal animation</label>
           <select
@@ -158,28 +169,24 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
             <option value="zoom-in">Zoom in</option>
           </select>
         </div>
-        <div>
-          <label>Reveal animation ms</label>
-          <input
-            type="number"
-            step="50"
-            min="150"
-            max="3000"
-            value={String(widget.props.revealAnimationDurationMs ?? 700)}
-            onChange={(event) => widgetActions.updateWidgetProps(widget.id, { revealAnimationDurationMs: Number(event.target.value) })}
-          />
-        </div>
-        <div>
-          <label>Reveal delay ms</label>
-          <input
-            type="number"
-            step="50"
-            min="0"
-            max="3000"
-            value={String(widget.props.revealAnimationDelayMs ?? 0)}
-            onChange={(event) => widgetActions.updateWidgetProps(widget.id, { revealAnimationDelayMs: Number(event.target.value) })}
-          />
-        </div>
+        <InspectorRangeField
+          label="Reveal animation"
+          min={150}
+          max={3000}
+          step={50}
+          unit="ms"
+          value={Number(widget.props.revealAnimationDurationMs ?? 700)}
+          onChange={(revealAnimationDurationMs) => widgetActions.updateWidgetProps(widget.id, { revealAnimationDurationMs })}
+        />
+        <InspectorRangeField
+          label="Reveal delay"
+          min={0}
+          max={3000}
+          step={50}
+          unit="ms"
+          value={Number(widget.props.revealAnimationDelayMs ?? 0)}
+          onChange={(revealAnimationDelayMs) => widgetActions.updateWidgetProps(widget.id, { revealAnimationDelayMs })}
+        />
       </div>
     </section>
   );

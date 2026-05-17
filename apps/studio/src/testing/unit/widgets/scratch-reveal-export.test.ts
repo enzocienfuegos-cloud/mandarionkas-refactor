@@ -34,6 +34,7 @@ describe('scratch reveal export', () => {
     const html = renderScratchRevealExport(createScratchRevealWidget());
 
     expect(html).toContain('class="scratch-reveal-shell"');
+    expect(html).toContain('data-scratch-shell');
     expect(html).toContain('data-scratch-cover-blur="0"');
     expect(html).toContain('data-scratch-auto-reveal-threshold="10"');
     expect(html).toContain('style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;');

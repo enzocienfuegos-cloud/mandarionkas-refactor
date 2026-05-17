@@ -117,6 +117,7 @@ export function renderGroupExport(
   return `<div class="widget widget-group widget-group-scratch" data-widget-id="${node.id}" style="${base}">
     <div
       class="scratch-reveal-shell"
+      data-scratch-shell
       data-scratch-widget-id="${node.id}"
       data-scratch-radius="${scratchRadius}"
       data-scratch-auto-reveal-threshold="${autoRevealThresholdPercent}"

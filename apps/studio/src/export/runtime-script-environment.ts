@@ -536,12 +536,15 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
   }
 
   function initScratchReveal(root) {
-    const shell = root.querySelector('[data-scratch-shell]');
+    const shell = root.matches && root.matches('[data-scratch-shell]')
+      ? root
+      : root.querySelector('[data-scratch-shell]') || root.querySelector('.scratch-reveal-shell');
     const maskTarget = root.querySelector('[data-scratch-mask-target]');
     const canvas = root.querySelector('[data-scratch-canvas]');
-    if (!shell || !maskTarget || !canvas) return;
+    if (!shell || !canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const configNode = shell;
     const width = Math.max(1, shell.clientWidth || shell.offsetWidth || canvas.width);
     const height = Math.max(1, shell.clientHeight || shell.offsetHeight || canvas.height);
     canvas.width = width;
@@ -554,15 +557,16 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       initializeScratchMask(progressCanvas);
     }
 
-    const scratchRadius = Math.max(4, Number(root.getAttribute('data-scratch-radius') || 18));
-    const completeThreshold = Math.max(0, Math.min(100, Number(root.getAttribute('data-scratch-threshold') || 100)));
-    const coverImage = root.getAttribute('data-cover-image') || '';
-    const coverBlur = Number(root.getAttribute('data-cover-blur') || 0);
-    const accent = root.getAttribute('data-scratch-accent') || '#ffffff';
-    const revealMotionPreset = root.getAttribute('data-reveal-motion-preset') || 'none';
-    const revealMotionDurationMs = Number(root.getAttribute('data-reveal-motion-duration') || 700);
-    const revealMotionDelayMs = Number(root.getAttribute('data-reveal-motion-delay') || 0);
-    const revealContent = root.querySelector('[data-scratch-reveal-content]');
+    const scratchRadius = Math.max(4, Number(configNode.getAttribute('data-scratch-radius') || root.getAttribute('data-scratch-radius') || 18));
+    const thresholdValue = configNode.getAttribute('data-scratch-auto-reveal-threshold') || configNode.getAttribute('data-scratch-threshold') || root.getAttribute('data-scratch-auto-reveal-threshold') || root.getAttribute('data-scratch-threshold') || 100;
+    const completeThreshold = Math.max(0, Math.min(100, Number(thresholdValue)));
+    const coverImage = configNode.getAttribute('data-scratch-cover-image') || configNode.getAttribute('data-cover-image') || root.getAttribute('data-scratch-cover-image') || root.getAttribute('data-cover-image') || '';
+    const coverBlur = Number(configNode.getAttribute('data-scratch-cover-blur') || configNode.getAttribute('data-cover-blur') || root.getAttribute('data-scratch-cover-blur') || root.getAttribute('data-cover-blur') || 0);
+    const accent = configNode.getAttribute('data-scratch-accent') || root.getAttribute('data-scratch-accent') || '#ffffff';
+    const revealMotionPreset = configNode.getAttribute('data-scratch-reveal-animation') || configNode.getAttribute('data-reveal-motion-preset') || root.getAttribute('data-scratch-reveal-animation') || root.getAttribute('data-reveal-motion-preset') || 'none';
+    const revealMotionDurationMs = Number(configNode.getAttribute('data-scratch-reveal-animation-duration') || configNode.getAttribute('data-reveal-motion-duration') || root.getAttribute('data-scratch-reveal-animation-duration') || root.getAttribute('data-reveal-motion-duration') || 700);
+    const revealMotionDelayMs = Number(configNode.getAttribute('data-scratch-reveal-animation-delay') || configNode.getAttribute('data-reveal-motion-delay') || root.getAttribute('data-scratch-reveal-animation-delay') || root.getAttribute('data-reveal-motion-delay') || 0);
+    const revealContent = root.querySelector('[data-scratch-reveal-content]') || root.querySelector('[data-scratch-reveal-media]');
     const completeTarget = root.getAttribute('data-scratch-complete-target') || '';
 
     paintScratchCover(canvas, coverImage, coverBlur, accent, () => {
@@ -578,8 +582,13 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       completed = true;
       shell.classList.add('is-scratch-complete');
       window.__smxScratchCompletionMsByWidgetId[root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || ''] = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() - startedAt : 0;
-      maskTarget.style.webkitMaskImage = 'none';
-      maskTarget.style.maskImage = 'none';
+      if (maskTarget) {
+        maskTarget.style.webkitMaskImage = 'none';
+        maskTarget.style.maskImage = 'none';
+      } else {
+        const coverCtx = canvas.getContext('2d');
+        if (coverCtx) coverCtx.clearRect(0, 0, canvas.width, canvas.height);
+      }
       if (revealContent) playScratchRevealRevealAnimation(revealContent, revealMotionPreset, revealMotionDurationMs, revealMotionDelayMs);
       if (completeTarget && window.smxRuntime && typeof window.smxRuntime.showScene === 'function') {
         // hook left intentionally simple; actions runtime owns more complex routing
