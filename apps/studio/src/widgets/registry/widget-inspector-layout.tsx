@@ -3,7 +3,6 @@ import { PositionSection } from '../../inspector/sections/PositionSection';
 import { TextSection } from '../../inspector/sections/TextSection';
 import { ModuleConfigSection } from '../../inspector/sections/ModuleConfigSection';
 import { FillSection } from '../../inspector/sections/FillSection';
-import { TimingSection } from '../../inspector/sections/TimingSection';
 import { MotionSection } from '../../inspector/sections/MotionSection';
 import { StatesSection } from '../../inspector/sections/StatesSection';
 import { DataBindingsSection } from '../../inspector/sections/DataBindingsSection';
@@ -66,7 +65,9 @@ export function getWidgetInspectorTabs(definition: WidgetDefinition, widget?: Wi
       panels: injectMotionPanel(
         tab,
         widget,
-        tab.panels.filter((panelKey) => isPanelVisible(definition, panelKey, widget, state)),
+        tab.panels
+          .filter((panelKey) => panelKey !== 'timing')
+          .filter((panelKey) => isPanelVisible(definition, panelKey, widget, state)),
       ),
     }))
     .filter((tab) => tab.panels.length > 0);
@@ -105,7 +106,7 @@ export function getWidgetInspectorPanelMeta(key: WidgetInspectorPanelKey): Widge
     case 'module-config':
       return { title: 'Module config', subtitle: 'Dynamic props and module-level options' };
     case 'fill':
-      return { title: 'Fill / colors', subtitle: 'Background, accent and media fill controls' };
+      return { title: 'Fill / colors', subtitle: 'Background color and linked media controls' };
     case 'timing':
       return { title: 'Timing', subtitle: 'Visibility windows and timeline defaults' };
     case 'conditions':
@@ -115,7 +116,7 @@ export function getWidgetInspectorPanelMeta(key: WidgetInspectorPanelKey): Widge
     case 'motion':
       return { title: 'Motion', subtitle: 'Template-driven entrance, loop and hover animation' };
     case 'states':
-      return { title: 'States', subtitle: 'State variants and interaction-driven presentation' };
+      return { title: 'States', subtitle: 'Hover and active styling in one place' };
     case 'keyframes':
       return { title: 'Keyframes', subtitle: 'Timeline animation points for this widget' };
     case 'data-bindings':
@@ -149,8 +150,6 @@ export function renderWidgetInspectorPanel(key: WidgetInspectorPanelKey, context
       return <ModuleConfigSection widget={widget} />;
     case 'fill':
       return <FillSection widget={widget} />;
-    case 'timing':
-      return <TimingSection widget={widget} />;
     case 'conditions':
       return <ConditionsSection widget={widget} />;
     case 'actions':

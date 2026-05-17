@@ -28,24 +28,20 @@ export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element |
   const hoverConfig = getHoverMotionConfig(widget);
   const entranceTemplates = getAvailableAnimationTemplates(widget);
   const hoverTemplates = getAvailableHoverTemplates(widget);
-  const activeEntranceTemplate = animationConfig.preset
-    ? entranceTemplates.find((template) => template.id === animationConfig.preset)
-    : undefined;
-  const activeHoverTemplate = hoverConfig.preset !== 'none'
-    ? hoverTemplates.find((template) => template.id === hoverConfig.preset)
-    : undefined;
 
   return (
     <section className="section section-premium">
       <h3>Motion</h3>
-      <div className="field-stack">
+      <div className="field-stack motion-section-stack">
         {supportsEntranceMotion ? (
-          <Tile>
-            <div className="meta-line">
-              <span className="pill">Entrance / loop</span>
-              {animationConfig.preset ? <span className="pill">Active {animationConfig.preset}</span> : <span className="pill">No template</span>}
+          <Tile className="motion-panel-card">
+            <div className="motion-panel-card__header">
+              <div>
+                <strong>Entrance / loop</strong>
+                <small className="muted">Choose one template for this element.</small>
+              </div>
+              <span className="pill">{animationConfig.preset ? `Active ${animationConfig.preset}` : 'Static'}</span>
             </div>
-            <small className="muted">Choose one motion template per widget. This slot is exclusive: one element, one entrance or loop animation.</small>
             <MotionTemplateGallery
               templates={entranceTemplates}
               selectedTemplateId={animationConfig.preset || null}
@@ -62,35 +58,32 @@ export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element |
                 updateWidgetMotion(widget.id, motion);
                 updateWidgetStyle(widget.id, stylePatch);
               }}
-              emptyLabel="No motion template"
-            />
-            {activeEntranceTemplate && widget.motion ? (
-              <div className="motion-config-fields-wrap">
-                <div className="meta-line">
-                  <span className="pill pill-strong">Configure {activeEntranceTemplate.label}</span>
-                </div>
+              emptyLabel="No motion"
+              renderSelectedContent={(template) => widget.motion ? (
                 <MotionConfigFields
-                  template={activeEntranceTemplate}
+                  template={template}
                   config={widget.motion.config}
                   onChange={(patch) => {
-                    const nextMotion = buildWidgetMotion(activeEntranceTemplate.id, { ...widget.motion?.config, ...patch });
+                    const nextMotion = buildWidgetMotion(template.id, { ...widget.motion?.config, ...patch });
                     setWidgetKeyframes(widget.id, rebuildWidgetMotionKeyframes(widget, nextMotion, widget.timeline.keyframes ?? []));
                     updateWidgetMotion(widget.id, nextMotion);
                     updateWidgetStyle(widget.id, buildLegacyMotionStylePatch(nextMotion));
                   }}
                 />
-              </div>
-            ) : null}
+              ) : null}
+            />
           </Tile>
         ) : null}
 
         {supportsHoverMotion ? (
-          <Tile>
-            <div className="meta-line">
-              <span className="pill">Hover motion</span>
-              {hoverConfig.preset !== 'none' ? <span className="pill">Active {hoverConfig.preset}</span> : <span className="pill">Static</span>}
+          <Tile className="motion-panel-card">
+            <div className="motion-panel-card__header">
+              <div>
+                <strong>Hover</strong>
+                <small className="muted">Lightweight hover motion without timeline setup.</small>
+              </div>
+              <span className="pill">{hoverConfig.preset !== 'none' ? `Active ${hoverConfig.preset}` : 'Static'}</span>
             </div>
-            <small className="muted">Use hover motion for lightweight emphasis without building timeline tracks.</small>
             <MotionTemplateGallery
               templates={hoverTemplates}
               selectedTemplateId={hoverConfig.preset !== 'none' ? hoverConfig.preset : null}
@@ -100,24 +93,19 @@ export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element |
                 updateWidgetHoverMotion(widget.id, nextHoverMotion);
                 updateWidgetStyle(widget.id, stylePatch);
               }}
-              emptyLabel="No hover motion"
-            />
-            {activeHoverTemplate && widget.hoverMotion ? (
-              <div className="motion-config-fields-wrap">
-                <div className="meta-line">
-                  <span className="pill pill-strong">Configure {activeHoverTemplate.label}</span>
-                </div>
+              emptyLabel="No hover"
+              renderSelectedContent={(template) => widget.hoverMotion ? (
                 <MotionConfigFields
-                  template={activeHoverTemplate}
+                  template={template}
                   config={widget.hoverMotion.config}
                   onChange={(patch) => {
-                    const nextHoverMotion = buildWidgetHoverMotion(activeHoverTemplate.id, { ...widget.hoverMotion?.config, ...patch });
+                    const nextHoverMotion = buildWidgetHoverMotion(template.id, { ...widget.hoverMotion?.config, ...patch });
                     updateWidgetHoverMotion(widget.id, nextHoverMotion);
                     updateWidgetStyle(widget.id, buildLegacyHoverMotionStylePatch(nextHoverMotion));
                   }}
                 />
-              </div>
-            ) : null}
+              ) : null}
+            />
           </Tile>
         ) : null}
       </div>

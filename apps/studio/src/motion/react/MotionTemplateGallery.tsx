@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, type ReactNode } from 'react';
 import type { MotionConfig, MotionTemplate } from '../motion-template-contract';
 import { useMotionPreview } from './use-motion-preview';
 
@@ -8,6 +8,7 @@ type MotionTemplateGalleryProps = {
   configByTemplateId?: Partial<Record<string, MotionConfig>>;
   onSelect: (templateId: string | null) => void;
   emptyLabel?: string;
+  renderSelectedContent?: (template: MotionTemplate) => ReactNode;
 };
 
 function MotionGalleryTile({
@@ -15,11 +16,13 @@ function MotionGalleryTile({
   selected,
   config,
   onClick,
+  children,
 }: {
   template: MotionTemplate;
   selected: boolean;
   config: MotionConfig;
   onClick: () => void;
+  children?: ReactNode;
 }): JSX.Element {
   const ref = useRef<HTMLButtonElement | null>(null);
   useMotionPreview({
@@ -31,18 +34,22 @@ function MotionGalleryTile({
   });
 
   return (
-    <button
-      type="button"
-      ref={ref}
-      className={`motion-gallery-tile ${selected ? 'is-selected' : ''}`}
-      onClick={onClick}
-      title={template.description ?? template.label}
-    >
-      <div className="motion-gallery-tile__preview">{template.thumbnail(config)}</div>
-      <div className="motion-gallery-tile__meta">
-        <strong>{template.label}</strong>
-      </div>
-    </button>
+    <div className={`motion-gallery-tile ${selected ? 'is-selected' : ''}`}>
+      <button
+        type="button"
+        ref={ref}
+        className="motion-gallery-tile__button"
+        onClick={onClick}
+        title={template.description ?? template.label}
+      >
+        <div className="motion-gallery-tile__preview">{template.thumbnail(config)}</div>
+        <div className="motion-gallery-tile__meta">
+          <strong>{template.label}</strong>
+          {template.description ? <small>{template.description}</small> : null}
+        </div>
+      </button>
+      {selected && children ? <div className="motion-gallery-tile__config">{children}</div> : null}
+    </div>
   );
 }
 
@@ -52,6 +59,7 @@ export function MotionTemplateGallery({
   configByTemplateId,
   onSelect,
   emptyLabel = 'Custom / none',
+  renderSelectedContent,
 }: MotionTemplateGalleryProps): JSX.Element {
   const sortedTemplates = useMemo(() => templates.slice().sort((left, right) => left.label.localeCompare(right.label)), [templates]);
   return (
@@ -67,7 +75,9 @@ export function MotionTemplateGallery({
             selected={template.id === selectedTemplateId}
             config={configByTemplateId?.[template.id] ?? template.defaults}
             onClick={() => onSelect(template.id)}
-          />
+          >
+            {template.id === selectedTemplateId ? renderSelectedContent?.(template) : null}
+          </MotionGalleryTile>
         ))}
       </div>
     </div>

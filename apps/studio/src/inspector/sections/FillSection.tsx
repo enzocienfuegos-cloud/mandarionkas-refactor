@@ -73,9 +73,9 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
     return eligibleAssets.find((asset) => assetHasSourceUrl(asset, currentSrc, targetChannel))?.id ?? '';
   }, [eligibleAssets, targetChannel, widget.props.assetId, widget.props.src]);
   const resetTarget = isSharedLayerClone ? inheritedSharedBaseWidget : baseWidget;
-  const hasFillSectionOverride = hasAny(localVariantStyleOverrideKeys, ['backgroundColor', 'accentColor', 'fit'])
+  const hasFillSectionOverride = hasAny(localVariantStyleOverrideKeys, ['backgroundColor', 'fit'])
     || hasAny(localVariantPropsOverrideKeys, ['src', 'assetId', 'alt', 'posterSrc'])
-    || hasAny(localSceneStyleOverrideKeys, ['backgroundColor', 'accentColor', 'fit'])
+    || hasAny(localSceneStyleOverrideKeys, ['backgroundColor', 'fit'])
     || hasAny(localScenePropsOverrideKeys, ['src', 'assetId', 'alt', 'posterSrc']);
 
   function renderInheritanceBadge(state: InheritanceBadgeState): JSX.Element | null {
@@ -89,7 +89,6 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
     if (!resetTarget) return;
     widgetActions.updateWidgetStyle(widget.id, {
       backgroundColor: resetTarget.style.backgroundColor,
-      accentColor: resetTarget.style.accentColor,
       fit: resetTarget.style.fit,
     });
     widgetActions.updateWidgetProps(widget.id, {
@@ -137,18 +136,6 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
           value={String(widget.style.backgroundColor ?? '#1f2937')}
           fallback="#1f2937"
           onChange={(value) => widgetActions.updateWidgetStyle(widget.id, { backgroundColor: value })}
-        />
-        <ColorControl
-          label="Accent"
-          labelAccessory={renderInheritanceBadge(badgeStateFromInheritance({
-            sceneLocal: localSceneStyleOverrideKeys.has('accentColor'),
-            variantLocal: localVariantStyleOverrideKeys.has('accentColor'),
-            sharedClone: isSharedLayerClone,
-            isMasterVariant,
-          })) ?? undefined}
-          value={String(widget.style.accentColor ?? '#f59e0b')}
-          fallback="#f59e0b"
-          onChange={(value) => widgetActions.updateWidgetStyle(widget.id, { accentColor: value })}
         />
       </div>
       {supportsAssetSwap ? (

@@ -24,6 +24,31 @@ const colorControlClearButtonStyle: CSSProperties = {
   padding: '0 8px',
 };
 
+const colorControlInputRowStyle: CSSProperties = {
+  display: 'grid',
+  gap: 8,
+};
+
+const colorControlMetaStyle: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 6,
+};
+
+const colorControlMetaPillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+  minHeight: 26,
+  padding: '0 8px',
+  borderRadius: 999,
+  border: '1px solid var(--border-soft)',
+  background: 'var(--bg-overlay-low)',
+  color: 'var(--text-secondary)',
+  fontSize: 'var(--font-size-2xs)',
+  lineHeight: 1,
+};
+
 function normalizeHex(value: string): string | null {
   const trimmed = value.trim();
   const short = /^#([0-9a-f]{3})$/i.exec(trimmed);
@@ -61,6 +86,10 @@ function toRgbLabel(value: string, fallback: string): string {
   return triplet ? `rgb(${triplet[0]}, ${triplet[1]}, ${triplet[2]})` : 'rgb(255, 255, 255)';
 }
 
+function toHexLabel(value: string, fallback: string): string {
+  return toHex(value, fallback);
+}
+
 export function ColorControl({
   label,
   value,
@@ -86,6 +115,7 @@ export function ColorControl({
 }): JSX.Element {
   const swatchValue = toHex(value, fallback);
   const rgbValue = toRgbLabel(value, fallback);
+  const hexValue = toHexLabel(value, fallback);
   const stackStyle = compact ? colorControlCompactStackStyle : colorControlStackStyle;
 
   return (
@@ -119,19 +149,32 @@ export function ColorControl({
             </Tooltip>
           ) : null}
         </div>
-        <div style={colorControlStackStyle}>
+        <div style={colorControlInputRowStyle}>
           <input
             value={value}
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder ?? '#ffffff, rgb(255, 255, 255), transparent, or empty'}
           />
-          <input
-            className="color-rgb-readout"
-            value={rgbValue}
-            readOnly
-            aria-label="Selectable RGB value"
-            onFocus={(event) => event.currentTarget.select()}
-          />
+          <div style={colorControlMetaStyle}>
+            <button
+              type="button"
+              className="color-rgb-readout"
+              style={colorControlMetaPillStyle}
+              onClick={() => onChange(hexValue)}
+              aria-label={`Apply ${hexValue}`}
+            >
+              HEX {hexValue}
+            </button>
+            <button
+              type="button"
+              className="color-rgb-readout"
+              style={colorControlMetaPillStyle}
+              onClick={() => onChange(rgbValue)}
+              aria-label={`Apply ${rgbValue}`}
+            >
+              RGB {rgbValue}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -96,7 +96,7 @@ function buildTemplatePreview(template: MotionTemplate, config: MotionConfig, ba
     options: {
       duration: previewDurationMs,
       easing: 'linear',
-      iterations: template.category === 'loop' ? Number.POSITIVE_INFINITY : 1,
+      iterations: Number.POSITIVE_INFINITY,
       fill: 'both',
     },
   };
