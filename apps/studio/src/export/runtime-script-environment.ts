@@ -608,6 +608,7 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     const revealMotionDelayMs = Number(configNode.getAttribute('data-scratch-reveal-animation-delay') || configNode.getAttribute('data-reveal-motion-delay') || root.getAttribute('data-scratch-reveal-animation-delay') || root.getAttribute('data-reveal-motion-delay') || 0);
     const revealContent = root.querySelector('[data-scratch-reveal-content]') || root.querySelector('[data-scratch-reveal-media]');
     const completeTarget = root.getAttribute('data-scratch-complete-target') || '';
+    const activationDelayMs = Math.max(0, Number(configNode.getAttribute('data-scratch-activation-delay') || root.getAttribute('data-scratch-activation-delay') || 0));
 
     paintScratchCover(canvas, coverImage, coverBlur, accent, () => {
       applyScratchMask(maskTarget, canvas);
@@ -615,6 +616,16 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
 
     let completed = false;
     let pointerActive = false;
+    let scratchReady = activationDelayMs <= 0;
+    if (!scratchReady) {
+      shell.setAttribute('data-scratch-ready', 'false');
+      window.setTimeout(function() {
+        scratchReady = true;
+        shell.setAttribute('data-scratch-ready', 'true');
+      }, activationDelayMs);
+    } else {
+      shell.setAttribute('data-scratch-ready', 'true');
+    }
     window.__smxScratchCompletionMsByWidgetId = window.__smxScratchCompletionMsByWidgetId || {};
 
     function completeScratch() {
@@ -638,6 +649,7 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     var startedAt = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
 
     function scratchAt(clientX, clientY) {
+      if (!scratchReady) return;
       const rect = shell.getBoundingClientRect();
       const x = clientX - rect.left;
       const y = clientY - rect.top;
@@ -648,6 +660,7 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     }
 
     shell.addEventListener('pointerdown', (event) => {
+      if (!scratchReady) return;
       pointerActive = true;
       scratchAt(event.clientX, event.clientY);
     });

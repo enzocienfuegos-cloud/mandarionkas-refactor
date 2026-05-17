@@ -3,6 +3,7 @@ import type { SceneNode, WidgetNode } from '../../domain/document/types';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { InspectorRangeField } from '../../shared/ui/InspectorRangeField';
+import { getScratchActivationMode } from './group-scratch-activation';
 import { getScratchRevealTargetId, getScratchRevealTargetMode, isRevealTargetCandidate } from './group-reveal-target';
 
 export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element {
@@ -12,6 +13,7 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
   const widgetsById = useStudioStore((state) => state.document.widgets);
   const revealTargetMode = getScratchRevealTargetMode(widget);
   const revealTargetId = getScratchRevealTargetId(widget);
+  const scratchActivationMode = getScratchActivationMode(widget);
   const sceneOptions = useMemo(
     () => [...scenes].sort((left, right) => left.order - right.order),
     [scenes],
@@ -150,16 +152,29 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
               helpText="Set 0% to disable automatic completion."
             />
             <InspectorRangeField
-              label="Extra activation delay"
+              label="Activation delay"
               min={0}
               max={5000}
               step={50}
               unit="ms"
               value={Number(widget.props.scratchActivationDelayMs ?? 0)}
               onChange={(scratchActivationDelayMs) => widgetActions.updateWidgetProps(widget.id, { scratchActivationDelayMs })}
+              helpText={scratchActivationMode === 'after-motion'
+                ? 'Starts after child/group animations settle, plus this delay.'
+                : 'Exact time after the group timeline starts before the scratch cover becomes interactive.'}
             />
+            <div>
+              <label>Activation timing</label>
+              <select
+                value={scratchActivationMode}
+                onChange={(event) => widgetActions.updateWidgetProps(widget.id, { scratchActivationMode: event.target.value })}
+              >
+                <option value="delay">Use exact delay</option>
+                <option value="after-motion">After child motion + delay</option>
+              </select>
+            </div>
             <small className="muted">
-              The grouped child layers become the scratchable cover. Scratch waits for the group and its child motions to settle, then adds this extra delay before the cover becomes scratchable. Reveal target can stay automatic or point explicitly to a layer, group, or scene.
+              The grouped child layers become the scratchable cover. Reveal target can stay automatic or point explicitly to a layer, group, or scene.
             </small>
           </>
         ) : null}

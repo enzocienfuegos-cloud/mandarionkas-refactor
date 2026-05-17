@@ -1,5 +1,12 @@
 import type { WidgetNode } from '../../domain/document/types';
 
+export type ScratchActivationMode = 'delay' | 'after-motion';
+
+export function getScratchActivationMode(group: WidgetNode): ScratchActivationMode {
+  const rawMode = String(group.props.scratchActivationMode ?? 'delay').trim();
+  return rawMode === 'after-motion' ? 'after-motion' : 'delay';
+}
+
 function getMotionWindowMs(widget: WidgetNode): number {
   if (!widget.motion?.templateId) return 0;
   const durationMs = Math.max(0, Number(widget.motion.config.durationMs ?? 700));
@@ -11,7 +18,9 @@ export function getScratchActivationDelayMs(
   group: WidgetNode,
   widgetsById: Record<string, WidgetNode>,
 ): number {
-  const extraDelayMs = Math.max(0, Number(group.props.scratchActivationDelayMs ?? 0));
+  const customDelayMs = Math.max(0, Number(group.props.scratchActivationDelayMs ?? 0));
+  if (getScratchActivationMode(group) === 'delay') return customDelayMs;
+
   const visited = new Set<string>();
   let maxMotionWindowMs = 0;
 
@@ -23,7 +32,7 @@ export function getScratchActivationDelayMs(
   }
 
   visit(group);
-  return maxMotionWindowMs + extraDelayMs;
+  return maxMotionWindowMs + customDelayMs;
 }
 
 export function isScratchGroupActive(args: {
