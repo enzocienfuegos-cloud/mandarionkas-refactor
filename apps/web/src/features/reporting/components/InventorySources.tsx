@@ -48,32 +48,51 @@ export function InventorySources({
       {scopedRows.length ? (
         <div className="space-y-3">
           {sortedRows.slice(0, 8).map((row) => {
-            const deliveryParts = [
-              row.inventoryType ?? '',
-              `${row.impressions.toLocaleString()} impressions`,
-              typeof row.clicks === 'number' ? `${row.clicks.toLocaleString()} clicks` : '',
-              row.detail ?? '',
-            ].filter(Boolean);
+            const metricRows = kind === 'App'
+              ? [
+                { label: 'Inventory', value: row.inventoryType || 'App' },
+                { label: 'Impressions', value: row.impressions.toLocaleString() },
+                { label: 'Clicks', value: typeof row.clicks === 'number' ? row.clicks.toLocaleString() : '0' },
+                { label: 'Store / platform', value: row.storePlatform || 'Not passed' },
+                { label: 'Bundle', value: row.appBundle || row.detail || 'Not passed' },
+                { label: 'App ID', value: row.appId || 'Not passed' },
+              ]
+              : [
+                { label: 'Impressions', value: row.impressions.toLocaleString() },
+                { label: 'Clicks', value: typeof row.clicks === 'number' ? row.clicks.toLocaleString() : '0' },
+              ];
 
             return (
-              <div key={`${row.kind}:${row.name}`} className="grid gap-3 rounded-2xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(9rem,13rem)_auto] md:items-center">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="min-w-0 truncate font-semibold text-[color:var(--dusk-text-primary)]">{row.name}</p>
-                    <Badge tone={row.kind === 'App' ? 'info' : 'neutral'} size="sm">{row.kind}</Badge>
+              <div
+                key={`${row.kind}:${row.name}:${row.appBundle ?? row.detail ?? ''}:${row.appId ?? ''}`}
+                className="rounded-2xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-3"
+              >
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="text-sm font-semibold leading-snug text-[color:var(--dusk-text-primary)] [overflow-wrap:anywhere]"
+                      title={row.name}
+                    >
+                      {row.name}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {row.inventoryType ? <Badge tone="neutral" size="sm">{row.inventoryType}</Badge> : null}
+                      <Badge tone={row.kind === 'App' ? 'info' : 'neutral'} size="sm">{row.kind}</Badge>
+                    </div>
                   </div>
-                  <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">
-                    {deliveryParts.join(' · ')}
-                  </p>
+                  <div className="shrink-0 text-right">
+                    <p className="font-bold text-[color:var(--dusk-text-primary)]">{row.metric}</p>
+                    <p className="text-xs text-[color:var(--dusk-text-soft)]">{row.metricLabel ?? 'Metric'} · {row.share} share</p>
+                  </div>
                 </div>
-                <div className="min-w-0 md:text-right">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--dusk-text-muted)]">Store / platform</p>
-                  <p className="truncate text-sm font-semibold text-[color:var(--dusk-text-primary)]">{row.storePlatform || '—'}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-bold text-[color:var(--dusk-text-primary)]">{row.metric}</p>
-                  <p className="text-xs text-[color:var(--dusk-text-soft)]">{row.metricLabel ?? 'Metric'} · {row.share} share</p>
-                </div>
+                <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {metricRows.map((item) => (
+                    <div key={item.label} className="min-w-0 rounded-xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-card)] px-2.5 py-2">
+                      <dt className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--dusk-text-muted)]">{item.label}</dt>
+                      <dd className="mt-1 text-xs font-semibold leading-snug text-[color:var(--dusk-text-secondary)] [overflow-wrap:anywhere]" title={item.value}>{item.value}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
             );
           })}

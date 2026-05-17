@@ -756,6 +756,60 @@ function buildTrackerHealth(rows: TrackerBreakdownRow[]): TrackerHealthRow[] {
   });
 }
 
+function cleanInventoryText(value: unknown): string {
+  return String(value ?? '').trim();
+}
+
+function isLowSignalAppName(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return true;
+  if (normalized.length <= 2) return true;
+  if (/^[a-z]\.?$/i.test(normalized)) return true;
+  return ['app', 'ctv', 'n/a', 'na', 'none', 'null', 'unknown', 'unknown app'].includes(normalized);
+}
+
+function humanizeKnownAppName(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (
+    normalized === 'com.univision.prendetv'
+    || normalized === 'vix.com'
+    || normalized === '1531467766'
+    || normalized === '552828'
+    || normalized === 'g20329015921'
+    || normalized === 'b08kj77pqy'
+    || normalized === '1167028'
+  ) {
+    return 'ViX';
+  }
+  return null;
+}
+
+function resolveAppDisplayName(row: AppBreakdownRow): string {
+  const appName = cleanInventoryText(row.app_name);
+  const appBundle = cleanInventoryText(row.app_bundle);
+  const appId = cleanInventoryText(row.app_id);
+  const knownName = humanizeKnownAppName(appName) || humanizeKnownAppName(appBundle) || humanizeKnownAppName(appId);
+  if (knownName) return knownName;
+  if (!isLowSignalAppName(appName)) return appName;
+  return appBundle || appId || 'Unknown app';
+}
+
+function humanizeStorePlatform(value: unknown): string {
+  const normalized = cleanInventoryText(value);
+  if (!normalized) return '';
+  return normalized
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace(/\bTv\b/g, 'TV')
+    .replace(/\bCtv\b/g, 'CTV')
+    .replace(/\bLg\b/g, 'LG')
+    .replace(/\bIos\b/g, 'iOS');
+}
+
 function buildInventorySourceRows({
   sites,
   apps,
@@ -767,7 +821,9 @@ function buildInventorySourceRows({
 }): InventorySourceRow[] {
   const appRows = apps.map<InventorySourceRow>((row) => {
     const inventoryLabel = row.inventory_type === 'ctv_app' ? 'CTV app' : 'Mobile app';
-    const storePlatform = String(row.app_store_name ?? '').trim();
+    const storePlatform = humanizeStorePlatform(row.app_store_name);
+    const appBundle = cleanInventoryText(row.app_bundle);
+    const appId = cleanInventoryText(row.app_id);
     const detail = [row.app_bundle, row.app_id]
       .map((value) => String(value ?? '').trim())
       .filter(Boolean)
@@ -775,8 +831,10 @@ function buildInventorySourceRows({
       .join(' · ');
     return {
       kind: 'App',
-      name: row.app_name || row.app_bundle || row.app_id || 'Unknown app',
+      name: resolveAppDisplayName(row),
       detail: detail || undefined,
+      appBundle: appBundle || undefined,
+      appId: appId || undefined,
       storePlatform: storePlatform || undefined,
       inventoryType: inventoryLabel,
       impressions: toNumber(row.impressions),
