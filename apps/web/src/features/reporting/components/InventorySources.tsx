@@ -49,13 +49,14 @@ export function InventorySources({
         <div className="space-y-3">
           {sortedRows.slice(0, 8).map((row) => {
             const deliveryParts = [
+              row.inventoryType ?? '',
               `${row.impressions.toLocaleString()} impressions`,
               typeof row.clicks === 'number' ? `${row.clicks.toLocaleString()} clicks` : '',
               row.detail ?? '',
             ].filter(Boolean);
 
             return (
-              <div key={`${row.kind}:${row.name}`} className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-3">
+              <div key={`${row.kind}:${row.name}`} className="grid gap-3 rounded-2xl border border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] px-3 py-3 md:grid-cols-[minmax(0,1fr)_minmax(9rem,13rem)_auto] md:items-center">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="min-w-0 truncate font-semibold text-[color:var(--dusk-text-primary)]">{row.name}</p>
@@ -64,6 +65,10 @@ export function InventorySources({
                   <p className="mt-1 text-xs text-[color:var(--dusk-text-soft)]">
                     {deliveryParts.join(' · ')}
                   </p>
+                </div>
+                <div className="min-w-0 md:text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--dusk-text-muted)]">Store / platform</p>
+                  <p className="truncate text-sm font-semibold text-[color:var(--dusk-text-primary)]">{row.storePlatform || '—'}</p>
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="font-bold text-[color:var(--dusk-text-primary)]">{row.metric}</p>

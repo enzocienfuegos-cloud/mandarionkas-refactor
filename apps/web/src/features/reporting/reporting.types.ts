@@ -162,6 +162,8 @@ export type InventorySourceRow = RegionRow & {
   kind: 'Domain' | 'App';
   clicks?: number;
   detail?: string;
+  storePlatform?: string;
+  inventoryType?: string;
 };
 
 export type DeviceBreakdownRow = RegionRow & {

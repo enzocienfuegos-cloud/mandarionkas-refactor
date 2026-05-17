@@ -33,6 +33,8 @@ type RawExportRow = {
   identity?: number;
   total?: number;
   detail?: string;
+  store_platform?: string;
+  inventory_type?: string;
 };
 
 const RAW_EXPORT_COLUMNS: Array<keyof RawExportRow> = [
@@ -67,6 +69,8 @@ const RAW_EXPORT_COLUMNS: Array<keyof RawExportRow> = [
   'identity',
   'total',
   'detail',
+  'store_platform',
+  'inventory_type',
 ];
 
 function csvCell(value: unknown) {
@@ -188,6 +192,8 @@ export function buildReportingCsv({
     ctr: toPercentNumber(row.metric),
     share: row.share,
     detail: row.detail ?? '',
+    store_platform: row.storePlatform ?? '',
+    inventory_type: row.inventoryType ?? '',
   }));
 
   data.topCreatives.forEach((row) => push({

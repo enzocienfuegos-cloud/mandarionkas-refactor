@@ -767,7 +767,8 @@ function buildInventorySourceRows({
 }): InventorySourceRow[] {
   const appRows = apps.map<InventorySourceRow>((row) => {
     const inventoryLabel = row.inventory_type === 'ctv_app' ? 'CTV app' : 'Mobile app';
-    const detail = [inventoryLabel, row.app_store_name, row.app_bundle, row.app_id]
+    const storePlatform = String(row.app_store_name ?? '').trim();
+    const detail = [row.app_bundle, row.app_id]
       .map((value) => String(value ?? '').trim())
       .filter(Boolean)
       .filter((value, index, values) => values.indexOf(value) === index)
@@ -776,6 +777,8 @@ function buildInventorySourceRows({
       kind: 'App',
       name: row.app_name || row.app_bundle || row.app_id || 'Unknown app',
       detail: detail || undefined,
+      storePlatform: storePlatform || undefined,
+      inventoryType: inventoryLabel,
       impressions: toNumber(row.impressions),
       clicks: toNumber(row.clicks),
       metric: toNumber(row.clicks) > 0 ? formatPercent(toNumber(row.ctr)) : formatPercent(toNumber(row.viewability_rate)),
