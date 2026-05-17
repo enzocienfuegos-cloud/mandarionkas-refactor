@@ -34,9 +34,10 @@ export function buildClientPreviewSceneHtml(state: StudioState, sceneIndex: numb
   const sceneState = buildClientPreviewSceneState(state, sceneIndex);
   const adapter = buildGenericHtml5Adapter(sceneState);
   const runtimeScript = compileRuntime(adapter.portableProject, adapter);
+  const safeRuntimeScript = runtimeScript.replace(/<\/script>/gi, '<\\/script>');
   return buildChannelHtml(sceneState, adapter).replace(
     '<script src="./runtime.js"></script>',
-    `<script>${runtimeScript}</script>`,
+    `<script>${safeRuntimeScript}</script>`,
   );
 }
 

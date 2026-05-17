@@ -128,11 +128,13 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
   }
 
   function findCompositorMotionNode(widgetId) {
-    return document.querySelector('[data-scratch-cover-motion-id="' + widgetId + '"]') || document.querySelector('[data-widget-layer-id="' + widgetId + '"]') || document.querySelector('[data-widget-id="' + widgetId + '"]');
+    var activeScene = scenes && scenes[activeSceneIndex] ? scenes[activeSceneIndex] : document;
+    return activeScene.querySelector('[data-scratch-cover-motion-id="' + widgetId + '"]') || activeScene.querySelector('[data-widget-layer-id="' + widgetId + '"]') || activeScene.querySelector('[data-widget-id="' + widgetId + '"]');
   }
 
   function findCompositorLayerNode(widgetId) {
-    return document.querySelector('[data-widget-layer-id="' + widgetId + '"]') || document.querySelector('[data-widget-id="' + widgetId + '"]');
+    var activeScene = scenes && scenes[activeSceneIndex] ? scenes[activeSceneIndex] : document;
+    return activeScene.querySelector('[data-widget-layer-id="' + widgetId + '"]') || activeScene.querySelector('[data-widget-id="' + widgetId + '"]');
   }
 
   function findRuntimeWidgetById(widgetId) {
@@ -252,10 +254,10 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
     sceneRuntime.widgets.forEach(function(widget) {
       if (!widget || !isCompositorWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, widget)) return;
       playCompositorMotion(widget, findCompositorMotionNode(widget.id));
-      if (widget.type !== 'group' || !widget.compositorMotion) return;
+      if (widget.type !== 'group' || !widget.childIds || !widget.childIds.length) return;
       getCompositorRuntimeDescendantWidgets(sceneRuntime, widget.id).forEach(function(descendant) {
-        if (!descendant || descendant.compositorMotion || !isCompositorWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, descendant)) return;
-        playCompositorMotion(widget, findCompositorLayerNode(descendant.id));
+        if (!descendant || !descendant.compositorMotion) return;
+        playCompositorMotion(descendant, findCompositorLayerNode(descendant.id));
       });
     });
   }
@@ -273,7 +275,7 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
     });
   }
 
-  initCompositorMotion();
+  window.smxInitCompositorMotion = initCompositorMotion;
 `;
 
 export const EXPORT_RUNTIME_TIMELINE_SECTION = `
