@@ -109,6 +109,30 @@ describe('group scratch export', () => {
     expect(html).toContain('data-scratch-canvas');
   });
 
+  it('wraps scratch cover children so grouped animations survive export runtime', () => {
+    const state = createState();
+    state.document.widgets.text_1.motion = {
+      templateId: 'float',
+      config: { durationMs: 1800 },
+    } as any;
+    state.document.widgets.text_1.timeline = {
+      startMs: 0,
+      endMs: 1000,
+      keyframes: [
+        { id: 'kf_1', property: 'x', atMs: 0, value: 12, easing: 'linear' },
+        { id: 'kf_2', property: 'x', atMs: 1000, value: 80, easing: 'ease-out' },
+      ],
+    } as any;
+    const html = renderGroupExport(state.document.widgets.group_1, state);
+
+    expect(html).toContain('data-scratch-cover-widget-id="text_1"');
+    expect(html).toContain('data-scratch-cover-motion-id="text_1"');
+    expect(html).toContain('data-scratch-origin-x="0"');
+    expect(html).toContain('data-scratch-origin-y="0"');
+    expect(html).toContain('left:12px');
+    expect(html).toContain('position:absolute;left:0px;top:0px');
+  });
+
   it('expands the scratch group export frame when children extend outside the original group bounds', () => {
     const state = createState();
     state.document.widgets.group_1.frame = { x: 40, y: 60, width: 120, height: 80, rotation: 0 };

@@ -128,7 +128,7 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
   }
 
   function findCompositorMotionNode(widgetId) {
-    return document.querySelector('[data-widget-layer-id="' + widgetId + '"]') || document.querySelector('[data-widget-id="' + widgetId + '"]');
+    return document.querySelector('[data-scratch-cover-motion-id="' + widgetId + '"]') || document.querySelector('[data-widget-layer-id="' + widgetId + '"]') || document.querySelector('[data-widget-id="' + widgetId + '"]');
   }
 
   function initCompositorMotion() {
@@ -259,16 +259,18 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
       if (!widget) return;
       const hasKeyframes = Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length);
       if (!hasKeyframes) return;
-      const node = document.querySelector('[data-widget-id="' + widget.id + '"]');
+      const node = document.querySelector('[data-scratch-cover-widget-id="' + widget.id + '"]') || document.querySelector('[data-widget-id="' + widget.id + '"]');
       if (!node) return;
       const effectiveElapsedMs = getEffectiveWidgetElapsedMs(sceneRuntime, widget, elapsedMs);
       const frame = widget.frame || {};
       const style = node.style;
+      const originX = Number(node.getAttribute('data-scratch-origin-x') || 0);
+      const originY = Number(node.getAttribute('data-scratch-origin-y') || 0);
       if (!node.getAttribute('data-smx-base-opacity')) {
         node.setAttribute('data-smx-base-opacity', style.opacity || '1');
       }
-      style.left = String(getWidgetTrackValue(widget, 'x', effectiveElapsedMs, Number(frame.x || 0))) + 'px';
-      style.top = String(getWidgetTrackValue(widget, 'y', effectiveElapsedMs, Number(frame.y || 0))) + 'px';
+      style.left = String(getWidgetTrackValue(widget, 'x', effectiveElapsedMs, Number(frame.x || 0)) - originX) + 'px';
+      style.top = String(getWidgetTrackValue(widget, 'y', effectiveElapsedMs, Number(frame.y || 0)) - originY) + 'px';
       style.width = String(getWidgetTrackValue(widget, 'width', effectiveElapsedMs, Number(frame.width || 0))) + 'px';
       style.height = String(getWidgetTrackValue(widget, 'height', effectiveElapsedMs, Number(frame.height || 0))) + 'px';
       style.opacity = String(getWidgetTrackValue(widget, 'opacity', effectiveElapsedMs, Number(node.getAttribute('data-smx-base-opacity') || widget.style?.opacity || 1)));

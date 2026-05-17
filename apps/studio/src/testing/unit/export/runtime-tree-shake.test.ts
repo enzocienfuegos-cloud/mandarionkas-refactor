@@ -147,6 +147,7 @@ describe('runtime tree shake', () => {
     expect(script).toContain('startWidgetTimelineLoop');
     expect(script).toContain('getWidgetTrackValue');
     expect(script).toContain('patchedShowScene');
+    expect(script).toContain('data-scratch-cover-widget-id');
   });
 
   it('includes hover motion runtime only when widgets opt into hover motion presets', () => {
@@ -286,6 +287,7 @@ describe('runtime tree shake', () => {
     expect(runtimeWidget?.compositorMotion?.keyframes[1]?.transform).toBe('translate3d(0, -14px, 0)');
     expect(runtimeWidget?.compositorMotion?.options.iterations).toBe('infinite');
     expect(script).toContain('initCompositorMotion');
+    expect(script).toContain('data-scratch-cover-motion-id');
     expect(script).toContain('data-widget-layer-id');
     expect(script).not.toContain('startWidgetTimelineLoop');
   });

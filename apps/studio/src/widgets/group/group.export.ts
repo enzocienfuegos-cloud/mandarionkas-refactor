@@ -12,6 +12,51 @@ function renderGroupScratchChildren(
   baseFrame: WidgetNode['frame'],
 ): string {
   const resolvedWidgets = buildResolvedWidgetsById(state.document);
+  const renderScratchCoverLeaf = (current: WidgetNode): string => {
+    const relativeFrame = {
+      ...current.frame,
+      x: current.frame.x - baseFrame.x,
+      y: current.frame.y - baseFrame.y,
+    };
+    const wrapperStyle = [
+      `position:absolute`,
+      `left:${relativeFrame.x}px`,
+      `top:${relativeFrame.y}px`,
+      `width:${relativeFrame.width}px`,
+      `height:${relativeFrame.height}px`,
+      `z-index:${current.zIndex}`,
+      `opacity:${Number(current.style.opacity ?? 1)}`,
+      `transform:rotate(${relativeFrame.rotation}deg)`,
+      `transform-origin:center`,
+      `pointer-events:none`,
+      `box-sizing:border-box`,
+    ].join(';');
+    const embeddedChild: WidgetNode = {
+      ...current,
+      frame: {
+        ...current.frame,
+        x: 0,
+        y: 0,
+        rotation: 0,
+      },
+      style: {
+        ...current.style,
+        opacity: 1,
+      },
+    };
+    const definition = getWidgetDefinition(embeddedChild.type);
+    const childHtml = definition.renderExport
+      ? definition.renderExport(embeddedChild, state, assetPathMap)
+      : renderGenericExport(embeddedChild, embeddedChild.name, embeddedChild.type);
+
+    return `<div
+      data-scratch-cover-widget-id="${escapeHtml(current.id)}"
+      data-scratch-origin-x="${baseFrame.x}"
+      data-scratch-origin-y="${baseFrame.y}"
+      style="${wrapperStyle}"
+    ><div data-scratch-cover-motion-id="${escapeHtml(current.id)}" style="position:relative;width:100%;height:100%;">${childHtml}</div></div>`;
+  };
+
   function renderNodeTree(current: WidgetNode, visited = new Set<string>()): string[] {
     if (visited.has(current.id) || current.hidden) return [];
     visited.add(current.id);
@@ -24,19 +69,7 @@ function renderGroupScratchChildren(
         .flatMap((child) => renderNodeTree(child, visited));
     }
 
-    const relativeChild: WidgetNode = {
-      ...current,
-      frame: {
-        ...current.frame,
-        x: current.frame.x - baseFrame.x,
-        y: current.frame.y - baseFrame.y,
-      },
-    };
-    const definition = getWidgetDefinition(relativeChild.type);
-    if (definition.renderExport) {
-      return [definition.renderExport(relativeChild, state, assetPathMap)];
-    }
-    return [renderGenericExport(relativeChild, relativeChild.name, relativeChild.type)];
+    return [renderScratchCoverLeaf(current)];
   }
 
   return (node.childIds ?? [])

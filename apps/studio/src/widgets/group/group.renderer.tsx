@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { isWidgetVisibleAt } from '../../domain/document/timeline';
+import { getLiveWidgetFrame, getLiveWidgetOpacity, isWidgetVisibleAt } from '../../domain/document/timeline';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
 import { renderWidgetContents } from '../../canvas/stage/render-widget';
+import { useCompositorMotion } from '../../motion/react/use-compositor-motion';
 import { isScratchGroupActive } from './group-scratch-activation';
 
 const groupBaseStyle: CSSProperties = {
@@ -166,27 +167,63 @@ function renderScratchCoverNode(
       .flatMap((child) => renderScratchCoverNode(child, rootFrame, ctx, visited));
   }
 
-  const staticFrame = node.frame;
-  const childOpacity = Number(node.style.opacity ?? 1);
   return [
     (
-      <div
+      <ScratchCoverWidget
         key={node.id}
-        style={{
-          position: 'absolute',
-          left: staticFrame.x - rootFrame.x,
-          top: staticFrame.y - rootFrame.y,
-          width: staticFrame.width,
-          height: staticFrame.height,
-          opacity: childOpacity,
-          zIndex: node.zIndex,
-          transform: `rotate(${staticFrame.rotation}deg)`,
-          transformOrigin: 'center',
-          pointerEvents: 'none',
-        }}
-      >
+        node={node}
+        rootFrame={rootFrame}
+        ctx={ctx}
+      />
+    ),
+  ];
+}
+
+function ScratchCoverWidget({
+  node,
+  rootFrame,
+  ctx,
+}: {
+  node: WidgetNode;
+  rootFrame: WidgetNode['frame'];
+  ctx: RenderContext;
+}): JSX.Element {
+  const compositorMotionRef = useRef<HTMLDivElement | null>(null);
+  useCompositorMotion({ ref: compositorMotionRef, motion: node.motion, active: ctx.previewMode });
+  const liveFrame = getLiveWidgetFrame(node, ctx.playheadMs);
+  const liveOpacity = getLiveWidgetOpacity(node, ctx.playheadMs);
+  const contentNode: WidgetNode = {
+    ...node,
+    frame: {
+      ...liveFrame,
+      x: 0,
+      y: 0,
+      rotation: 0,
+    },
+    style: {
+      ...node.style,
+      opacity: 1,
+    },
+  };
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: liveFrame.x - rootFrame.x,
+        top: liveFrame.y - rootFrame.y,
+        width: liveFrame.width,
+        height: liveFrame.height,
+        opacity: liveOpacity,
+        zIndex: node.zIndex,
+        transform: `rotate(${liveFrame.rotation}deg)`,
+        transformOrigin: 'center',
+        pointerEvents: 'none',
+      }}
+    >
+      <div ref={compositorMotionRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
         {renderWidgetContents(
-          node,
+          contentNode,
           {
             ...ctx,
             hovered: false,
@@ -194,8 +231,8 @@ function renderScratchCoverNode(
           },
         )}
       </div>
-    ),
-  ];
+    </div>
+  );
 }
 
 function GroupScratchCoverChildren({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element | null {
