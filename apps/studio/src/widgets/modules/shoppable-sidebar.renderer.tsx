@@ -202,13 +202,11 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
     ? `calc((100% - ${gap * Math.max(0, visibleCount - 1)}px) / ${visibleCount})`
     : '100%';
 
-  useEffect(() => {
-    if (!autoscroll || itemCount <= 1 || !ctx.previewMode) return;
-    const timer = window.setInterval(() => setActiveIndex((value) => (value + 1) % itemCount), intervalMs);
-    return () => window.clearInterval(timer);
-  }, [autoscroll, itemCount, intervalMs, ctx.previewMode]);
+  const effectiveActiveIndex = autoscroll && itemCount > 1 && ctx.previewMode
+    ? Math.floor(ctx.playheadMs / intervalMs) % itemCount
+    : activeIndex;
 
-  const trackStyle = buildShoppableTrackStyle(orientation, gap, activeIndex, cardSize);
+  const trackStyle = buildShoppableTrackStyle(orientation, gap, effectiveActiveIndex, cardSize);
 
   return (
     <div style={moduleShell(node, ctx)}>
