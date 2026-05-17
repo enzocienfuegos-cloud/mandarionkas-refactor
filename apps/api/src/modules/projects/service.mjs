@@ -177,6 +177,29 @@ export async function getProjectState(client, { projectId, workspaceId }) {
   return result.rows[0]?.document_state || null;
 }
 
+function buildClientPreviewToken(projectId, version) {
+  const safeProjectId = String(projectId || '').replace(/[^a-zA-Z0-9_-]+/g, '-');
+  return `review-${safeProjectId}-${version ?? 0}`;
+}
+
+export async function getProjectPreviewState(client, { projectId, token }) {
+  const result = await client.query(
+    `
+      select pd.document_state
+      from project_documents pd
+      join projects p on p.id = pd.project_id
+      where p.id = $1
+      limit 1
+    `,
+    [projectId],
+  );
+  const state = result.rows[0]?.document_state || null;
+  if (!state) return null;
+  const version = state?.document?.version ?? 0;
+  if (token !== buildClientPreviewToken(projectId, version)) return null;
+  return state;
+}
+
 export async function saveProject(client, { workspace, userId, projectId, state }) {
   const requestedId = normalizeString(projectId) || normalizeString(asObject(state.document).id) || randomUUID();
   const fields = deriveProjectFields(state, workspace);

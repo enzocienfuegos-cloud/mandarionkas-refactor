@@ -1,9 +1,11 @@
 import { badRequest, forbidden, sendJson, sendNoContent, serviceUnavailable, unauthorized } from '../../lib/http.mjs';
 import { withSession, hasPermission } from '../../lib/session.mjs';
+import { getPool } from '@smx/db/src/pool.mjs';
 import {
   deleteProject,
   duplicateProject,
   getProjectManagementSnapshot,
+  getProjectPreviewState,
   getProjectState,
   hasUserDraft,
   listProjectsForWorkspace,
@@ -40,8 +42,13 @@ async function ensureProjectManagementAllowed(session, projectId) {
   throw new Error('You do not have permission to manage this project.');
 }
 
+function getDatabasePool(env) {
+  const connectionString = env.databasePoolUrl || env.databaseUrl || '';
+  return connectionString ? getPool(connectionString) : null;
+}
+
 export async function handleProjectRoutes(ctx) {
-  const { method, pathname, res, requestId, body } = ctx;
+  const { method, pathname, res, requestId, body, env } = ctx;
 
   if (method === 'GET' && pathname === '/v1/projects') {
     return withSession(ctx, async (session) => {
@@ -80,12 +87,27 @@ export async function handleProjectRoutes(ctx) {
           payload: { name: project.name, revision: project.revision ?? undefined },
         });
         await session.client.query('commit');
-        return sendJson(res, 200, { project, requestId });
+      return sendJson(res, 200, { project, requestId });
       } catch (error) {
         await session.client.query('rollback');
         return badRequest(res, requestId, error.message);
       }
     });
+  }
+
+  if (method === 'GET' && /^\/v1\/projects\/[^/]+\/preview\/[^/]+$/.test(pathname)) {
+    const pool = getDatabasePool(env);
+    if (!pool) {
+      return serviceUnavailable(res, requestId, 'Project preview storage is not configured.');
+    }
+    const [, , , encodedProjectId, , encodedToken] = pathname.split('/');
+    const projectId = decodeURIComponent(encodedProjectId || '');
+    const token = decodeURIComponent(encodedToken || '');
+    const state = await getProjectPreviewState(pool, { projectId, token });
+    if (!state) {
+      return sendJson(res, 404, { ok: false, requestId, code: 'preview_not_found', message: 'Preview not found.' });
+    }
+    return sendJson(res, 200, { state, requestId });
   }
 
   if (method === 'GET' && /^\/v1\/projects\/[^/]+$/.test(pathname)) {

@@ -1,7 +1,9 @@
 import { normalizeStudioState } from '../../domain/document/normalize-state';
 import type { StudioState } from '../../domain/document/types';
+import { getRepositoryApiBase } from '../../repositories/api-config';
 import { loadProject } from '../../repositories/project';
 import { readStorageItem, writeStorageItem } from '../../shared/browser/storage';
+import { fetchOptionalJson } from '../../shared/net/http-json';
 import type { LoadedClientPreviewProject } from './types';
 
 const PROJECT_KEY_PREFIX = 'smx-studio-v4:project:';
@@ -58,8 +60,22 @@ function readProjectFromLocalStorage(projectId: string): StudioState | null {
   }
 }
 
+async function loadPublicPreviewProject(projectId: string, token: string): Promise<StudioState | null> {
+  const base = getRepositoryApiBase('smx-studio-v4:project-api-base').trim();
+  if (!base) return null;
+  try {
+    const response = await fetchOptionalJson<{ state?: StudioState | null }>(
+      `${base.replace(/\/$/, '')}/projects/${encodeURIComponent(projectId)}/preview/${encodeURIComponent(token)}`,
+    );
+    return response?.state ? normalizeStudioState(response.state) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadClientPreviewProject(projectId: string, token: string): Promise<LoadedClientPreviewProject | null> {
-  const loaded = await loadProject(projectId).catch(() => null);
+  const loaded = await loadPublicPreviewProject(projectId, token)
+    ?? await loadProject(projectId).catch(() => null);
   const state = loaded ?? readProjectFromLocalStorage(projectId);
   if (!state) return null;
   return {
