@@ -282,6 +282,8 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const progressCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerActiveRef = useRef(false);
+  const scratchCompletedRef = useRef(false);
+  const maskSizeRef = useRef({ width: 0, height: 0 });
   const previousPreviewModeRef = useRef(ctx.previewMode);
   const previousPlayheadRef = useRef(ctx.playheadMs);
   const [maskUrl, setMaskUrl] = useState('');
@@ -297,23 +299,28 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     setMaskUrl(canvas.toDataURL('image/png'));
   };
 
-  const resetScratchMask = () => {
+  const resetScratchMask = ({ force = false } = {}) => {
     const canvas = maskCanvasRef.current;
     const shell = shellRef.current;
     if (!canvas) return;
     const width = Math.max(1, Math.round(shell?.clientWidth ?? node.frame.width ?? 1));
     const height = Math.max(1, Math.round(shell?.clientHeight ?? node.frame.height ?? 1));
+    const dimensionsChanged = maskSizeRef.current.width !== width || maskSizeRef.current.height !== height;
+    if (!force && !dimensionsChanged) return;
+    if (!force && (pointerActiveRef.current || scratchCompletedRef.current)) return;
+    maskSizeRef.current = { width, height };
     canvas.width = width;
     canvas.height = height;
     initializeScratchMask(canvas);
     progressCanvasRef.current = createScratchProgressCanvas(width, height);
+    scratchCompletedRef.current = false;
     setScratchCompleted(false);
     setScratchCompletedAtMs(undefined);
     syncMaskPreview();
   };
 
   useEffect(() => {
-    resetScratchMask();
+    resetScratchMask({ force: true });
   }, [node.frame.width, node.frame.height, ctx.previewMode]);
 
   useEffect(() => {
@@ -330,7 +337,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     previousPreviewModeRef.current = ctx.previewMode;
     previousPlayheadRef.current = ctx.playheadMs;
     if (!enteredPreview && !rewoundToStart) return;
-    resetScratchMask();
+    resetScratchMask({ force: true });
   }, [ctx.playheadMs, ctx.previewMode]);
 
   const scratchAtEvent = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -346,6 +353,8 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     const clearedPercent = eraseScratchProgress(progressCanvas, x, y, scratchRadius, canvas.width, canvas.height);
     if (clearedPercent < autoRevealThresholdPercent) return;
     const completedAtMs = ctx.playheadMs;
+    pointerActiveRef.current = false;
+    scratchCompletedRef.current = true;
     setScratchCompleted(true);
     setScratchCompletedAtMs(completedAtMs);
     ctx.triggerWidgetAction('scratch-complete', {
