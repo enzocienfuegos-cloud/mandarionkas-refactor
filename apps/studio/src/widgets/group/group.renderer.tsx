@@ -83,10 +83,35 @@ function eraseScratch(canvas: HTMLCanvasElement, x: number, y: number, radius: n
   ctx.restore();
 }
 
+function eraseScratchStroke(
+  canvas: HTMLCanvasElement,
+  from: { x: number; y: number } | null,
+  to: { x: number; y: number },
+  radius: number,
+): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = radius * 2;
+  ctx.beginPath();
+  if (from) {
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(to.x, to.y, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function eraseScratchProgress(
   progressCanvas: HTMLCanvasElement,
-  x: number,
-  y: number,
+  from: { x: number; y: number } | null,
+  to: { x: number; y: number },
   radius: number,
   sourceWidth: number,
   sourceHeight: number,
@@ -97,15 +122,32 @@ function eraseScratchProgress(
   const scaleY = progressCanvas.height / Math.max(1, sourceHeight);
   ctx.save();
   ctx.globalCompositeOperation = 'destination-out';
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = Math.max(1, radius * Math.max(scaleX, scaleY) * 2);
   ctx.beginPath();
-  ctx.arc(x * scaleX, y * scaleY, radius * Math.max(scaleX, scaleY), 0, Math.PI * 2);
+  if (from) {
+    ctx.moveTo(from.x * scaleX, from.y * scaleY);
+    ctx.lineTo(to.x * scaleX, to.y * scaleY);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.ellipse(
+    to.x * scaleX,
+    to.y * scaleY,
+    Math.max(1, radius * scaleX),
+    Math.max(1, radius * scaleY),
+    0,
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
   ctx.restore();
 
   const pixels = ctx.getImageData(0, 0, progressCanvas.width, progressCanvas.height).data;
   let cleared = 0;
   for (let index = 3; index < pixels.length; index += 4) {
-    if (pixels[index] === 0) cleared += 1;
+    cleared += (255 - pixels[index]) / 255;
   }
   return (cleared / Math.max(1, progressCanvas.width * progressCanvas.height)) * 100;
 }
@@ -364,6 +406,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const progressCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerActiveRef = useRef(false);
   const scratchCompletedRef = useRef(false);
+  const lastScratchPointRef = useRef<{ x: number; y: number } | null>(null);
   const maskSizeRef = useRef({ width: 0, height: 0 });
   const previousPreviewModeRef = useRef(ctx.previewMode);
   const previousPlayheadRef = useRef(ctx.playheadMs);
@@ -395,6 +438,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     initializeScratchMask(canvas);
     progressCanvasRef.current = createScratchProgressCanvas(width, height);
     scratchCompletedRef.current = false;
+    lastScratchPointRef.current = null;
     setScratchCompleted(false);
     setScratchCompletedAtMs(undefined);
     syncMaskPreview();
@@ -427,15 +471,20 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     const rect = event.currentTarget.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width;
     const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * canvas.height;
-    eraseScratch(canvas, x, y, scratchRadius);
+    const point = { x, y };
+    const previousPoint = lastScratchPointRef.current;
+    eraseScratchStroke(canvas, previousPoint, point, scratchRadius);
     syncMaskPreview();
     const progressCanvas = progressCanvasRef.current;
+    lastScratchPointRef.current = point;
     if (!progressCanvas || autoRevealThresholdPercent <= 0) return;
-    const clearedPercent = eraseScratchProgress(progressCanvas, x, y, scratchRadius, canvas.width, canvas.height);
+    const clearedPercent = eraseScratchProgress(progressCanvas, previousPoint, point, scratchRadius, canvas.width, canvas.height);
     if (clearedPercent < autoRevealThresholdPercent) return;
     const completedAtMs = ctx.playheadMs;
     pointerActiveRef.current = false;
     scratchCompletedRef.current = true;
+    lastScratchPointRef.current = null;
+    setMaskUrl('');
     setScratchCompleted(true);
     setScratchCompletedAtMs(completedAtMs);
     ctx.triggerWidgetAction('scratch-complete', {
@@ -476,6 +525,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
             event.preventDefault();
             event.stopPropagation();
             pointerActiveRef.current = true;
+            lastScratchPointRef.current = null;
             event.currentTarget.setPointerCapture?.(event.pointerId);
             scratchAtEvent(event);
           }}
@@ -486,14 +536,17 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
           }}
           onPointerUp={(event) => {
             pointerActiveRef.current = false;
+            lastScratchPointRef.current = null;
             event.currentTarget.releasePointerCapture?.(event.pointerId);
           }}
           onPointerCancel={(event) => {
             pointerActiveRef.current = false;
+            lastScratchPointRef.current = null;
             event.currentTarget.releasePointerCapture?.(event.pointerId);
           }}
           onLostPointerCapture={() => {
             pointerActiveRef.current = false;
+            lastScratchPointRef.current = null;
           }}
         />
       ) : null}

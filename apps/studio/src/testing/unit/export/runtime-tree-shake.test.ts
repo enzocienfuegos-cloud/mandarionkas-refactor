@@ -115,6 +115,12 @@ describe('runtime tree shake', () => {
 
     expect(script).toContain('initScratchReveal');
     expect(script).toContain('data-scratch-canvas');
+    expect(script).toContain('ctx.ellipse(');
+    expect(script).toContain('cleared += (255 - pixels[index]) / 255');
+    expect(script).toContain('eraseScratchStroke');
+    expect(script).toContain('completeThreshold > 0 && progress >= completeThreshold');
+    expect(script).toContain("node.getAttribute('data-scratch-cover-motion-id')");
+    expect(script).toContain("shell.querySelectorAll('[data-scratch-cover-motion-id]')");
   });
 
   it('includes the timeline runtime only when widgets define keyframes', () => {

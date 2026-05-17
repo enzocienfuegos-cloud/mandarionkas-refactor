@@ -131,24 +131,42 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
     return document.querySelector('[data-scratch-cover-motion-id="' + widgetId + '"]') || document.querySelector('[data-widget-layer-id="' + widgetId + '"]') || document.querySelector('[data-widget-id="' + widgetId + '"]');
   }
 
+  function findRuntimeWidgetById(widgetId) {
+    if (!runtime || !Array.isArray(runtime.scenes)) return null;
+    for (var sceneIndex = 0; sceneIndex < runtime.scenes.length; sceneIndex += 1) {
+      var scene = runtime.scenes[sceneIndex];
+      if (!scene || !Array.isArray(scene.widgets)) continue;
+      for (var widgetIndex = 0; widgetIndex < scene.widgets.length; widgetIndex += 1) {
+        var widget = scene.widgets[widgetIndex];
+        if (widget && widget.id === widgetId) return widget;
+      }
+    }
+    return null;
+  }
+
+  function playCompositorMotion(widget, node) {
+    var spec = widget && widget.compositorMotion ? widget.compositorMotion : null;
+    if (!widget || !widget.id || !node || !spec || !Array.isArray(spec.keyframes) || !spec.keyframes.length || typeof node.animate !== 'function') return;
+    node.getAnimations?.().forEach(function(animation) { animation.cancel(); });
+    var options = spec.options || {};
+    if (spec.willChange) node.style.willChange = String(spec.willChange);
+    node.animate(spec.keyframes, {
+      duration: Math.max(1, Number(options.duration || 1)),
+      delay: Math.max(0, Number(options.delay || 0)),
+      easing: String(options.easing || 'linear'),
+      iterations: normalizeCompositorMotionIterations(options.iterations),
+      fill: normalizeCompositorMotionFill(options.fill),
+    });
+  }
+
   function initCompositorMotion() {
     if (!runtime || !Array.isArray(runtime.scenes)) return;
     runtime.scenes.forEach(function(scene) {
       if (!scene || !Array.isArray(scene.widgets)) return;
       scene.widgets.forEach(function(widget) {
-        var spec = widget && widget.compositorMotion ? widget.compositorMotion : null;
-        if (!widget || !widget.id || !spec || !Array.isArray(spec.keyframes) || !spec.keyframes.length) return;
         var node = findCompositorMotionNode(widget.id);
-        if (!node || typeof node.animate !== 'function') return;
-        var options = spec.options || {};
-        if (spec.willChange) node.style.willChange = String(spec.willChange);
-        node.animate(spec.keyframes, {
-          duration: Math.max(1, Number(options.duration || 1)),
-          delay: Math.max(0, Number(options.delay || 0)),
-          easing: String(options.easing || 'linear'),
-          iterations: normalizeCompositorMotionIterations(options.iterations),
-          fill: normalizeCompositorMotionFill(options.fill),
-        });
+        if (!node || node.getAttribute('data-scratch-cover-motion-id')) return;
+        playCompositorMotion(widget, node);
       });
     });
   }
@@ -549,22 +567,59 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     ctx.restore();
   }
 
-  function eraseScratchProgress(progressCanvas, x, y, radius, sourceWidth, sourceHeight) {
+  function eraseScratchStroke(canvas, from, to, radius) {
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = radius * 2;
+    ctx.beginPath();
+    if (from) {
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(to.x, to.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function eraseScratchProgress(progressCanvas, from, to, radius, sourceWidth, sourceHeight) {
     const ctx = progressCanvas?.getContext('2d');
     if (!ctx) return 0;
     const scaleX = progressCanvas.width / Math.max(1, sourceWidth);
     const scaleY = progressCanvas.height / Math.max(1, sourceHeight);
     ctx.save();
     ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(1, radius * Math.max(scaleX, scaleY) * 2);
     ctx.beginPath();
-    ctx.arc(x * scaleX, y * scaleY, radius * Math.max(scaleX, scaleY), 0, Math.PI * 2);
+    if (from) {
+      ctx.moveTo(from.x * scaleX, from.y * scaleY);
+      ctx.lineTo(to.x * scaleX, to.y * scaleY);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.ellipse(
+      to.x * scaleX,
+      to.y * scaleY,
+      Math.max(1, radius * scaleX),
+      Math.max(1, radius * scaleY),
+      0,
+      0,
+      Math.PI * 2,
+    );
     ctx.fill();
     ctx.restore();
 
     const pixels = ctx.getImageData(0, 0, progressCanvas.width, progressCanvas.height).data;
     let cleared = 0;
     for (let index = 3; index < pixels.length; index += 4) {
-      if (pixels[index] === 0) cleared += 1;
+      cleared += (255 - pixels[index]) / 255;
     }
     return (cleared / Math.max(1, progressCanvas.width * progressCanvas.height)) * 100;
   }
@@ -653,6 +708,7 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
 
     let completed = false;
     let pointerActive = false;
+    let lastScratchPoint = null;
     let scratchReady = activationDelayMs <= 0;
     if (!scratchReady) {
       shell.setAttribute('data-scratch-ready', 'false');
@@ -678,6 +734,11 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
         if (coverCtx) coverCtx.clearRect(0, 0, canvas.width, canvas.height);
       }
       if (revealContent) playScratchRevealRevealAnimation(revealContent, revealMotionPreset, revealMotionDurationMs, revealMotionDelayMs);
+      shell.querySelectorAll('[data-scratch-cover-motion-id]').forEach(function(node) {
+        var widgetId = node.getAttribute('data-scratch-cover-motion-id') || '';
+        var widget = findRuntimeWidgetById(widgetId);
+        playCompositorMotion(widget, node);
+      });
       if (completeTarget && window.smxRuntime && typeof window.smxRuntime.showScene === 'function') {
         // hook left intentionally simple; actions runtime owns more complex routing
       }
@@ -690,15 +751,19 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       const rect = shell.getBoundingClientRect();
       const x = clientX - rect.left;
       const y = clientY - rect.top;
-      eraseScratch(canvas, x, y, scratchRadius);
+      const point = { x: x, y: y };
+      const previousPoint = lastScratchPoint;
+      eraseScratchStroke(canvas, previousPoint, point, scratchRadius);
+      lastScratchPoint = point;
       applyScratchMask(maskTarget, canvas);
-      const progress = progressCanvas ? eraseScratchProgress(progressCanvas, x, y, scratchRadius, width, height) : 100;
-      if (progress >= completeThreshold) completeScratch();
+      const progress = progressCanvas ? eraseScratchProgress(progressCanvas, previousPoint, point, scratchRadius, width, height) : 100;
+      if (completeThreshold > 0 && progress >= completeThreshold) completeScratch();
     }
 
     shell.addEventListener('pointerdown', (event) => {
       if (!scratchReady) return;
       pointerActive = true;
+      lastScratchPoint = null;
       scratchAt(event.clientX, event.clientY);
     });
     shell.addEventListener('pointermove', (event) => {
@@ -707,6 +772,7 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
     });
     window.addEventListener('pointerup', () => {
       pointerActive = false;
+      lastScratchPoint = null;
     });
   }
 

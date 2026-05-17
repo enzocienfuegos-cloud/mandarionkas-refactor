@@ -1,15 +1,43 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { StageSurface } from '../../canvas/stage/components/StageSurface';
-import { buildResolvedWidgetsById } from '../../domain/document/canvas-variants';
-import { isWidgetVisibleAt } from '../../domain/document/timeline';
-import type { StudioState, WidgetNode } from '../../domain/document/types';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import type { StudioState } from '../../domain/document/types';
+import { buildGenericHtml5Adapter } from '../../export/adapters/generic-html5';
+import { buildChannelHtml } from '../../export/html';
+import { compileRuntime } from '../../export/runtime-script';
 import { Button } from '../../shared/ui/Button';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { isEditableShortcutTarget } from '../../app/shell/use-keyboard-shortcuts';
 import type { ClientPreviewThread } from './types';
 
-function formatPlaybackTime(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}s`;
+export function buildClientPreviewSceneState(state: StudioState, sceneIndex: number): StudioState {
+  const scene = state.document.scenes[sceneIndex] ?? state.document.scenes[0];
+  if (!scene) return state;
+  return {
+    ...state,
+    document: {
+      ...state.document,
+      scenes: [{ ...scene, order: 0 }],
+      selection: {
+        ...state.document.selection,
+        activeSceneId: scene.id,
+      },
+    },
+    ui: {
+      ...state.ui,
+      playheadMs: 0,
+      isPlaying: true,
+      previewMode: true,
+    },
+  };
+}
+
+export function buildClientPreviewSceneHtml(state: StudioState, sceneIndex: number): string {
+  const sceneState = buildClientPreviewSceneState(state, sceneIndex);
+  const adapter = buildGenericHtml5Adapter(sceneState);
+  const runtimeScript = compileRuntime(adapter.portableProject, adapter);
+  return buildChannelHtml(sceneState, adapter).replace(
+    '<script src="./runtime.js"></script>',
+    `<script>${runtimeScript}</script>`,
+  );
 }
 
 export function ClientPreviewPlayer({
@@ -32,35 +60,14 @@ export function ClientPreviewPlayer({
   onCreatePinnedThread(pin: { xPct: number; yPct: number; sceneIndex: number }): void;
 }): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const stageRef = useRef<HTMLDivElement | null>(null);
-  const stateRef = useRef(state);
-  const playheadRef = useRef(0);
-  const [playheadMs, setPlayheadMs] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [fitScale, setFitScale] = useState(1);
   const [playbackBounds, setPlaybackBounds] = useState({ width: 0, height: 0 });
+  const [replayRevision, setReplayRevision] = useState(0);
   const scene = state.document.scenes[sceneIndex] ?? state.document.scenes[0];
   const canvas = state.document.canvas;
-  const widgetsById = useMemo(() => buildResolvedWidgetsById(state.document), [state.document]);
-  const widgets = useMemo(
-    () => scene.widgetIds.map((id) => widgetsById[id]).filter(Boolean) as WidgetNode[],
-    [scene.widgetIds, widgetsById],
-  );
   const visibleThreads = threads.filter((thread) => thread.pin?.sceneIndex === sceneIndex);
-
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
-  useEffect(() => {
-    setPlayheadMs(0);
-    playheadRef.current = 0;
-    setIsPlaying(true);
-  }, [scene.id]);
-
-  useEffect(() => {
-    playheadRef.current = playheadMs;
-  }, [playheadMs]);
+  const previewHtml = useMemo(() => buildClientPreviewSceneHtml(state, sceneIndex), [sceneIndex, state]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -83,52 +90,28 @@ export function ClientPreviewPlayer({
   }, [canvas.height, canvas.width]);
 
   useEffect(() => {
-    if (!isPlaying) return undefined;
-    const reactSyncIntervalMs = 250;
-    let frame = 0;
-    let lastTime: number | null = null;
-    let lastSyncedMs = playheadRef.current;
-    const tick = (now: number) => {
-      if (lastTime === null) {
-        lastTime = now;
-        frame = requestAnimationFrame(tick);
-        return;
-      }
-      const next = Math.min(scene.durationMs, playheadRef.current + (now - lastTime));
-      lastTime = now;
-      playheadRef.current = next;
-      if (next - lastSyncedMs >= reactSyncIntervalMs || next >= scene.durationMs) {
-        lastSyncedMs = next;
-        setPlayheadMs(next);
-      }
-      if (next >= scene.durationMs) {
-        setIsPlaying(false);
-        return;
-      }
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [isPlaying, scene.durationMs]);
-
-  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isEditableShortcutTarget(event.target)) return;
       if (event.code !== 'Space' && event.key !== ' ') return;
       event.preventDefault();
-      setIsPlaying((current) => {
-        if (current) return false;
-        if (playheadRef.current >= scene.durationMs) {
-          playheadRef.current = 0;
-          setPlayheadMs(0);
-        }
-        return true;
-      });
+      setReplayRevision((current) => current + 1);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [scene.durationMs]);
+  }, []);
+
+  useEffect(() => {
+    setReplayRevision((current) => current + 1);
+  }, [scene.id]);
+
+  function createPinFromEvent(event: MouseEvent<HTMLElement>): void {
+    if (!pinMode) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const xPct = ((event.clientX - bounds.left) / Math.max(1, bounds.width)) * 100;
+    const yPct = ((event.clientY - bounds.top) / Math.max(1, bounds.height)) * 100;
+    onCreatePinnedThread({ xPct, yPct, sceneIndex });
+  }
 
   return (
     <div ref={hostRef} className="cp-stage">
@@ -136,51 +119,31 @@ export function ClientPreviewPlayer({
         <div
           className="cp-banner-stage"
           style={{ width: playbackBounds.width || canvas.width, height: playbackBounds.height || canvas.height, cursor: pinMode ? 'crosshair' : 'default' }}
-          onClick={(event) => {
-            if (!pinMode) return;
-            const bounds = event.currentTarget.getBoundingClientRect();
-            const xPct = ((event.clientX - bounds.left) / Math.max(1, bounds.width)) * 100;
-            const yPct = ((event.clientY - bounds.top) / Math.max(1, bounds.height)) * 100;
-            onCreatePinnedThread({ xPct, yPct, sceneIndex });
-          }}
         >
           <div className="cp-banner-surface">
-            <StageSurface
-              stageRef={stageRef}
-              canvas={canvas}
-              widgets={widgets}
-              widgetsById={widgetsById}
-              selectedIds={[]}
-              previewMode
-              isPlaying={isPlaying}
-              editModeWireframe={false}
-              zoom={fitScale}
-              playheadMs={playheadMs}
-              sceneDurationMs={scene.durationMs}
-              sceneTransitionType="cut"
-              sceneTransitionDurationMs={0}
-              sceneTransitionActive={false}
-              marquee={null}
-              dropPreview={null}
-              liveFrameById={{}}
-              showStageRulers={false}
-              showWidgetBadges={false}
-              stateRef={stateRef}
-              isWidgetVisible={(widgetId) => {
-                const widget = stateRef.current.document.widgets[widgetId];
-                return widget ? isWidgetVisibleAt(widget, playheadMs) : false;
+            <iframe
+              key={`${scene.id}-${replayRevision}`}
+              ref={iframeRef}
+              className="cp-banner-iframe"
+              title={`${scene.name} preview`}
+              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+              srcDoc={previewHtml}
+              style={{
+                width: canvas.width,
+                height: canvas.height,
+                transform: `scale(${fitScale})`,
               }}
-              onStagePointerDown={() => undefined}
-              onStageDragOver={() => undefined}
-              onStageDragLeave={() => undefined}
-              onStageDrop={() => undefined}
-              onWidgetPointerDown={() => undefined}
-              onResizePointerDown={() => undefined}
-              onSetActiveWidget={() => undefined}
-              onSetHoveredWidget={() => undefined}
-              onExecuteAction={() => undefined}
             />
           </div>
+
+          {pinMode ? (
+            <button
+              type="button"
+              className="cp-pin-capture"
+              aria-label="Place comment pin"
+              onClick={createPinFromEvent}
+            />
+          ) : null}
 
           {visibleThreads.map((thread, index) => {
             if (!thread.pin) return null;
@@ -205,28 +168,12 @@ export function ClientPreviewPlayer({
           <button
             type="button"
             className="cp-play-btn"
-            onClick={() => {
-              if (playheadMs >= scene.durationMs) {
-                playheadRef.current = 0;
-                setPlayheadMs(0);
-              }
-              setIsPlaying((current) => !current);
-            }}
+            onClick={() => setReplayRevision((current) => current + 1)}
+            aria-label="Replay preview"
           >
-            <StudioIcon icon={isPlaying ? StudioIcons.pause : StudioIcons.play} size={14} />
+            <StudioIcon icon={StudioIcons.play} size={14} />
           </button>
-          <div
-            className="cp-progress"
-            style={{ '--cp-progress': `${(playheadMs / Math.max(1, scene.durationMs)) * 100}%` } as CSSProperties}
-            onClick={(event) => {
-              const bounds = event.currentTarget.getBoundingClientRect();
-              const ratio = Math.max(0, Math.min(1, (event.clientX - bounds.left) / Math.max(1, bounds.width)));
-              setPlayheadMs(scene.durationMs * ratio);
-            }}
-          >
-            <span className="cp-progress-fill" />
-          </div>
-          <span className="cp-time">{formatPlaybackTime(playheadMs)} / {formatPlaybackTime(scene.durationMs)}</span>
+          <span className="cp-time">Runtime preview · WAAPI</span>
           <Button
             variant={pinMode ? 'primary' : 'ghost'}
             size="sm"

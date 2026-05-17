@@ -93,6 +93,23 @@
   transform-origin: top left;
 }
 
+.cp-banner-iframe {
+  display: block;
+  transform-origin: top left;
+  border: 0;
+  background: transparent;
+  color-scheme: normal;
+}
+
+.cp-pin-capture {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-floating);
+  border: 0;
+  background: transparent;
+  cursor: crosshair;
+}
+
 .cp-playback {
   position: absolute;
   left: 50%;
