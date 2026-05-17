@@ -224,7 +224,7 @@ describe('runtime tree shake', () => {
     expect(script).toContain('findCompositorLayerNode(descendant.id)');
     expect(script).toContain("if (widget.type !== 'group' || !widget.childIds || !widget.childIds.length) return");
     expect(script).toContain('if (!descendant || !descendant.compositorMotion) return');
-    expect(script).toContain('playCompositorMotion(descendant, findCompositorLayerNode(descendant.id))');
+    expect(script).toContain('playCompositorMotion(descendant, findCompositorLayerNode(descendant.id), revealClock)');
     expect(script).toContain("getCompositorScratchRevealTargetMode(scratchWidget) !== 'auto'");
   });
 

@@ -5,6 +5,7 @@ import type { ActionNode, WidgetFrame, WidgetNode, StudioState } from '../../../
 import type { ResizeHandle } from '../use-stage-controller';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 import { isNativeStageDragWidgetType } from '../../../domain/document/widget-type-groups';
+import { getAnimationClockSignature, type AnimationClock } from '../../../motion/animation-clocks';
 import { resolveWidgetHoverMotion } from '../../../motion/motion-model';
 import { MotionLayer } from '../../../motion/react/MotionLayer';
 
@@ -24,6 +25,7 @@ type StageWidgetProps = {
   onResizePointerDown: (event: ReactPointerEvent<HTMLButtonElement>, handle: ResizeHandle) => void;
   previewMode: boolean;
   isReproducing: boolean;
+  motionClock?: AnimationClock;
   motionStartedAtMs?: number;
   editModeWireframe: boolean;
   playheadMs: number;
@@ -49,6 +51,7 @@ export const StageWidget = memo(function StageWidget({
   onResizePointerDown,
   previewMode,
   isReproducing,
+  motionClock,
   motionStartedAtMs,
   editModeWireframe,
   playheadMs,
@@ -81,6 +84,7 @@ export const StageWidget = memo(function StageWidget({
       widget={node}
       playheadMs={playheadMs}
       isReproducing={isReproducing}
+      clock={motionClock}
       startedAtMs={motionStartedAtMs}
       className={`stage-widget stage-widget--${node.type} ${selected ? 'is-selected' : ''} ${primary ? 'is-primary' : ''} ${hovered ? 'is-hovered' : ''} ${active ? 'is-active' : ''} ${previewMode ? 'is-preview-mode' : 'is-edit-mode'} ${useWireframe ? 'is-wireframe-mode' : ''}`}
       {...createStageInteractionProps(STAGE_INTERACTION.widget)}
@@ -201,6 +205,7 @@ function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProp
     && previous.showBadge === next.showBadge
     && previous.previewMode === next.previewMode
     && previous.isReproducing === next.isReproducing
+    && getAnimationClockSignature(previous.motionClock) === getAnimationClockSignature(next.motionClock)
     && previous.motionStartedAtMs === next.motionStartedAtMs
     && previous.editModeWireframe === next.editModeWireframe
     && previous.playheadMs === next.playheadMs

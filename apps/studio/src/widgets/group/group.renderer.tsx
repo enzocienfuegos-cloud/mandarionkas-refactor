@@ -5,6 +5,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
 import { renderWidgetContents } from '../../canvas/stage/render-widget';
+import { createRevealAnimationClock, resolveTimelinePlayheadForClock } from '../../motion/animation-clocks';
 import { MotionLayer } from '../../motion/react/MotionLayer';
 import { isScratchGroupActive } from './group-scratch-activation';
 
@@ -205,7 +206,7 @@ function getScratchCoverEffectivePlayheadMs(
   revealCompletedAtMs: number | undefined,
 ): number {
   if (revealCompletedAtMs === undefined) return playheadMs;
-  return node.timeline.startMs + Math.max(0, playheadMs - revealCompletedAtMs);
+  return resolveTimelinePlayheadForClock(node, playheadMs, createRevealAnimationClock(revealCompletedAtMs));
 }
 
 function resolveScratchCoverLiveFrame({
@@ -354,6 +355,7 @@ function ScratchCoverWidget({
       widget={node}
       playheadMs={ctx.playheadMs}
       isReproducing={shouldReproduceMotion}
+      clock={revealCompletedAtMs === undefined ? undefined : createRevealAnimationClock(revealCompletedAtMs)}
       startedAtMs={revealCompletedAtMs}
       style={{
         position: 'absolute',

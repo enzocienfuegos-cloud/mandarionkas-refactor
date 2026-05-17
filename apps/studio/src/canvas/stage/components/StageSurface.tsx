@@ -10,6 +10,8 @@ import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interac
 import { isVisibleWithinParentTimeline, resolveInheritedMotionFrame, resolveInheritedOpacity } from './stage-motion-inheritance';
 import { isScratchGroupActive } from '../../../widgets/group/group-scratch-activation';
 import { getScratchRevealTargetMode, isWidgetTargetedByScratchGroup } from '../../../widgets/group/group-reveal-target';
+import { createRevealAnimationClock, resolveTimelinePlayheadForClock, type AnimationClock } from '../../../motion/animation-clocks';
+import { createAnimationEvent } from '../../../motion/animation-events';
 
 export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
@@ -193,7 +195,12 @@ export function StageSurface({
   function getEffectiveWidgetPlayheadMs(widget: WidgetNode): number {
     const completedAtMs = findScratchRevealCompletionMs(widget);
     if (completedAtMs === undefined) return playheadMs;
-    return widget.timeline.startMs + Math.max(0, playheadMs - completedAtMs);
+    return resolveTimelinePlayheadForClock(widget, playheadMs, createRevealAnimationClock(completedAtMs));
+  }
+
+  function getWidgetAnimationClock(widget: WidgetNode): AnimationClock | undefined {
+    const completedAtMs = findScratchRevealCompletionMs(widget);
+    return completedAtMs === undefined ? undefined : createRevealAnimationClock(completedAtMs);
   }
 
   function getEffectiveLiveFrame(widget: WidgetNode): WidgetFrame {
@@ -271,6 +278,7 @@ export function StageSurface({
         const groupSelectedInEditor = !previewMode && selectedIds.includes(widget.id);
         if (isPassThroughGroup && !groupSelectedInEditor) return null;
         const scratchCompletionMs = findScratchRevealCompletionMs(widget);
+        const motionClock = getWidgetAnimationClock(widget);
         const liveFrame = isReproducing ? widget.frame : getStageLiveFrame(widget);
         const baseFrame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
           ? resolveScratchGroupFrame(widget)
@@ -310,6 +318,7 @@ export function StageSurface({
             showBadge={showWidgetBadges}
             previewMode={previewMode}
             isReproducing={isReproducing}
+            motionClock={motionClock}
             motionStartedAtMs={scratchCompletionMs}
             editModeWireframe={editModeWireframe}
             playheadMs={playheadMs}
@@ -322,10 +331,16 @@ export function StageSurface({
             onWidgetTrigger={(widgetId, trigger, metadata) => {
               if (trigger !== 'scratch-complete') return;
               const completedAtMs = Number(metadata?.completedAtMs ?? playheadMs);
+              const revealEvent = createAnimationEvent({
+                trigger: 'reveal',
+                sourceId: widgetId,
+                sceneTimeMs: completedAtMs,
+                metadata,
+              });
               setScratchCompletionMsByWidgetId((current) => (
-                current[widgetId] === completedAtMs
+                current[widgetId] === revealEvent.sceneTimeMs
                   ? current
-                  : { ...current, [widgetId]: completedAtMs }
+                  : { ...current, [widgetId]: revealEvent.sceneTimeMs }
               ));
             }}
             onWidgetPointerDown={(event) => onWidgetPointerDown(event, renderNode.id, Boolean(renderNode.locked))}

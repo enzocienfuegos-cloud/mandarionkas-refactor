@@ -2,6 +2,7 @@ import { buildExportExitConfig } from './packaging';
 import type { ExportHtmlAdapter } from './html';
 import type { PortableExportProject, PortableExportWidget } from './portable';
 import {
+  EXPORT_RUNTIME_ANIMATION_CLOCK_SECTION,
   EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION,
   EXPORT_RUNTIME_COUNTDOWN_SECTION,
   EXPORT_RUNTIME_ENVIRONMENT_SECTION,
@@ -109,6 +110,7 @@ export function compileRuntime(document: PortableExportProject, adapter: ExportH
   if (capabilities.hasWeather) sections.push(EXPORT_RUNTIME_WEATHER_SECTION);
   if (capabilities.hasScratchReveal) sections.push(EXPORT_RUNTIME_SCRATCH_SECTION);
   if (capabilities.hasCountdown) sections.push(EXPORT_RUNTIME_COUNTDOWN_SECTION);
+  if (capabilities.hasCompositorMotion || capabilities.hasTimelineAnimations) sections.push(EXPORT_RUNTIME_ANIMATION_CLOCK_SECTION);
   if (capabilities.hasCompositorMotion) sections.push(EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION);
   if (capabilities.hasTimelineAnimations) sections.push(EXPORT_RUNTIME_TIMELINE_SECTION);
   return buildExportRuntimeScript(adapter, sections.join('\n'));

@@ -1,5 +1,36 @@
 export const EXPORT_RUNTIME_ENVIRONMENT_SECTION = ``;
 
+export const EXPORT_RUNTIME_ANIMATION_CLOCK_SECTION = `
+  function createRuntimeSceneClock() {
+    return { kind: 'scene', trigger: 'timeline', startMode: 'absolute-scene-time' };
+  }
+
+  function createRuntimeEventClock(trigger, startedAtMs, kind) {
+    return {
+      kind: kind || 'event',
+      trigger: trigger || 'reveal',
+      startMode: 'trigger-local-zero',
+      startedAtMs: Number(startedAtMs || 0),
+    };
+  }
+
+  function isRuntimeEventClock(clock) {
+    return Boolean(clock && clock.kind !== 'scene' && clock.startMode === 'trigger-local-zero');
+  }
+
+  function resolveRuntimeClockLocalMs(clock, sceneElapsedMs, timelineStartMs) {
+    var targetClock = clock || createRuntimeSceneClock();
+    if (!isRuntimeEventClock(targetClock)) return Math.max(0, Number(sceneElapsedMs || 0) - Number(timelineStartMs || 0));
+    return Math.max(0, Number(sceneElapsedMs || 0) - Number(targetClock.startedAtMs || sceneElapsedMs || 0));
+  }
+
+  function resolveRuntimeTimelineElapsedForClock(widget, sceneElapsedMs, clock) {
+    if (!isRuntimeEventClock(clock)) return Number(sceneElapsedMs || 0);
+    var startMs = Number((widget && widget.timeline && widget.timeline.startMs) || 0);
+    return startMs + resolveRuntimeClockLocalMs(clock, sceneElapsedMs, startMs);
+  }
+`;
+
 export const EXPORT_RUNTIME_FONTS_SECTION = `
   function inferRuntimeFontFormat(src) {
     const normalized = String(src || '').toLowerCase();
@@ -232,26 +263,27 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
     });
   }
 
-  function playCompositorMotion(widget, node) {
+  function playCompositorMotion(widget, node, clock) {
     var spec = widget && widget.compositorMotion ? widget.compositorMotion : null;
     if (!widget || !widget.id || !node || !spec || !Array.isArray(spec.keyframes) || !spec.keyframes.length || typeof node.animate !== 'function') return;
     node.getAnimations?.().forEach(function(animation) { animation.cancel(); });
     var options = spec.options || {};
     if (spec.willChange) node.style.willChange = String(spec.willChange);
-    node.animate(spec.keyframes, {
+    var animation = node.animate(spec.keyframes, {
       duration: Math.max(1, Number(options.duration || 1)),
       delay: Math.max(0, Number(options.delay || 0)),
       easing: String(options.easing || 'linear'),
       iterations: normalizeCompositorMotionIterations(options.iterations),
       fill: normalizeCompositorMotionFill(options.fill),
     });
+    if (isRuntimeEventClock(clock)) animation.currentTime = 0;
   }
 
-  function playInheritedGroupCompositorMotion(sceneRuntime, groupWidget) {
+  function playInheritedGroupCompositorMotion(sceneRuntime, groupWidget, clock) {
     if (!sceneRuntime || !groupWidget || groupWidget.type !== 'group' || !groupWidget.childIds || !groupWidget.childIds.length || !groupWidget.compositorMotion) return;
     getCompositorRuntimeDescendantWidgets(sceneRuntime, groupWidget.id).forEach(function(descendant) {
       if (!descendant || descendant.compositorMotion) return;
-      playCompositorMotion(groupWidget, findCompositorLayerNode(descendant.id));
+      playCompositorMotion(groupWidget, findCompositorLayerNode(descendant.id), clock);
     });
   }
 
@@ -259,14 +291,16 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
     var sceneRuntime = findRuntimeSceneByWidgetId(scratchWidgetId);
     var scratchWidget = findRuntimeWidgetById(scratchWidgetId);
     if (!sceneRuntime || !scratchWidget || !Array.isArray(sceneRuntime.widgets)) return;
+    var eventStartedAtMs = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+    var revealClock = createRuntimeEventClock('reveal', eventStartedAtMs);
     sceneRuntime.widgets.forEach(function(widget) {
       if (!widget || !isCompositorWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, widget)) return;
-      playCompositorMotion(widget, findCompositorMotionNode(widget.id));
-      playInheritedGroupCompositorMotion(sceneRuntime, widget);
+      playCompositorMotion(widget, findCompositorMotionNode(widget.id), revealClock);
+      playInheritedGroupCompositorMotion(sceneRuntime, widget, revealClock);
       if (widget.type !== 'group' || !widget.childIds || !widget.childIds.length) return;
       getCompositorRuntimeDescendantWidgets(sceneRuntime, widget.id).forEach(function(descendant) {
         if (!descendant || !descendant.compositorMotion) return;
-        playCompositorMotion(descendant, findCompositorLayerNode(descendant.id));
+        playCompositorMotion(descendant, findCompositorLayerNode(descendant.id), revealClock);
       });
     });
   }
@@ -279,8 +313,8 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
         var node = findCompositorMotionNode(widget.id);
         if (!node || node.getAttribute('data-scratch-cover-motion-id')) return;
         if (isCompositorWidgetWaitingForScratchReveal(scene, widget)) return;
-        playCompositorMotion(widget, node);
-        playInheritedGroupCompositorMotion(scene, widget);
+        playCompositorMotion(widget, node, createRuntimeSceneClock());
+        playInheritedGroupCompositorMotion(scene, widget, createRuntimeSceneClock());
       });
     });
   }
@@ -429,10 +463,10 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     if (isWidgetWaitingForScratchReveal(sceneRuntime, widget)) return startMs;
     if (Number.isFinite(completedAtPerfMs)) {
       var currentPerfMs = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
-      return startMs + Math.max(0, currentPerfMs - completedAtPerfMs);
+      return resolveRuntimeTimelineElapsedForClock(widget, currentPerfMs, createRuntimeEventClock('reveal', completedAtPerfMs));
     }
     if (!Number.isFinite(completedAtMs)) return elapsedMs;
-    return startMs + Math.max(0, elapsedMs - completedAtMs);
+    return resolveRuntimeTimelineElapsedForClock(widget, elapsedMs, createRuntimeEventClock('reveal', completedAtMs));
   }
 
   function getRuntimeTimelineNode(widget) {
@@ -517,15 +551,16 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     if (!targets.length) return;
     const durationMs = targets.reduce((max, widget) => Math.max(max, getWidgetTimelinePlaybackDurationMs(widget)), 0);
     const startedAt = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+    const revealClock = createRuntimeEventClock('reveal', completedAtMs);
 
     function tick(now) {
       const currentNow = typeof now === 'number' ? now : (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
       const localElapsedMs = Math.max(0, Math.min(durationMs || 0, Math.round(currentNow - startedAt)));
-      targets.forEach((widget) => syncTimelineWidget(sceneRuntime, widget, completedAtMs + localElapsedMs));
+      targets.forEach((widget) => syncTimelineWidget(sceneRuntime, widget, resolveRuntimeTimelineElapsedForClock(widget, completedAtMs + localElapsedMs, revealClock)));
       if (localElapsedMs < durationMs) window.requestAnimationFrame(tick);
     }
 
-    targets.forEach((widget) => syncTimelineWidget(sceneRuntime, widget, completedAtMs));
+    targets.forEach((widget) => syncTimelineWidget(sceneRuntime, widget, resolveRuntimeTimelineElapsedForClock(widget, completedAtMs, revealClock)));
     if (durationMs > 0) window.requestAnimationFrame(tick);
   }
 
