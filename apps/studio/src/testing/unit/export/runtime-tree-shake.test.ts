@@ -119,8 +119,95 @@ describe('runtime tree shake', () => {
     expect(script).toContain('cleared += (255 - pixels[index]) / 255');
     expect(script).toContain('eraseScratchStroke');
     expect(script).toContain('completeThreshold > 0 && progress >= completeThreshold');
+    expect(script).toContain('playScratchRevealTargetCompositorMotions');
+    expect(script).toContain("maskTarget.style.display = 'none'");
+  });
+
+  it('defers compositor motion behind a scratch group until the reveal completes', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    state.document.widgets.image_1 = {
+      id: 'image_1',
+      type: 'image',
+      name: 'Reveal target',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 10, y: 10, width: 180, height: 120, rotation: 0 },
+      style: { opacity: 1 },
+      motion: {
+        templateId: 'float',
+        config: { durationMs: 2200, delayMs: 0, distancePx: 14 },
+      },
+      props: { src: 'https://cdn.example.com/reveal.png', alt: 'Reveal target' },
+      timeline: { startMs: 0, endMs: 1000, keyframes: [] },
+    } as any;
+    state.document.widgets.group_1 = {
+      id: 'group_1',
+      type: 'group',
+      name: 'Scratch group',
+      sceneId,
+      zIndex: 4,
+      frame: { x: 0, y: 0, width: 220, height: 160, rotation: 0 },
+      style: {},
+      props: { title: 'Scratch group', scratchEnabled: true, beforeImage: 'https://cdn.example.com/cover.png' },
+      timeline: { startMs: 0, endMs: 1000 },
+      childIds: [],
+    } as any;
+    state.document.scenes[0].widgetIds.push('image_1', 'group_1');
+
+    const adapter = buildGamHtml5Adapter(state);
+    const script = compileRuntime(adapter.portableProject, adapter);
+
+    expect(script).toContain('isCompositorWidgetWaitingForScratchReveal');
+    expect(script).toContain('playScratchRevealTargetCompositorMotions');
     expect(script).toContain("node.getAttribute('data-scratch-cover-motion-id')");
-    expect(script).toContain("shell.querySelectorAll('[data-scratch-cover-motion-id]')");
+    expect(script).toContain('window.__smxScratchCompletionMsByWidgetId?.[candidate.id]');
+  });
+
+  it('restarts timeline-keyframed targets behind a scratch group from reveal time', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    state.document.widgets.image_1 = {
+      id: 'image_1',
+      type: 'image',
+      name: 'Slide target',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 10, y: 10, width: 180, height: 120, rotation: 0 },
+      style: { opacity: 1 },
+      props: { src: 'https://cdn.example.com/reveal.png', alt: 'Slide target' },
+      timeline: {
+        startMs: 0,
+        endMs: 1000,
+        keyframes: [
+          { id: 'kf_1', property: 'x', atMs: 0, value: -180, easing: 'linear' },
+          { id: 'kf_2', property: 'x', atMs: 1000, value: 10, easing: 'ease-out' },
+        ],
+      },
+    } as any;
+    state.document.widgets.group_1 = {
+      id: 'group_1',
+      type: 'group',
+      name: 'Scratch group',
+      sceneId,
+      zIndex: 4,
+      frame: { x: 0, y: 0, width: 220, height: 160, rotation: 0 },
+      style: {},
+      props: { title: 'Scratch group', scratchEnabled: true, beforeImage: 'https://cdn.example.com/cover.png' },
+      timeline: { startMs: 0, endMs: 1000 },
+      childIds: [],
+    } as any;
+    state.document.scenes[0].widgetIds.push('image_1', 'group_1');
+
+    const adapter = buildGamHtml5Adapter(state);
+    const script = compileRuntime(adapter.portableProject, adapter);
+
+    expect(script).toContain('isWidgetWaitingForScratchReveal');
+    expect(script).toContain('playScratchRevealTargetTimelineMotions');
+    expect(script).toContain('completedAtMs + localElapsedMs');
+    expect(script).toContain('playScratchRevealTargetTimelineMotions(root.getAttribute');
   });
 
   it('includes the timeline runtime only when widgets define keyframes', () => {

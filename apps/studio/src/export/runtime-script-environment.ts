@@ -144,6 +144,81 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
     return null;
   }
 
+  function findRuntimeSceneByWidgetId(widgetId) {
+    if (!runtime || !Array.isArray(runtime.scenes)) return null;
+    for (var sceneIndex = 0; sceneIndex < runtime.scenes.length; sceneIndex += 1) {
+      var scene = runtime.scenes[sceneIndex];
+      if (!scene || !Array.isArray(scene.widgets)) continue;
+      if (scene.widgets.some(function(widget) { return widget && widget.id === widgetId; })) return scene;
+    }
+    return null;
+  }
+
+  function getCompositorScratchRevealTargetMode(widget) {
+    var rawMode = String(widget && widget.props ? widget.props.revealTargetMode || 'auto' : 'auto').trim().toLowerCase();
+    if (rawMode === 'widget' || rawMode === 'scene') return rawMode;
+    return 'auto';
+  }
+
+  function getCompositorScratchRevealTargetId(widget) {
+    return String(widget && widget.props ? widget.props.revealTargetId || '' : '').trim();
+  }
+
+  function isCompositorRuntimeWidgetDescendantOf(sceneRuntime, widget, ancestorWidgetId) {
+    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !widget || !ancestorWidgetId) return false;
+    var widgetsById = sceneRuntime.widgets.reduce(function(acc, item) {
+      if (item && item.id) acc[item.id] = item;
+      return acc;
+    }, {});
+    var currentParentId = widget.parentId;
+    var visited = {};
+    while (currentParentId && !visited[currentParentId]) {
+      if (currentParentId === ancestorWidgetId) return true;
+      visited[currentParentId] = true;
+      currentParentId = widgetsById[currentParentId] ? widgetsById[currentParentId].parentId : undefined;
+    }
+    return false;
+  }
+
+  function compositorRectsOverlap(left, right) {
+    if (!left || !right) return false;
+    return Number(left.x || 0) < Number(right.x || 0) + Number(right.width || 0)
+      && Number(left.x || 0) + Number(left.width || 0) > Number(right.x || 0)
+      && Number(left.y || 0) < Number(right.y || 0) + Number(right.height || 0)
+      && Number(left.y || 0) + Number(left.height || 0) > Number(right.y || 0);
+  }
+
+  function isCompositorWidgetTargetedByScratchGroup(sceneRuntime, scratchWidget, widget) {
+    var mode = getCompositorScratchRevealTargetMode(scratchWidget);
+    var targetId = getCompositorScratchRevealTargetId(scratchWidget);
+    if (!targetId) return false;
+    if (mode === 'scene') return String(widget && widget.sceneId || '') === targetId;
+    if (mode === 'widget') return widget && (widget.id === targetId || isCompositorRuntimeWidgetDescendantOf(sceneRuntime, widget, targetId));
+    return false;
+  }
+
+  function isCompositorWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, widget) {
+    if (!sceneRuntime || !scratchWidget || !widget || scratchWidget.id === widget.id) return false;
+    if (isCompositorRuntimeWidgetDescendantOf(sceneRuntime, widget, scratchWidget.id)) return false;
+    if (Number(scratchWidget.zIndex || 0) <= Number(widget.zIndex || 0)) return false;
+    if (getCompositorScratchRevealTargetMode(scratchWidget) === 'auto') {
+      return compositorRectsOverlap(scratchWidget.frame, widget.frame);
+    }
+    return isCompositorWidgetTargetedByScratchGroup(sceneRuntime, scratchWidget, widget);
+  }
+
+  function isCompositorWidgetWaitingForScratchReveal(sceneRuntime, widget) {
+    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !widget) return false;
+    return sceneRuntime.widgets.some(function(candidate) {
+      return candidate
+        && candidate.type === 'group'
+        && candidate.props
+        && candidate.props.scratchEnabled
+        && !window.__smxScratchCompletionMsByWidgetId?.[candidate.id]
+        && isCompositorWidgetCoveredByScratchGroup(sceneRuntime, candidate, widget);
+    });
+  }
+
   function playCompositorMotion(widget, node) {
     var spec = widget && widget.compositorMotion ? widget.compositorMotion : null;
     if (!widget || !widget.id || !node || !spec || !Array.isArray(spec.keyframes) || !spec.keyframes.length || typeof node.animate !== 'function') return;
@@ -159,6 +234,16 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
     });
   }
 
+  function playScratchRevealTargetCompositorMotions(scratchWidgetId) {
+    var sceneRuntime = findRuntimeSceneByWidgetId(scratchWidgetId);
+    var scratchWidget = findRuntimeWidgetById(scratchWidgetId);
+    if (!sceneRuntime || !scratchWidget || !Array.isArray(sceneRuntime.widgets)) return;
+    sceneRuntime.widgets.forEach(function(widget) {
+      if (!widget || !isCompositorWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, widget)) return;
+      playCompositorMotion(widget, findCompositorMotionNode(widget.id));
+    });
+  }
+
   function initCompositorMotion() {
     if (!runtime || !Array.isArray(runtime.scenes)) return;
     runtime.scenes.forEach(function(scene) {
@@ -166,6 +251,7 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
       scene.widgets.forEach(function(widget) {
         var node = findCompositorMotionNode(widget.id);
         if (!node || node.getAttribute('data-scratch-cover-motion-id')) return;
+        if (isCompositorWidgetWaitingForScratchReveal(scene, widget)) return;
         playCompositorMotion(widget, node);
       });
     });
@@ -245,18 +331,20 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     return false;
   }
 
+  function isWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, widget) {
+    if (!sceneRuntime || !scratchWidget || !widget || scratchWidget.id === widget.id) return false;
+    if (isRuntimeWidgetDescendantOf(sceneRuntime, widget, scratchWidget.id)) return false;
+    if (Number(scratchWidget.zIndex || 0) <= Number(widget.zIndex || 0)) return false;
+    if (getScratchRevealTargetMode(scratchWidget) === 'auto') return rectsOverlap(scratchWidget.frame, widget.frame);
+    return isWidgetTargetedByScratchGroup(sceneRuntime, scratchWidget, widget);
+  }
+
   function getScratchRevealCompletionMs(sceneRuntime, widget) {
     if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !widget) return undefined;
     var topCover = null;
     sceneRuntime.widgets.forEach(function(candidate){
-      if (!candidate || candidate.id === widget.id) return;
-      if (candidate.type !== 'group' || !candidate.props || !candidate.props.scratchEnabled) return;
-      if (Number(candidate.zIndex || 0) <= Number(widget.zIndex || 0)) return;
-      if (getScratchRevealTargetMode(candidate) === 'auto') {
-        if (!rectsOverlap(candidate.frame, widget.frame)) return;
-      } else if (!isWidgetTargetedByScratchGroup(sceneRuntime, candidate, widget)) {
-        return;
-      }
+      if (!candidate || candidate.type !== 'group' || !candidate.props || !candidate.props.scratchEnabled) return;
+      if (!isWidgetCoveredByScratchGroup(sceneRuntime, candidate, widget)) return;
       if (!topCover || Number(candidate.zIndex || 0) > Number(topCover.zIndex || 0)) topCover = candidate;
     });
     if (!topCover || !window.__smxScratchCompletionMsByWidgetId) return undefined;
@@ -264,11 +352,48 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     return Number.isFinite(completedAtMs) ? completedAtMs : undefined;
   }
 
+  function findTimelineRuntimeSceneByWidgetId(widgetId) {
+    if (!runtime || !Array.isArray(runtime.scenes)) return null;
+    for (var sceneIndex = 0; sceneIndex < runtime.scenes.length; sceneIndex += 1) {
+      var scene = runtime.scenes[sceneIndex];
+      if (!scene || !Array.isArray(scene.widgets)) continue;
+      if (scene.widgets.some(function(widget) { return widget && widget.id === widgetId; })) return scene;
+    }
+    return null;
+  }
+
+  function findTimelineRuntimeWidgetById(sceneRuntime, widgetId) {
+    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets)) return null;
+    return sceneRuntime.widgets.find(function(widget) { return widget && widget.id === widgetId; }) || null;
+  }
+
+  function hasRuntimeTimelineKeyframes(widget) {
+    return Boolean(widget && widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length && !widget.compositorMotion);
+  }
+
+  function isWidgetWaitingForScratchReveal(sceneRuntime, widget) {
+    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !widget) return false;
+    return sceneRuntime.widgets.some(function(candidate){
+      if (!candidate || candidate.id === widget.id) return false;
+      if (candidate.type !== 'group' || !candidate.props || !candidate.props.scratchEnabled) return false;
+      if (isRuntimeWidgetDescendantOf(sceneRuntime, widget, candidate.id)) return false;
+      if (window.__smxScratchCompletionMsByWidgetId && Number.isFinite(Number(window.__smxScratchCompletionMsByWidgetId[candidate.id]))) return false;
+      if (Number(candidate.zIndex || 0) <= Number(widget.zIndex || 0)) return false;
+      if (getScratchRevealTargetMode(candidate) === 'auto') return rectsOverlap(candidate.frame, widget.frame);
+      return isWidgetTargetedByScratchGroup(sceneRuntime, candidate, widget);
+    });
+  }
+
   function getEffectiveWidgetElapsedMs(sceneRuntime, widget, elapsedMs) {
     var completedAtMs = getScratchRevealCompletionMs(sceneRuntime, widget);
-    if (!Number.isFinite(completedAtMs)) return elapsedMs;
     var startMs = Number((widget && widget.timeline && widget.timeline.startMs) || 0);
+    if (isWidgetWaitingForScratchReveal(sceneRuntime, widget)) return startMs;
+    if (!Number.isFinite(completedAtMs)) return elapsedMs;
     return startMs + Math.max(0, elapsedMs - completedAtMs);
+  }
+
+  function getRuntimeTimelineNode(widget) {
+    return document.querySelector('[data-scratch-cover-widget-id="' + widget.id + '"]') || document.querySelector('[data-widget-id="' + widget.id + '"]');
   }
 
   function getRuntimeWidgetsById(sceneRuntime) {
@@ -302,32 +427,63 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     return { offsetX: offsetX, offsetY: offsetY, opacity: opacity };
   }
 
+  function syncTimelineWidget(sceneRuntime, widget, elapsedMs) {
+    if (!hasRuntimeTimelineKeyframes(widget)) return;
+    const node = getRuntimeTimelineNode(widget);
+    if (!node) return;
+    const effectiveElapsedMs = getEffectiveWidgetElapsedMs(sceneRuntime, widget, elapsedMs);
+    const frame = widget.frame || {};
+    const style = node.style;
+    const originX = Number(node.getAttribute('data-scratch-origin-x') || 0);
+    const originY = Number(node.getAttribute('data-scratch-origin-y') || 0);
+    const isScratchCoverNode = Boolean(node.getAttribute('data-scratch-cover-widget-id'));
+    const ancestorMotion = isScratchCoverNode
+      ? getScratchCoverAncestorMotion(sceneRuntime, widget, elapsedMs)
+      : { offsetX: 0, offsetY: 0, opacity: 1 };
+    if (!node.getAttribute('data-smx-base-opacity')) {
+      node.setAttribute('data-smx-base-opacity', style.opacity || '1');
+    }
+    style.left = String(getWidgetTrackValue(widget, 'x', effectiveElapsedMs, Number(frame.x || 0)) - originX + ancestorMotion.offsetX) + 'px';
+    style.top = String(getWidgetTrackValue(widget, 'y', effectiveElapsedMs, Number(frame.y || 0)) - originY + ancestorMotion.offsetY) + 'px';
+    style.width = String(getWidgetTrackValue(widget, 'width', effectiveElapsedMs, Number(frame.width || 0))) + 'px';
+    style.height = String(getWidgetTrackValue(widget, 'height', effectiveElapsedMs, Number(frame.height || 0))) + 'px';
+    style.opacity = String(getWidgetTrackValue(widget, 'opacity', effectiveElapsedMs, Number(node.getAttribute('data-smx-base-opacity') || widget.style?.opacity || 1)) * ancestorMotion.opacity);
+  }
+
   function syncTimelineAnimatedWidgets(sceneRuntime, elapsedMs) {
     if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets)) return;
-    sceneRuntime.widgets.forEach((widget) => {
-      if (!widget) return;
-      const hasKeyframes = Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length && !widget.compositorMotion);
-      if (!hasKeyframes) return;
-      const node = document.querySelector('[data-scratch-cover-widget-id="' + widget.id + '"]') || document.querySelector('[data-widget-id="' + widget.id + '"]');
-      if (!node) return;
-      const effectiveElapsedMs = getEffectiveWidgetElapsedMs(sceneRuntime, widget, elapsedMs);
-      const frame = widget.frame || {};
-      const style = node.style;
-      const originX = Number(node.getAttribute('data-scratch-origin-x') || 0);
-      const originY = Number(node.getAttribute('data-scratch-origin-y') || 0);
-      const isScratchCoverNode = Boolean(node.getAttribute('data-scratch-cover-widget-id'));
-      const ancestorMotion = isScratchCoverNode
-        ? getScratchCoverAncestorMotion(sceneRuntime, widget, elapsedMs)
-        : { offsetX: 0, offsetY: 0, opacity: 1 };
-      if (!node.getAttribute('data-smx-base-opacity')) {
-        node.setAttribute('data-smx-base-opacity', style.opacity || '1');
-      }
-      style.left = String(getWidgetTrackValue(widget, 'x', effectiveElapsedMs, Number(frame.x || 0)) - originX + ancestorMotion.offsetX) + 'px';
-      style.top = String(getWidgetTrackValue(widget, 'y', effectiveElapsedMs, Number(frame.y || 0)) - originY + ancestorMotion.offsetY) + 'px';
-      style.width = String(getWidgetTrackValue(widget, 'width', effectiveElapsedMs, Number(frame.width || 0))) + 'px';
-      style.height = String(getWidgetTrackValue(widget, 'height', effectiveElapsedMs, Number(frame.height || 0))) + 'px';
-      style.opacity = String(getWidgetTrackValue(widget, 'opacity', effectiveElapsedMs, Number(node.getAttribute('data-smx-base-opacity') || widget.style?.opacity || 1)) * ancestorMotion.opacity);
-    });
+    sceneRuntime.widgets.forEach((widget) => syncTimelineWidget(sceneRuntime, widget, elapsedMs));
+  }
+
+  function getWidgetTimelinePlaybackDurationMs(widget) {
+    const keyframes = widget && widget.timeline && Array.isArray(widget.timeline.keyframes) ? widget.timeline.keyframes : [];
+    const startMs = Number((widget && widget.timeline && widget.timeline.startMs) || 0);
+    const keyframeEndMs = keyframes.reduce(function(max, keyframe) {
+      return Math.max(max, Number(keyframe && keyframe.atMs || 0));
+    }, startMs);
+    const timelineEndMs = Number(widget && widget.timeline ? widget.timeline.endMs || keyframeEndMs : keyframeEndMs);
+    return Math.max(0, Math.max(keyframeEndMs, timelineEndMs) - startMs);
+  }
+
+  function playScratchRevealTargetTimelineMotions(scratchWidgetId) {
+    const sceneRuntime = findTimelineRuntimeSceneByWidgetId(scratchWidgetId);
+    const scratchWidget = findTimelineRuntimeWidgetById(sceneRuntime, scratchWidgetId);
+    if (!sceneRuntime || !scratchWidget || !Array.isArray(sceneRuntime.widgets)) return;
+    const completedAtMs = Number(window.__smxScratchCompletionMsByWidgetId && window.__smxScratchCompletionMsByWidgetId[scratchWidgetId] || 0);
+    const targets = sceneRuntime.widgets.filter((widget) => hasRuntimeTimelineKeyframes(widget) && isWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, widget));
+    if (!targets.length) return;
+    const durationMs = targets.reduce((max, widget) => Math.max(max, getWidgetTimelinePlaybackDurationMs(widget)), 0);
+    const startedAt = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+
+    function tick(now) {
+      const currentNow = typeof now === 'number' ? now : (typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
+      const localElapsedMs = Math.max(0, Math.min(durationMs || 0, Math.round(currentNow - startedAt)));
+      targets.forEach((widget) => syncTimelineWidget(sceneRuntime, widget, completedAtMs + localElapsedMs));
+      if (localElapsedMs < durationMs) window.requestAnimationFrame(tick);
+    }
+
+    targets.forEach((widget) => syncTimelineWidget(sceneRuntime, widget, completedAtMs));
+    if (durationMs > 0) window.requestAnimationFrame(tick);
   }
 
   let smxTimelineFrame = 0;
@@ -727,6 +883,7 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       shell.classList.add('is-scratch-complete');
       window.__smxScratchCompletionMsByWidgetId[root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || ''] = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() - startedAt : 0;
       if (maskTarget) {
+        maskTarget.style.display = 'none';
         maskTarget.style.webkitMaskImage = 'none';
         maskTarget.style.maskImage = 'none';
       } else {
@@ -734,11 +891,12 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
         if (coverCtx) coverCtx.clearRect(0, 0, canvas.width, canvas.height);
       }
       if (revealContent) playScratchRevealRevealAnimation(revealContent, revealMotionPreset, revealMotionDurationMs, revealMotionDelayMs);
-      shell.querySelectorAll('[data-scratch-cover-motion-id]').forEach(function(node) {
-        var widgetId = node.getAttribute('data-scratch-cover-motion-id') || '';
-        var widget = findRuntimeWidgetById(widgetId);
-        playCompositorMotion(widget, node);
-      });
+      if (typeof playScratchRevealTargetCompositorMotions === 'function') {
+        playScratchRevealTargetCompositorMotions(root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || '');
+      }
+      if (typeof playScratchRevealTargetTimelineMotions === 'function') {
+        playScratchRevealTargetTimelineMotions(root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || '');
+      }
       if (completeTarget && window.smxRuntime && typeof window.smxRuntime.showScene === 'function') {
         // hook left intentionally simple; actions runtime owns more complex routing
       }

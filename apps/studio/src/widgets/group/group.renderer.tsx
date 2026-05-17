@@ -494,10 +494,9 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     });
   };
 
-  const scratchContent =
-    maskUrl || scratchCompleted ? (
-      <GroupScratchCoverChildren node={node} ctx={ctx} revealCompletedAtMs={scratchCompletedAtMs} />
-    ) : null;
+  const scratchContent = !scratchCompleted && maskUrl ? (
+    <GroupScratchCoverChildren node={node} ctx={ctx} revealCompletedAtMs={scratchCompletedAtMs} />
+  ) : null;
 
   return (
     <div ref={shellRef} style={scratchShellStyle}>
