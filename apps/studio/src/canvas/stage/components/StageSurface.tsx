@@ -113,6 +113,11 @@ export function StageSurface({
     return false;
   }
 
+  function isWidgetVisibleAtBaseTime(widget: WidgetNode): boolean {
+    if (widget.hidden) return false;
+    return isWidgetVisibleAt(widget, playheadMs);
+  }
+
   function resolveScratchGroupFrame(widget: WidgetNode, visited = new Set<string>()): WidgetFrame {
     if (visited.has(widget.id)) {
       return liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
@@ -121,7 +126,7 @@ export function StageSurface({
     const baseFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
     const childFrames = (widget.childIds ?? [])
       .map((childId) => widgetsById[childId])
-      .filter((child): child is WidgetNode => Boolean(child) && isWidgetVisibleAtEffectiveTime(child))
+      .filter((child): child is WidgetNode => Boolean(child) && isWidgetVisibleAtBaseTime(child))
       .map((child) => {
         if (child.childIds?.length) return resolveScratchGroupFrame(child, visited);
         return liveFrameById[child.id] ?? getEffectiveLiveFrame(child);
