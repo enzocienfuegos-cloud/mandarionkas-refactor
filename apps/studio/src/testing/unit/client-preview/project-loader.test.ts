@@ -35,13 +35,16 @@ describe('client preview project loader', () => {
     const widget = snapshot.document.widgets.cta_1;
 
     expect(widget.motion).toEqual({
-      templateId: 'appear',
-      config: {
-        durationMs: 720,
-        delayMs: 80,
-        distancePx: 18,
-        intensity: 0.5,
-        repeatMode: 'once',
+      enter: {
+        templateId: 'appear',
+        config: {
+          durationMs: 720,
+          delayMs: 80,
+          distancePx: 18,
+          intensity: 0.5,
+          repeatMode: 'once',
+        },
+        trigger: 'timeline',
       },
     });
     expect(widget.hoverMotion).toEqual({

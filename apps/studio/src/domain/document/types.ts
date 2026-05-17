@@ -46,9 +46,29 @@ export type KeyframeEasing = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
 export type KeyframeNode = { id: string; atMs: number; property: KeyframeProperty; value: number; easing?: KeyframeEasing; managedBy?: string; };
 export type WidgetTimeline = { startMs: number; endMs: number; keyframes?: KeyframeNode[]; };
 export type MotionConfigValue = Record<string, number | string>;
-export type WidgetMotion = {
-  templateId: string | null;
+export type MotionTrigger =
+  | 'timeline'
+  | 'load'
+  | 'scene-enter'
+  | 'scene-exit'
+  | 'reveal'
+  | 'scratch-complete'
+  | 'click'
+  | 'hover-enter'
+  | 'hover-exit'
+  | 'completion'
+  | 'game-state';
+export type MotionReplayPolicy = 'restart' | 'ignore' | 'queue';
+export type MotionSlot = {
+  templateId: string;
   config: MotionConfigValue;
+  trigger: MotionTrigger;
+  replayPolicy?: MotionReplayPolicy;
+};
+export type WidgetMotion = {
+  enter?: MotionSlot;
+  idle?: MotionSlot;
+  exit?: MotionSlot;
 };
 export type WidgetHoverMotion = {
   templateId: string | null;

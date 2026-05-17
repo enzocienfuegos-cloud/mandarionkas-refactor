@@ -1,5 +1,6 @@
 import type { KeyframeEasing, KeyframeNode, WidgetFrame, WidgetTimeline } from '../../domain/document/types';
 
+/** @deprecated removed in Phase 2 */
 export function motionKeyframe(
   id: string,
   property: KeyframeNode['property'],
@@ -10,10 +11,12 @@ export function motionKeyframe(
   return { id, property, atMs: Math.round(atMs), value, easing };
 }
 
+/** @deprecated removed in Phase 2 */
 export function clampTimelineMs(atMs: number, timeline: WidgetTimeline): number {
   return Math.max(timeline.startMs, Math.min(timeline.endMs, atMs));
 }
 
+/** @deprecated removed in Phase 2 */
 export function buildFadeInKeyframes(
   templateId: string,
   timeline: WidgetTimeline,
@@ -29,6 +32,7 @@ export function buildFadeInKeyframes(
   ];
 }
 
+/** @deprecated removed in Phase 2 */
 export function buildFadeOutKeyframes(
   templateId: string,
   timeline: WidgetTimeline,
@@ -42,6 +46,7 @@ export function buildFadeOutKeyframes(
   ];
 }
 
+/** @deprecated removed in Phase 2 */
 export function buildTranslateInKeyframes(
   templateId: string,
   property: 'x' | 'y',
@@ -70,6 +75,7 @@ export function buildTranslateInKeyframes(
   return keyframes;
 }
 
+/** @deprecated removed in Phase 2 */
 export function dedupeMotionKeyframes(keyframes: KeyframeNode[]): KeyframeNode[] {
   const deduped = new Map<string, KeyframeNode>();
   keyframes.forEach((keyframe) => {

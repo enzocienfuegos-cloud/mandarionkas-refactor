@@ -11,6 +11,7 @@ type StageFloatingToolbarProps = {
   toolbarCollapsed: boolean;
   toolbarStyle: CSSProperties;
   sceneName: string;
+  previewMode: boolean;
   stageBackdrop: 'light' | 'gray' | 'dark';
   showStageRulers: boolean;
   editModeWireframe: boolean;
@@ -28,6 +29,7 @@ type StageFloatingToolbarProps = {
   onZoomOut: () => void;
   onZoomIn: () => void;
   onFitToViewport: () => void;
+  onResetInteractions: () => void;
 };
 
 export function StageFloatingToolbar({
@@ -35,6 +37,7 @@ export function StageFloatingToolbar({
   toolbarCollapsed,
   toolbarStyle,
   sceneName,
+  previewMode,
   stageBackdrop,
   showStageRulers,
   editModeWireframe,
@@ -52,6 +55,7 @@ export function StageFloatingToolbar({
   onZoomOut,
   onZoomIn,
   onFitToViewport,
+  onResetInteractions,
 }: StageFloatingToolbarProps): JSX.Element {
   return (
     <div
@@ -121,12 +125,18 @@ export function StageFloatingToolbar({
             disabled={zoom >= ZOOM_MAX}
           />
           <Button variant="ghost" size="sm" iconBefore={<StudioIcon icon={StudioIcons.scanSearch} size={16} />} onClick={onFitToViewport}>Fit</Button>
+          {previewMode ? (
+            <Button variant="ghost" size="sm" iconBefore={<StudioIcon icon={StudioIcons.skipBack} size={16} />} onClick={onResetInteractions}>Reset interactions</Button>
+          ) : null}
         </>
       ) : (
         <>
           <span className="pill">Stage</span>
           <IconButton label="Toggle rulers" icon={<StudioIcon icon={StudioIcons.ruler} size={16} />} isActive={showStageRulers} pressed={showStageRulers} onClick={onToggleRulers} />
           <IconButton label="Toggle wireframe mode (W)" icon={<StudioIcon icon={StudioIcons.boxes} size={16} />} isActive={editModeWireframe} pressed={editModeWireframe} onClick={onToggleWireframe} />
+          {previewMode ? (
+            <IconButton label="Reset interactions" icon={<StudioIcon icon={StudioIcons.skipBack} size={16} />} onClick={onResetInteractions} />
+          ) : null}
         </>
       )}
     </div>

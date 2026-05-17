@@ -5,8 +5,6 @@ import type { ActionNode, WidgetFrame, WidgetNode, StudioState } from '../../../
 import type { ResizeHandle } from '../use-stage-controller';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 import { isNativeStageDragWidgetType } from '../../../domain/document/widget-type-groups';
-import { getAnimationClockSignature, type AnimationClock } from '../../../motion/animation-clocks';
-import { resolveWidgetHoverMotion } from '../../../motion/motion-model';
 import { MotionLayer } from '../../../motion/react/MotionLayer';
 
 const HANDLE_SIZE = 10;
@@ -25,8 +23,6 @@ type StageWidgetProps = {
   onResizePointerDown: (event: ReactPointerEvent<HTMLButtonElement>, handle: ResizeHandle) => void;
   previewMode: boolean;
   isReproducing: boolean;
-  motionClock?: AnimationClock;
-  motionStartedAtMs?: number;
   editModeWireframe: boolean;
   playheadMs: number;
   sceneDurationMs: number;
@@ -51,8 +47,6 @@ export const StageWidget = memo(function StageWidget({
   onResizePointerDown,
   previewMode,
   isReproducing,
-  motionClock,
-  motionStartedAtMs,
   editModeWireframe,
   playheadMs,
   sceneDurationMs,
@@ -82,10 +76,10 @@ export const StageWidget = memo(function StageWidget({
   return (
     <MotionLayer
       widget={node}
+      widgetsById={widgetsById}
       playheadMs={playheadMs}
+      previewMode={previewMode}
       isReproducing={isReproducing}
-      clock={motionClock}
-      startedAtMs={motionStartedAtMs}
       className={`stage-widget stage-widget--${node.type} ${selected ? 'is-selected' : ''} ${primary ? 'is-primary' : ''} ${hovered ? 'is-hovered' : ''} ${active ? 'is-active' : ''} ${previewMode ? 'is-preview-mode' : 'is-edit-mode'} ${useWireframe ? 'is-wireframe-mode' : ''}`}
       {...createStageInteractionProps(STAGE_INTERACTION.widget)}
       onPointerDown={(event) => {
@@ -152,17 +146,6 @@ function buildStageWidgetStyle(
     active: boolean;
   },
 ): CSSProperties {
-  const rotationTransform = `rotate(${frame.rotation}deg)`;
-  const hoverMotion = resolveWidgetHoverMotion(node);
-  const hoverMotionPreset = hoverMotion?.template.id ?? 'none';
-  const hoverMotionDurationMs = Math.max(120, Number(hoverMotion?.config.durationMs ?? 240));
-  const hoverMotionDistancePx = Math.max(0, Number(hoverMotion?.config.distancePx ?? 12));
-  const hoverMotionScale = Math.max(1, Number(hoverMotion?.config.scale ?? 1.04));
-  const isHoverMotionActive = previewMode && (hovered || active) && hoverMotionPreset !== 'none';
-  const hoverTransform = hoverMotionPreset === 'zoom'
-    ? `${rotationTransform} scale(${hoverMotionScale})`
-    : `${rotationTransform} translateY(-${hoverMotionDistancePx}px) scale(${hoverMotionScale})`;
-
   const style: CSSProperties & Record<string, string | number | undefined> = {
     left: frame.x,
     top: frame.y,
@@ -171,19 +154,7 @@ function buildStageWidgetStyle(
     opacity,
     zIndex,
     cursor: interactiveInPreview ? 'pointer' : 'default',
-    transform: hoverMotionPreset === 'pulse'
-      ? rotationTransform
-      : isHoverMotionActive
-        ? hoverTransform
-        : rotationTransform,
-    transition: previewMode && hoverMotionPreset !== 'none'
-      ? `transform ${hoverMotionDurationMs}ms ease, box-shadow ${hoverMotionDurationMs}ms ease, filter ${hoverMotionDurationMs}ms ease, opacity ${hoverMotionDurationMs}ms ease`
-      : undefined,
-    animation: previewMode && hoverMotionPreset === 'pulse' && isHoverMotionActive
-      ? `smx-stage-hover-pulse ${hoverMotionDurationMs}ms ease-in-out infinite`
-      : undefined,
-    '--smx-motion-base-transform': rotationTransform,
-    '--smx-motion-hover-transform': hoverTransform,
+    transform: `rotate(${frame.rotation}deg)`,
   };
   return style;
 }
@@ -205,8 +176,6 @@ function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProp
     && previous.showBadge === next.showBadge
     && previous.previewMode === next.previewMode
     && previous.isReproducing === next.isReproducing
-    && getAnimationClockSignature(previous.motionClock) === getAnimationClockSignature(next.motionClock)
-    && previous.motionStartedAtMs === next.motionStartedAtMs
     && previous.editModeWireframe === next.editModeWireframe
     && previous.playheadMs === next.playheadMs
     && previous.sceneDurationMs === next.sceneDurationMs

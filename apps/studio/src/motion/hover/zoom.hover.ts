@@ -15,7 +15,6 @@ const zoomHoverTemplate: MotionTemplate = {
     { key: 'scale', label: 'Scale', kind: 'number', min: 1.01, max: 1.5, step: 0.01, unit: 'x', defaultValue: 1.05 },
   ],
   defaults,
-  buildKeyframes: () => [],
   buildCompositorMotion: (config) => {
     const durationMs = Math.max(120, readConfigNumber(config, 'durationMs', defaults.durationMs));
     const scale = Math.max(1.01, readConfigNumber(config, 'scale', defaults.scale));
@@ -33,6 +32,7 @@ const zoomHoverTemplate: MotionTemplate = {
       willChange: 'transform',
     };
   },
+  isLoop: false,
   thumbnail: () => createElement(MotionThumbnail, { label: 'Zoom' }),
 };
 

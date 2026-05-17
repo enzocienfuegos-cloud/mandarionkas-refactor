@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import type { CSSProperties } from 'react';
 import { getLiveWidgetFrame, getLiveWidgetOpacity, isWidgetVisibleAt } from '../../../domain/document/timeline';
 import type { WidgetFrame, WidgetNode } from '../../../domain/document/types';
@@ -8,13 +8,13 @@ import { StageDropPreviewOverlay } from './StageDropPreviewOverlay';
 import { rectStyle, sceneTransitionOpacity, sceneTransitionTransform, toRect } from './stage-utils';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 import { isVisibleWithinParentTimeline, resolveInheritedMotionFrame, resolveInheritedOpacity } from './stage-motion-inheritance';
+import { createEventClock } from '../../../motion/animation-engine';
+import { useAnimationEngine } from '../../../motion/animation-engine';
 import { isScratchGroupActive } from '../../../widgets/group/group-scratch-activation';
-import { getScratchRevealTargetMode, isWidgetTargetedByScratchGroup } from '../../../widgets/group/group-reveal-target';
-import { createRevealAnimationClock, resolveTimelinePlayheadForClock, type AnimationClock } from '../../../motion/animation-clocks';
-import { createAnimationEvent } from '../../../motion/animation-events';
 
 export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
+  sceneId: string;
   canvas: { width: number; height: number; backgroundColor: string };
   widgets: WidgetNode[];
   widgetsById: Record<string, WidgetNode>;
@@ -48,8 +48,27 @@ export type StageSurfaceProps = {
   onExecuteAction: (actionId: string) => void;
 };
 
+function collectScratchDescendants(root: WidgetNode, widgetsById: Record<string, WidgetNode>): WidgetNode[] {
+  const descendants: WidgetNode[] = [];
+  const stack = [...(root.childIds ?? [])];
+  const visited = new Set<string>();
+
+  while (stack.length) {
+    const childId = stack.pop();
+    if (!childId || visited.has(childId)) continue;
+    visited.add(childId);
+    const child = widgetsById[childId];
+    if (!child) continue;
+    descendants.push(child);
+    stack.push(...(child.childIds ?? []));
+  }
+
+  return descendants;
+}
+
 export function StageSurface({
   stageRef,
+  sceneId,
   canvas,
   widgets,
   widgetsById,
@@ -82,32 +101,54 @@ export function StageSurface({
   onSetHoveredWidget,
   onExecuteAction,
 }: StageSurfaceProps): JSX.Element {
+  const engine = useAnimationEngine();
   const stageDropActive = Boolean(dropPreview);
   const isReproducing = previewMode && isPlaying;
   const transitionDuration = Math.max(120, sceneTransitionDurationMs);
-  const [scratchCompletionMsByWidgetId, setScratchCompletionMsByWidgetId] = useState<Record<string, number>>({});
   const previousPlayheadRef = useRef(playheadMs);
-  const completionMsCache = new Map<string, number | undefined>();
-  const resolvingCompletionIds = new Set<string>();
+  const previousSceneIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!previewMode) {
-      setScratchCompletionMsByWidgetId({});
+      engine.resetEventClocks();
       previousPlayheadRef.current = playheadMs;
       return;
     }
-    if (playheadMs === 0 || playheadMs < previousPlayheadRef.current) {
-      setScratchCompletionMsByWidgetId({});
-    }
     previousPlayheadRef.current = playheadMs;
-  }, [playheadMs, previewMode]);
+  }, [engine, playheadMs, previewMode]);
 
-  function rectsOverlap(left: WidgetFrame, right: WidgetFrame): boolean {
-    return left.x < right.x + right.width
-      && left.x + left.width > right.x
-      && left.y < right.y + right.height
-      && left.y + left.height > right.y;
-  }
+  useEffect(() => {
+    if (!isReproducing) return;
+    engine.seekScene(playheadMs);
+  }, [engine, isReproducing, playheadMs]);
+
+  useEffect(() => {
+    if (!isReproducing) {
+      previousSceneIdRef.current = undefined;
+      return;
+    }
+
+    const nowMs = typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
+    const previousSceneId = previousSceneIdRef.current;
+
+    if (!previousSceneId || previousSceneId !== sceneId) {
+      const enterClock = createEventClock('scene-enter', nowMs);
+      widgets.forEach((widget) => {
+        engine.emit({
+          trigger: 'scene-enter',
+          sourceId: widget.id,
+          targetId: widget.id,
+          sceneTimeMs: 0,
+          realTimeMs: nowMs,
+          clock: enterClock,
+        });
+      });
+    }
+
+    previousSceneIdRef.current = sceneId;
+  }, [engine, isReproducing, sceneId, widgets]);
 
   function isCoveredByScratchGroup(widget: WidgetNode): boolean {
     if (!previewMode) return false;
@@ -115,7 +156,7 @@ export function StageSurface({
     while (currentParentId) {
       const parent = widgetsById[currentParentId];
       if (!parent) return false;
-      if (parent.type === 'group' && isScratchGroupActive({ group: parent, widgetsById, playheadMs })) return true;
+      if (parent.type === 'group' && parent.props.scratchEnabled) return true;
       currentParentId = parent.parentId;
     }
     return false;
@@ -156,76 +197,6 @@ export function StageSurface({
     };
   }
 
-  function findScratchRevealCompletionMs(widget: WidgetNode): number | undefined {
-    if (!previewMode) return undefined;
-    if (completionMsCache.has(widget.id)) return completionMsCache.get(widget.id);
-    if (resolvingCompletionIds.has(widget.id)) return undefined;
-    resolvingCompletionIds.add(widget.id);
-
-    try {
-      const widgetFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
-      let topCoverId: string | null = null;
-      let topCoverZIndex = Number.NEGATIVE_INFINITY;
-
-      widgets.forEach((candidate) => {
-        if (candidate.id === widget.id) return;
-        if (candidate.type !== 'group' || !candidate.props.scratchEnabled) return;
-        if (candidate.zIndex <= widget.zIndex) return;
-        const revealTargetMode = getScratchRevealTargetMode(candidate);
-        if (revealTargetMode === 'auto') {
-          const candidateFrame = resolveScratchGroupFrame(candidate);
-          if (!rectsOverlap(candidateFrame, widgetFrame)) return;
-        } else if (!isWidgetTargetedByScratchGroup(candidate, widget, widgetsById)) {
-          return;
-        }
-        if (candidate.zIndex > topCoverZIndex) {
-          topCoverId = candidate.id;
-          topCoverZIndex = candidate.zIndex;
-        }
-      });
-
-      const result = topCoverId ? scratchCompletionMsByWidgetId[topCoverId] : undefined;
-      completionMsCache.set(widget.id, result);
-      return result;
-    } finally {
-      resolvingCompletionIds.delete(widget.id);
-    }
-  }
-
-  function getEffectiveWidgetPlayheadMs(widget: WidgetNode): number {
-    const completedAtMs = findScratchRevealCompletionMs(widget);
-    if (completedAtMs === undefined) return playheadMs;
-    return resolveTimelinePlayheadForClock(widget, playheadMs, createRevealAnimationClock(completedAtMs));
-  }
-
-  function getWidgetAnimationClock(widget: WidgetNode): AnimationClock | undefined {
-    const completedAtMs = findScratchRevealCompletionMs(widget);
-    return completedAtMs === undefined ? undefined : createRevealAnimationClock(completedAtMs);
-  }
-
-  function getEffectiveLiveFrame(widget: WidgetNode): WidgetFrame {
-    return getLiveWidgetFrame(widget, getEffectiveWidgetPlayheadMs(widget));
-  }
-
-  function getStageLiveFrame(widget: WidgetNode): WidgetFrame {
-    if (findScratchRevealCompletionMs(widget) !== undefined) return getEffectiveLiveFrame(widget);
-    return liveFrameById[widget.id] ?? getEffectiveLiveFrame(widget);
-  }
-
-  function getEffectiveLiveOpacity(widget: WidgetNode): number {
-    return getLiveWidgetOpacity(widget, getEffectiveWidgetPlayheadMs(widget));
-  }
-
-  function getBaseWidgetOpacity(widget: WidgetNode): number {
-    const opacity = Number(widget.style.opacity ?? 1);
-    return Number.isFinite(opacity) ? opacity : 1;
-  }
-
-  function isWidgetVisibleAtEffectiveTime(widget: WidgetNode): boolean {
-    if (widget.hidden) return false;
-    return isWidgetVisibleAt(widget, getEffectiveWidgetPlayheadMs(widget));
-  }
-
   function buildStageSurfaceStyle(): CSSProperties {
     return {
       width: canvas.width,
@@ -262,12 +233,12 @@ export function StageSurface({
       style={buildStageSurfaceStyle()}
     >
       {widgets.map((widget) => {
-        if (!isWidgetVisibleAtEffectiveTime(widget) || !isVisibleWithinParentTimeline({
+        if (!isWidgetVisibleAtBaseTime(widget) || !isVisibleWithinParentTimeline({
           widget,
           widgetsById,
           isWidgetVisible: (widgetId) => {
             const target = widgetsById[widgetId];
-            return target ? isWidgetVisibleAtEffectiveTime(target) : false;
+            return target ? isWidgetVisibleAtBaseTime(target) : false;
           },
         })) return null;
         if (isCoveredByScratchGroup(widget)) return null;
@@ -277,32 +248,30 @@ export function StageSurface({
           && (!Boolean(widget.props.scratchEnabled) || !scratchGroupActive);
         const groupSelectedInEditor = !previewMode && selectedIds.includes(widget.id);
         if (isPassThroughGroup && !groupSelectedInEditor) return null;
-        const scratchCompletionMs = findScratchRevealCompletionMs(widget);
-        const motionClock = getWidgetAnimationClock(widget);
-        const liveFrame = isReproducing ? widget.frame : getStageLiveFrame(widget);
+
+        const liveFrame = isReproducing ? widget.frame : (liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs));
         const baseFrame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
           ? resolveScratchGroupFrame(widget)
           : liveFrame;
-        const inheritedLiveFrameById = scratchCompletionMs === undefined ? liveFrameById : {};
         const frame = isReproducing
           ? baseFrame
           : resolveInheritedMotionFrame({
               widget,
               widgetsById,
-              liveFrameById: inheritedLiveFrameById,
+              liveFrameById,
               playheadMs,
-              getLiveFrame: (target, _playheadMs) => getEffectiveLiveFrame(target),
+              getLiveFrame: (target, targetPlayheadMs) => getLiveWidgetFrame(target, targetPlayheadMs),
               ownFrame: baseFrame,
             });
         const renderNode = frame === widget.frame ? widget : { ...widget, frame };
         const opacity = isReproducing
-          ? getBaseWidgetOpacity(widget)
+          ? Number(widget.style.opacity ?? 1)
           : resolveInheritedOpacity({
               widget,
               widgetsById,
               playheadMs,
-              ownOpacity: getEffectiveLiveOpacity(widget),
-              getLiveOpacity: (target, _playheadMs) => getEffectiveLiveOpacity(target),
+              ownOpacity: getLiveWidgetOpacity(widget, playheadMs),
+              getLiveOpacity: (target, targetPlayheadMs) => getLiveWidgetOpacity(target, targetPlayheadMs),
             });
 
         return (
@@ -318,8 +287,6 @@ export function StageSurface({
             showBadge={showWidgetBadges}
             previewMode={previewMode}
             isReproducing={isReproducing}
-            motionClock={motionClock}
-            motionStartedAtMs={scratchCompletionMs}
             editModeWireframe={editModeWireframe}
             playheadMs={playheadMs}
             sceneDurationMs={sceneDurationMs}
@@ -329,19 +296,35 @@ export function StageSurface({
             onSetHoveredWidget={onSetHoveredWidget}
             onExecuteAction={onExecuteAction}
             onWidgetTrigger={(widgetId, trigger, metadata) => {
+              const nowMs = performance.now();
+              if (trigger === 'click' || trigger === 'hover-enter' || trigger === 'hover-exit') {
+                engine.emit({
+                  trigger,
+                  sourceId: widgetId,
+                  targetId: widgetId,
+                  sceneTimeMs: playheadMs,
+                  realTimeMs: nowMs,
+                  clock: createEventClock(trigger, nowMs),
+                  metadata,
+                });
+                return;
+              }
               if (trigger !== 'scratch-complete') return;
-              const completedAtMs = Number(metadata?.completedAtMs ?? playheadMs);
-              const revealEvent = createAnimationEvent({
-                trigger: 'reveal',
-                sourceId: widgetId,
-                sceneTimeMs: completedAtMs,
-                metadata,
+              const scratchWidget = widgetsById[widgetId];
+              if (!scratchWidget) return;
+              const descendants = collectScratchDescendants(scratchWidget, widgetsById);
+              const clock = createEventClock('reveal', nowMs);
+              descendants.forEach((descendant) => {
+                engine.emit({
+                  trigger: 'reveal',
+                  sourceId: widgetId,
+                  targetId: descendant.id,
+                  sceneTimeMs: Number(metadata?.completedAtMs ?? playheadMs),
+                  realTimeMs: nowMs,
+                  clock,
+                  metadata,
+                });
               });
-              setScratchCompletionMsByWidgetId((current) => (
-                current[widgetId] === revealEvent.sceneTimeMs
-                  ? current
-                  : { ...current, [widgetId]: revealEvent.sceneTimeMs }
-              ));
             }}
             onWidgetPointerDown={(event) => onWidgetPointerDown(event, renderNode.id, Boolean(renderNode.locked))}
             onResizePointerDown={(event, handle) => onResizePointerDown(event, renderNode.id, Boolean(renderNode.locked), handle)}

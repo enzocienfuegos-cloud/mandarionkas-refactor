@@ -3,7 +3,7 @@ import { createInitialState } from '../../../domain/document/factories';
 import { buildClientPreviewSceneHtml, buildClientPreviewSceneState } from '../../../features/client-preview/ClientPreviewPlayer';
 
 describe('client preview player', () => {
-  it('renders public preview through the export runtime so compositor motion uses WAAPI', () => {
+  it('renders public preview through the compiled export runtime bundle', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
     state.document.metadata.release.targetChannel = 'generic-html5';
@@ -26,9 +26,8 @@ describe('client preview player', () => {
 
     const html = buildClientPreviewSceneHtml(state, 0);
 
-    expect(html).toContain('initCompositorMotion');
-    expect(html).toContain('node.animate(spec.keyframes');
-    expect(html).toContain('"compositorMotion"');
+    expect(html).toContain('window.SmxRuntime.bootSmxRuntime(');
+    expect(html).toContain('"motion":{"idle":{"templateId":"float"');
     expect(html).toContain('Smooth motion');
   });
 
@@ -66,7 +65,7 @@ describe('client preview player', () => {
     expect(exitJson).not.toContain('&quot;');
     expect(() => JSON.parse(runtimeJson ?? '')).not.toThrow();
     expect(() => JSON.parse(exitJson ?? '')).not.toThrow();
-    expect(html).toContain('parseRuntimeJson');
+    expect(html).toContain('window.SmxRuntime.bootSmxRuntime(');
   });
 
   it('isolates the selected scene for public preview playback', () => {

@@ -27,33 +27,37 @@ describe('animation presets', () => {
     expect(supportsAnimationPresets(createWidget('scratch-reveal'))).toBe(false);
   });
 
-  it('translates appear into managed timeline keyframes', () => {
-    const { keyframes, stylePatch } = applyAnimationPreset(createWidget('text'), 'appear');
+  it('translates appear into an enter slot without managed keyframes', () => {
+    const { keyframes, stylePatch, motion } = applyAnimationPreset(createWidget('text'), 'appear');
 
     expect(stylePatch.animationPreset).toBe('appear');
-    expect(keyframes).toHaveLength(2);
-    expect(keyframes.every((keyframe) => keyframe.managedBy === 'motion:appear')).toBe(true);
+    expect(keyframes).toHaveLength(0);
+    expect(motion?.enter).toEqual(expect.objectContaining({
+      templateId: 'appear',
+      trigger: 'load',
+    }));
   });
 
-  it('translates fade-up into managed timeline keyframes', () => {
-    const { keyframes } = applyAnimationPreset(createWidget('image'), 'fade-up');
+  it('translates fade-up into an enter slot without managed timeline tracks', () => {
+    const { keyframes, motion } = applyAnimationPreset(createWidget('image'), 'fade-up');
 
-    expect(keyframes.some((keyframe) => keyframe.property === 'opacity')).toBe(true);
-    expect(keyframes.some((keyframe) => keyframe.property === 'y')).toBe(true);
+    expect(keyframes).toHaveLength(0);
+    expect(motion?.enter?.templateId).toBe('fade-up');
   });
 
-  it('translates pulse into managed timeline keyframes', () => {
-    const { keyframes } = applyAnimationPreset(createWidget('cta'), 'pulse');
+  it('translates pulse into an idle slot', () => {
+    const { keyframes, motion } = applyAnimationPreset(createWidget('cta'), 'pulse');
 
-    expect(keyframes.length).toBeGreaterThan(2);
-    expect(keyframes.every((keyframe) => keyframe.property === 'opacity')).toBe(true);
+    expect(keyframes).toHaveLength(0);
+    expect(motion?.idle?.templateId).toBe('pulse');
+    expect(motion?.enter).toBeUndefined();
   });
 
   it('keeps compositor-native float out of timeline-managed tracks', () => {
     const { keyframes, motion, stylePatch } = applyAnimationPreset(createWidget('image'), 'float');
 
     expect(stylePatch.animationPreset).toBe('float');
-    expect(motion?.templateId).toBe('float');
+    expect(motion?.idle?.templateId).toBe('float');
     expect(keyframes).toHaveLength(0);
   });
 
@@ -74,8 +78,8 @@ describe('animation presets', () => {
     const pulse = applyAnimationPreset(widgetWithPreset, 'pulse');
 
     expect(pulse.keyframes.some((keyframe) => keyframe.property === 'x')).toBe(true);
-    expect(pulse.keyframes.some((keyframe) => keyframe.property === 'opacity' && keyframe.managedBy === 'motion:pulse')).toBe(true);
-    expect(pulse.keyframes.some((keyframe) => keyframe.property === 'y' && !keyframe.managedBy)).toBe(false);
+    expect(pulse.keyframes.some((keyframe) => keyframe.managedBy?.startsWith('motion:'))).toBe(false);
+    expect(pulse.motion?.idle?.templateId).toBe('pulse');
   });
 
   it('strips only motion-managed tracks when removing a template', () => {
@@ -94,13 +98,12 @@ describe('animation presets', () => {
     expect(keyframes.some((keyframe) => keyframe.property === 'x')).toBe(true);
   });
 
-  it('translates fade-out into exit keyframes', () => {
-    const { keyframes, stylePatch } = applyAnimationPreset(createWidget('group'), 'fade-out');
+  it('translates fade-out into an exit slot', () => {
+    const { keyframes, stylePatch, motion } = applyAnimationPreset(createWidget('group'), 'fade-out');
 
     expect(stylePatch.animationPreset).toBe('fade-out');
-    expect(keyframes).toHaveLength(2);
-    expect(keyframes[0]?.atMs).toBeGreaterThanOrEqual(300);
-    expect(keyframes[1]?.atMs).toBe(2000);
+    expect(keyframes).toHaveLength(0);
+    expect(motion?.exit?.templateId).toBe('fade-out');
   });
 
   it('reads adjustable motion settings from widget style and persists template config', () => {
@@ -123,7 +126,7 @@ describe('animation presets', () => {
     expect(stylePatch.animationDelayMs).toBe(180);
     expect(stylePatch.animationDistancePx).toBe(36);
     expect(stylePatch.animationRepeatMode).toBe('repeat');
-    expect(keyframes.some((keyframe) => keyframe.property === 'y')).toBe(true);
+    expect(keyframes).toHaveLength(0);
   });
 
   it('reads hover motion settings with safe defaults', () => {

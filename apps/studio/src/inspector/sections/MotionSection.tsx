@@ -1,6 +1,12 @@
 import type { WidgetNode } from '../../domain/document/types';
 import { useTimelineActions, useWidgetActions } from '../../hooks/use-studio-actions';
-import { buildLegacyHoverMotionStylePatch, buildLegacyMotionStylePatch, buildWidgetHoverMotion, buildWidgetMotion } from '../../motion/motion-model';
+import {
+  buildLegacyHoverMotionStylePatch,
+  buildLegacyMotionStylePatch,
+  buildWidgetHoverMotion,
+  buildWidgetMotion,
+  resolveWidgetMotionSelection,
+} from '../../motion/motion-model';
 import { rebuildWidgetMotionKeyframes } from '../../motion/motion-template-keyframes';
 import { MotionConfigFields } from '../../motion/react/MotionConfigFields';
 import { MotionTemplateGallery } from '../../motion/react/MotionTemplateGallery';
@@ -28,6 +34,7 @@ export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element |
   const hoverConfig = getHoverMotionConfig(widget);
   const entranceTemplates = getAvailableAnimationTemplates(widget);
   const hoverTemplates = getAvailableHoverTemplates(widget);
+  const selectedMotion = resolveWidgetMotionSelection(widget);
 
   return (
     <section className="section section-premium">
@@ -45,7 +52,7 @@ export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element |
             <MotionTemplateGallery
               templates={entranceTemplates}
               selectedTemplateId={animationConfig.preset || null}
-              configByTemplateId={widget.motion?.templateId ? { [widget.motion.templateId]: widget.motion.config } : undefined}
+              configByTemplateId={selectedMotion ? { [selectedMotion.template.id]: selectedMotion.config } : undefined}
               onSelect={(templateId) => {
                 if (!templateId) {
                   setWidgetKeyframes(widget.id, rebuildWidgetMotionKeyframes(widget, undefined, widget.timeline.keyframes ?? []));
@@ -59,12 +66,19 @@ export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element |
                 updateWidgetStyle(widget.id, stylePatch);
               }}
               emptyLabel="No motion"
-              renderSelectedContent={(template) => widget.motion ? (
+              renderSelectedContent={(template) => selectedMotion ? (
                 <MotionConfigFields
                   template={template}
-                  config={widget.motion.config}
+                  config={selectedMotion.config}
                   onChange={(patch) => {
-                    const nextMotion = buildWidgetMotion(template.id, { ...widget.motion?.config, ...patch });
+                    const nextSlotMotion = buildWidgetMotion(template.id, { ...selectedMotion.config, ...patch }, {
+                      trigger: selectedMotion.trigger,
+                      replayPolicy: selectedMotion.replayPolicy,
+                      phase: selectedMotion.phase,
+                    });
+                    const nextMotion = nextSlotMotion
+                      ? { ...(widget.motion ?? {}), [selectedMotion.phase]: nextSlotMotion[selectedMotion.phase] }
+                      : undefined;
                     setWidgetKeyframes(widget.id, rebuildWidgetMotionKeyframes(widget, nextMotion, widget.timeline.keyframes ?? []));
                     updateWidgetMotion(widget.id, nextMotion);
                     updateWidgetStyle(widget.id, buildLegacyMotionStylePatch(nextMotion));

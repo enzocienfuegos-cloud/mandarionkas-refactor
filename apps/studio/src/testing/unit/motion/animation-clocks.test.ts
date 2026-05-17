@@ -1,13 +1,39 @@
 import { describe, expect, it } from 'vitest';
 import type { WidgetNode } from '../../../domain/document/types';
 import {
-  buildRevealAnimationPlan,
-  buildTimelineAnimationPlan,
-  createRevealAnimationClock,
-  resolveClockLocalMs,
-  resolveTimelinePlayheadForClock,
-  SCENE_ANIMATION_CLOCK,
-} from '../../../motion/animation-clocks';
+  clockLocalElapsedMs,
+  createEventClock,
+  SCENE_CLOCK,
+  type AnimationClock,
+} from '../../../motion/animation-engine/clock';
+import { derivePlansForWidget } from '../../../motion/animation-engine/plan';
+
+function resolveClockLocalMs(
+  clock: AnimationClock | undefined,
+  scenePlayheadMs: number,
+  timelineStartMs = 0,
+): number {
+  const targetClock = clock ?? SCENE_CLOCK;
+  if (targetClock.kind === 'scene' || targetClock.startMode !== 'trigger-local-zero') {
+    return Math.max(0, scenePlayheadMs - timelineStartMs);
+  }
+  return clockLocalElapsedMs(targetClock, scenePlayheadMs);
+}
+
+function resolveTimelinePlayheadForClock(
+  widget: Pick<WidgetNode, 'timeline'>,
+  scenePlayheadMs: number,
+  clock: AnimationClock | undefined,
+): number {
+  const targetClock = clock ?? SCENE_CLOCK;
+  if (targetClock.kind === 'scene' || targetClock.startMode !== 'trigger-local-zero') return scenePlayheadMs;
+  return widget.timeline.startMs + resolveClockLocalMs(targetClock, scenePlayheadMs, widget.timeline.startMs);
+}
+
+function buildAnimationPlan(widget: WidgetNode, trigger: 'timeline' | 'reveal') {
+  return derivePlansForWidget(widget, { widgetsById: { [widget.id]: widget }, previewMode: true })
+    .find((plan) => plan.trigger === trigger) ?? null;
+}
 
 function createWidget(overrides: Partial<WidgetNode> = {}): WidgetNode {
   return {
@@ -21,8 +47,11 @@ function createWidget(overrides: Partial<WidgetNode> = {}): WidgetNode {
     style: { opacity: 1 },
     timeline: { startMs: 2000, endMs: 5000 },
     motion: {
-      templateId: 'slide-in-up',
-      config: { durationMs: 700, delayMs: 0 },
+      enter: {
+        templateId: 'slide-in-up',
+        config: { durationMs: 700, delayMs: 0 },
+        trigger: 'timeline',
+      },
     },
     ...overrides,
   };
@@ -32,13 +61,13 @@ describe('animation clocks', () => {
   it('keeps global timeline animations tied to absolute scene time', () => {
     const widget = createWidget();
 
-    expect(resolveClockLocalMs(SCENE_ANIMATION_CLOCK, 2500, widget.timeline.startMs)).toBe(500);
-    expect(resolveTimelinePlayheadForClock(widget, 2500, SCENE_ANIMATION_CLOCK)).toBe(2500);
+    expect(resolveClockLocalMs(SCENE_CLOCK, 2500, widget.timeline.startMs)).toBe(500);
+    expect(resolveTimelinePlayheadForClock(widget, 2500, SCENE_CLOCK)).toBe(2500);
   });
 
   it('starts reveal-triggered animations from event-local zero', () => {
     const widget = createWidget();
-    const revealClock = createRevealAnimationClock(8000);
+    const revealClock = createEventClock('reveal', 8000);
 
     expect(resolveClockLocalMs(revealClock, 8000, widget.timeline.startMs)).toBe(0);
     expect(resolveClockLocalMs(revealClock, 8350, widget.timeline.startMs)).toBe(350);
@@ -46,15 +75,24 @@ describe('animation clocks', () => {
   });
 
   it('classifies existing motion as timeline or reveal animation plans', () => {
-    const widget = createWidget();
+    const timelineWidget = createWidget();
+    const revealWidget = createWidget({
+      motion: {
+        enter: {
+          templateId: 'slide-in-up',
+          config: { durationMs: 700, delayMs: 0 },
+          trigger: 'reveal',
+        },
+      },
+    });
 
-    expect(buildTimelineAnimationPlan(widget)).toMatchObject({
+    expect(buildAnimationPlan(timelineWidget, 'timeline')).toMatchObject({
       widgetId: 'text_1',
       trigger: 'timeline',
       startMode: 'absolute-scene-time',
       phase: 'enter',
     });
-    expect(buildRevealAnimationPlan(widget)).toMatchObject({
+    expect(buildAnimationPlan(revealWidget, 'reveal')).toMatchObject({
       widgetId: 'text_1',
       trigger: 'reveal',
       startMode: 'trigger-local-zero',

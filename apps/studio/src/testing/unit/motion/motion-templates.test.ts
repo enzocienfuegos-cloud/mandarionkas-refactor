@@ -1,60 +1,78 @@
 import { describe, expect, it } from 'vitest';
-import type { WidgetFrame, WidgetTimeline } from '../../../domain/document/types';
+import type { WidgetNode } from '../../../domain/document/types';
 import { getMotionTemplate } from '../../../motion/motion-registry';
 
-const frame: WidgetFrame = { x: 40, y: 80, width: 220, height: 80, rotation: 0 };
-const timeline: WidgetTimeline = { startMs: 300, endMs: 2300 };
+const widget: WidgetNode = {
+  id: 'widget_1',
+  type: 'text',
+  name: 'Widget',
+  sceneId: 'scene_1',
+  zIndex: 1,
+  frame: { x: 40, y: 80, width: 220, height: 80, rotation: 0 },
+  props: { text: 'Preview' },
+  style: { opacity: 1 },
+  timeline: { startMs: 300, endMs: 2300 },
+};
 
-describe('motion templates build timeline keyframes', () => {
-  it('builds appear opacity keyframes', () => {
+describe('motion templates build specs', () => {
+  it('builds appear opacity spec', () => {
     const template = getMotionTemplate('appear');
-    const keyframes = template?.buildKeyframes({ durationMs: 700, delayMs: 100 }, frame, timeline) ?? [];
+    const spec = template?.buildSpec?.({ durationMs: 700, delayMs: 100 }, widget);
 
-    expect(keyframes).toEqual([
-      expect.objectContaining({ property: 'opacity', atMs: 400, value: 0 }),
-      expect.objectContaining({ property: 'opacity', atMs: 1100, value: 1 }),
-    ]);
+    expect(spec).toEqual({
+      from: { opacity: 0 },
+      to: { opacity: 1 },
+      ease: 'expo.out',
+      willChange: 'opacity',
+    });
   });
 
-  it('builds fade-up with opacity and y tracks', () => {
+  it('builds fade-up spec with opacity and y motion', () => {
     const template = getMotionTemplate('fade-up');
-    const keyframes = template?.buildKeyframes({ durationMs: 700, delayMs: 0, distancePx: 24 }, frame, timeline) ?? [];
+    const spec = template?.buildSpec?.({ durationMs: 700, delayMs: 0, distancePx: 24 }, widget);
 
-    expect(keyframes).toEqual(expect.arrayContaining([
-      expect.objectContaining({ property: 'opacity', atMs: 300, value: 0 }),
-      expect.objectContaining({ property: 'opacity', atMs: 1000, value: 1 }),
-      expect.objectContaining({ property: 'y', atMs: 300, value: 104 }),
-      expect.objectContaining({ property: 'y', atMs: 1000, value: 80 }),
-    ]));
+    expect(spec).toEqual({
+      from: { y: 24, opacity: 0 },
+      to: { y: 0, opacity: 1 },
+      ease: 'expo.out',
+      willChange: 'transform, opacity',
+    });
   });
 
-  it('builds fade-out anchored to the end of the widget timeline', () => {
+  it('builds fade-out exit spec', () => {
     const template = getMotionTemplate('fade-out');
-    const keyframes = template?.buildKeyframes({ durationMs: 500 }, frame, timeline) ?? [];
+    const spec = template?.buildSpec?.({ durationMs: 500 }, widget);
 
-    expect(keyframes).toEqual([
-      expect.objectContaining({ property: 'opacity', atMs: 1800, value: 1 }),
-      expect.objectContaining({ property: 'opacity', atMs: 2300, value: 0 }),
-    ]);
+    expect(spec).toEqual({
+      from: { opacity: 1 },
+      to: { opacity: 0 },
+      ease: 'power2.in',
+      willChange: 'opacity',
+    });
   });
 
-  it('builds pulse as finite opacity cycles across the widget timeline', () => {
+  it('builds pulse as an idle loop spec', () => {
     const template = getMotionTemplate('pulse');
-    const keyframes = template?.buildKeyframes({ durationMs: 900, delayMs: 100, intensity: 0.55 }, frame, timeline) ?? [];
+    const spec = template?.buildSpec?.({ durationMs: 900, delayMs: 100, intensity: 0.55 }, widget);
 
-    expect(keyframes.length).toBeGreaterThan(3);
-    expect(keyframes.every((keyframe) => keyframe.property === 'opacity')).toBe(true);
-    expect(keyframes[0]?.atMs).toBe(400);
-    expect(keyframes.at(-1)?.atMs).toBeLessThanOrEqual(2300);
+    expect(template?.isLoop).toBe(true);
+    expect(spec?.from).toEqual({ opacity: 1 });
+    expect(spec?.to).toEqual({ opacity: 0.7525 });
+    expect(spec?.ease).toBe('sine.inOut');
   });
 
-  it('builds float scrub keyframes and compositor transform motion', () => {
+  it('builds float idle spec and compositor transform motion', () => {
     const template = getMotionTemplate('float');
-    const keyframes = template?.buildKeyframes({ durationMs: 1200, delayMs: 0, distancePx: 8 }, frame, timeline) ?? [];
+    const spec = template?.buildSpec?.({ durationMs: 1200, delayMs: 0, distancePx: 8 }, widget);
     const compositorMotion = template?.buildCompositorMotion?.({ durationMs: 1200, delayMs: 25, distancePx: 8 });
 
-    expect(keyframes.length).toBeGreaterThan(4);
-    expect(keyframes.every((keyframe) => keyframe.property === 'y')).toBe(true);
+    expect(template?.isLoop).toBe(true);
+    expect(spec).toEqual({
+      from: { y: -8 },
+      to: { y: 8 },
+      ease: 'sine.inOut',
+      willChange: 'transform',
+    });
     expect(compositorMotion?.willChange).toBe('transform');
     expect(compositorMotion?.options).toEqual(expect.objectContaining({
       duration: 1200,

@@ -11,6 +11,7 @@ import type { WidgetDefinition, WidgetInspectorPanelKey, WidgetInspectorTabId } 
 import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
 import { Button } from '../../shared/ui/Button';
 import { applyAnimationPreset, supportsAnimationPresets } from '../sections/animation-presets';
+import { resolveWidgetMotionSelection } from '../../motion/motion-model';
 import {
   buildWidgetPropertyClipboardPayload,
   getWidgetPropertyClipboardPayload,
@@ -114,7 +115,8 @@ export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.El
       style: propertyClipboard.widgetType === widget.type ? { ...propertyClipboard.style } : { ...widget.style, ...propertyClipboard.style },
       motion: propertyClipboard.widgetType === widget.type ? propertyClipboard.motion : widget.motion,
     };
-    const preset = typeof nextWidget.motion?.templateId === 'string' ? nextWidget.motion.templateId : typeof nextWidget.style.animationPreset === 'string' ? nextWidget.style.animationPreset : '';
+    const preset = resolveWidgetMotionSelection(nextWidget)?.template.id
+      ?? (typeof nextWidget.style.animationPreset === 'string' ? nextWidget.style.animationPreset : '');
     if (!preset) return;
     const { keyframes } = applyAnimationPreset(nextWidget, preset as Parameters<typeof applyAnimationPreset>[1]);
     setWidgetKeyframes(widget.id, keyframes);

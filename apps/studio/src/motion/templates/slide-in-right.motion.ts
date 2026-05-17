@@ -2,7 +2,6 @@ import { createElement } from 'react';
 import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
-import { buildTranslateInKeyframes } from './shared';
 
 const defaults = { durationMs: 700, delayMs: 0, distancePx: 80 };
 
@@ -17,17 +16,12 @@ const slideInRightTemplate: MotionTemplate = {
     { key: 'distancePx', label: 'Distance', kind: 'number', min: 0, max: 400, step: 4, unit: 'px', defaultValue: 80 },
   ],
   defaults,
-  buildKeyframes: (config, widgetFrame, widgetTimeline) => buildTranslateInKeyframes(
-    'slide-in-right',
-    'x',
-    widgetFrame,
-    widgetTimeline,
-    readConfigNumber(config, 'durationMs', defaults.durationMs),
-    readConfigNumber(config, 'delayMs', defaults.delayMs),
-    readConfigNumber(config, 'distancePx', defaults.distancePx),
-    1,
-    false,
-  ),
+  buildSpec: (config) => ({
+    from: { x: readConfigNumber(config, 'distancePx', defaults.distancePx) },
+    to: { x: 0 },
+    ease: 'expo.out',
+    willChange: 'transform',
+  }),
   buildCompositorMotion: (config) => {
     const durationMs = readConfigNumber(config, 'durationMs', defaults.durationMs);
     const delayMs = readConfigNumber(config, 'delayMs', defaults.delayMs);
@@ -41,6 +35,7 @@ const slideInRightTemplate: MotionTemplate = {
       willChange: 'transform',
     };
   },
+  isLoop: false,
   thumbnail: () => createElement(MotionThumbnail, { label: 'Slide →' }),
 };
 

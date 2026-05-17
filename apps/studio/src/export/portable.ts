@@ -1,7 +1,7 @@
 import { buildResolvedWidgetsById } from '../domain/document/canvas-variants';
 import { resolveWidgetSnapshot } from '../domain/document/resolvers';
 import type { ActionNode, StudioState, WidgetNode } from '../domain/document/types';
-import { buildWidgetHoverMotion, buildWidgetMotion } from '../motion/motion-model';
+import { buildWidgetHoverMotion, buildWidgetMotion, cloneWidgetMotion } from '../motion/motion-model';
 import { rebuildWidgetMotionKeyframes } from '../motion/motion-template-keyframes';
 import { getWidgetDefinition } from '../widgets/registry/widget-registry';
 import { isImageAssetWidgetType, isVideoAssetWidgetType } from './widget-type-groups';
@@ -164,8 +164,19 @@ function collectInteractions(widget: WidgetNode, actions: Record<string, ActionN
 }
 
 function resolveExportMotion(widget: WidgetNode): WidgetNode['motion'] {
-  if (widget.motion?.templateId) {
-    return { ...widget.motion, config: { ...widget.motion.config } };
+  if (widget.motion?.enter || widget.motion?.idle || widget.motion?.exit) {
+    return cloneWidgetMotion(widget.motion);
+  }
+  if (
+    widget.motion
+    && typeof widget.motion === 'object'
+    && 'templateId' in widget.motion
+    && (typeof widget.motion.templateId === 'string' || widget.motion.templateId === null)
+    && 'config' in widget.motion
+    && typeof widget.motion.config === 'object'
+    && widget.motion.config !== null
+  ) {
+    return buildWidgetMotion(widget.motion.templateId, widget.motion.config as Record<string, number | string>, { trigger: 'timeline' });
   }
   const templateId = typeof widget.style.animationPreset === 'string' ? widget.style.animationPreset : '';
   if (!templateId) return undefined;
@@ -175,7 +186,7 @@ function resolveExportMotion(widget: WidgetNode): WidgetNode['motion'] {
     distancePx: Number(widget.style.animationDistancePx ?? undefined),
     intensity: Number(widget.style.animationIntensity ?? undefined),
     repeatMode: String(widget.style.animationRepeatMode ?? 'once'),
-  });
+  }, { trigger: 'timeline' });
 }
 
 function resolveExportHoverMotion(widget: WidgetNode): WidgetNode['hoverMotion'] {

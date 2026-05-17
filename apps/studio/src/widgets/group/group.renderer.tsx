@@ -5,7 +5,6 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
 import { renderWidgetContents } from '../../canvas/stage/render-widget';
-import { createRevealAnimationClock, resolveTimelinePlayheadForClock } from '../../motion/animation-clocks';
 import { MotionLayer } from '../../motion/react/MotionLayer';
 import { isScratchGroupActive } from './group-scratch-activation';
 
@@ -71,17 +70,6 @@ function initializeScratchMask(canvas: HTMLCanvasElement): void {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = 'black';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
-function eraseScratch(canvas: HTMLCanvasElement, x: number, y: number, radius: number): void {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  ctx.save();
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
 }
 
 function eraseScratchStroke(
@@ -200,28 +188,16 @@ function renderDefaultGroup(node: WidgetNode, ctx: RenderContext): JSX.Element {
   );
 }
 
-function getScratchCoverEffectivePlayheadMs(
-  node: WidgetNode,
-  playheadMs: number,
-  revealCompletedAtMs: number | undefined,
-): number {
-  if (revealCompletedAtMs === undefined) return playheadMs;
-  return resolveTimelinePlayheadForClock(node, playheadMs, createRevealAnimationClock(revealCompletedAtMs));
-}
-
 function resolveScratchCoverLiveFrame({
   node,
   rootGroupId,
   ctx,
-  revealCompletedAtMs,
 }: {
   node: WidgetNode;
   rootGroupId: string;
   ctx: RenderContext;
-  revealCompletedAtMs: number | undefined;
 }): WidgetNode['frame'] {
-  const effectivePlayheadMs = getScratchCoverEffectivePlayheadMs(node, ctx.playheadMs, revealCompletedAtMs);
-  const liveFrame = getLiveWidgetFrame(node, effectivePlayheadMs);
+  const liveFrame = getLiveWidgetFrame(node, ctx.playheadMs);
   let nextX = liveFrame.x;
   let nextY = liveFrame.y;
   let currentParentId = node.parentId;
@@ -231,8 +207,7 @@ function resolveScratchCoverLiveFrame({
     visited.add(currentParentId);
     const parent = ctx.widgetsById[currentParentId];
     if (!parent) break;
-    const parentPlayheadMs = getScratchCoverEffectivePlayheadMs(parent, ctx.playheadMs, revealCompletedAtMs);
-    const parentLiveFrame = getLiveWidgetFrame(parent, parentPlayheadMs);
+    const parentLiveFrame = getLiveWidgetFrame(parent, ctx.playheadMs);
     nextX += parentLiveFrame.x - parent.frame.x;
     nextY += parentLiveFrame.y - parent.frame.y;
     currentParentId = parent.parentId;
@@ -249,15 +224,12 @@ function resolveScratchCoverOpacity({
   node,
   rootGroupId,
   ctx,
-  revealCompletedAtMs,
 }: {
   node: WidgetNode;
   rootGroupId: string;
   ctx: RenderContext;
-  revealCompletedAtMs: number | undefined;
 }): number {
-  const effectivePlayheadMs = getScratchCoverEffectivePlayheadMs(node, ctx.playheadMs, revealCompletedAtMs);
-  let opacity = getLiveWidgetOpacity(node, effectivePlayheadMs);
+  let opacity = getLiveWidgetOpacity(node, ctx.playheadMs);
   let currentParentId = node.parentId;
   const visited = new Set<string>([node.id]);
 
@@ -265,21 +237,11 @@ function resolveScratchCoverOpacity({
     visited.add(currentParentId);
     const parent = ctx.widgetsById[currentParentId];
     if (!parent) break;
-    const parentPlayheadMs = getScratchCoverEffectivePlayheadMs(parent, ctx.playheadMs, revealCompletedAtMs);
-    opacity *= getLiveWidgetOpacity(parent, parentPlayheadMs);
+    opacity *= getLiveWidgetOpacity(parent, ctx.playheadMs);
     currentParentId = parent.parentId;
   }
 
   return Math.max(0, Math.min(1, opacity));
-}
-
-function resolveScratchCoverBaseFrame(node: WidgetNode): WidgetNode['frame'] {
-  return node.frame;
-}
-
-function resolveScratchCoverBaseOpacity(node: WidgetNode): number {
-  const opacity = Number(node.style.opacity ?? 1);
-  return Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 1;
 }
 
 function renderScratchCoverNode(
@@ -287,11 +249,9 @@ function renderScratchCoverNode(
   rootFrame: WidgetNode['frame'],
   rootGroupId: string,
   ctx: RenderContext,
-  revealCompletedAtMs: number | undefined,
   visited = new Set<string>(),
 ): JSX.Element[] {
-  const effectivePlayheadMs = getScratchCoverEffectivePlayheadMs(node, ctx.playheadMs, revealCompletedAtMs);
-  if (visited.has(node.id) || !isWidgetVisibleAt(node, effectivePlayheadMs)) return [];
+  if (visited.has(node.id) || !isWidgetVisibleAt(node, ctx.playheadMs)) return [];
   visited.add(node.id);
 
   if (node.type === 'group' && node.childIds?.length) {
@@ -299,7 +259,7 @@ function renderScratchCoverNode(
       .map((childId) => ctx.widgetsById[childId])
       .filter((child): child is WidgetNode => Boolean(child))
       .sort((left, right) => left.zIndex - right.zIndex)
-      .flatMap((child) => renderScratchCoverNode(child, rootFrame, rootGroupId, ctx, revealCompletedAtMs, visited));
+      .flatMap((child) => renderScratchCoverNode(child, rootFrame, rootGroupId, ctx, visited));
   }
 
   return [
@@ -310,7 +270,6 @@ function renderScratchCoverNode(
         rootFrame={rootFrame}
         rootGroupId={rootGroupId}
         ctx={ctx}
-        revealCompletedAtMs={revealCompletedAtMs}
       />
     ),
   ];
@@ -321,21 +280,18 @@ function ScratchCoverWidget({
   rootFrame,
   rootGroupId,
   ctx,
-  revealCompletedAtMs,
 }: {
   node: WidgetNode;
   rootFrame: WidgetNode['frame'];
   rootGroupId: string;
   ctx: RenderContext;
-  revealCompletedAtMs?: number;
 }): JSX.Element {
-  const shouldReproduceMotion = Boolean(ctx.previewMode && ctx.isReproducing && revealCompletedAtMs !== undefined);
-  const liveFrame = shouldReproduceMotion
-    ? resolveScratchCoverBaseFrame(node)
-    : resolveScratchCoverLiveFrame({ node, rootGroupId, ctx, revealCompletedAtMs });
-  const liveOpacity = shouldReproduceMotion
-    ? resolveScratchCoverBaseOpacity(node)
-    : resolveScratchCoverOpacity({ node, rootGroupId, ctx, revealCompletedAtMs });
+  const liveFrame = ctx.previewMode && ctx.isReproducing
+    ? node.frame
+    : resolveScratchCoverLiveFrame({ node, rootGroupId, ctx });
+  const liveOpacity = ctx.previewMode && ctx.isReproducing
+    ? Math.max(0, Math.min(1, Number(node.style.opacity ?? 1)))
+    : resolveScratchCoverOpacity({ node, rootGroupId, ctx });
   const contentNode: WidgetNode = {
     ...node,
     frame: {
@@ -353,10 +309,10 @@ function ScratchCoverWidget({
   return (
     <MotionLayer
       widget={node}
+      widgetsById={ctx.widgetsById}
       playheadMs={ctx.playheadMs}
-      isReproducing={shouldReproduceMotion}
-      clock={revealCompletedAtMs === undefined ? undefined : createRevealAnimationClock(revealCompletedAtMs)}
-      startedAtMs={revealCompletedAtMs}
+      previewMode={ctx.previewMode}
+      isReproducing={Boolean(ctx.isReproducing)}
       style={{
         position: 'absolute',
         left: liveFrame.x - rootFrame.x,
@@ -385,18 +341,16 @@ function ScratchCoverWidget({
 function GroupScratchCoverChildren({
   node,
   ctx,
-  revealCompletedAtMs,
 }: {
   node: WidgetNode;
   ctx: RenderContext;
-  revealCompletedAtMs?: number;
 }): JSX.Element | null {
   const childWidgets = (node.childIds ?? [])
     .map((childId) => ctx.widgetsById[childId])
     .filter((child): child is WidgetNode => Boolean(child))
     .sort((left, right) => left.zIndex - right.zIndex);
 
-  const scratchNodes = childWidgets.flatMap((child) => renderScratchCoverNode(child, node.frame, node.id, ctx, revealCompletedAtMs));
+  const scratchNodes = childWidgets.flatMap((child) => renderScratchCoverNode(child, node.frame, node.id, ctx));
   if (!scratchNodes.length) return null;
 
   return <>{scratchNodes}</>;
@@ -414,7 +368,6 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const previousPlayheadRef = useRef(ctx.playheadMs);
   const [maskUrl, setMaskUrl] = useState('');
   const [scratchCompleted, setScratchCompleted] = useState(false);
-  const [scratchCompletedAtMs, setScratchCompletedAtMs] = useState<number | undefined>(undefined);
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
   const autoRevealThresholdPercent = Math.max(0, Math.min(100, Number(node.props.autoRevealThresholdPercent ?? 10)));
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
@@ -442,7 +395,6 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     scratchCompletedRef.current = false;
     lastScratchPointRef.current = null;
     setScratchCompleted(false);
-    setScratchCompletedAtMs(undefined);
     syncMaskPreview();
   };
 
@@ -488,7 +440,6 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     lastScratchPointRef.current = null;
     setMaskUrl('');
     setScratchCompleted(true);
-    setScratchCompletedAtMs(completedAtMs);
     ctx.triggerWidgetAction('scratch-complete', {
       clearedPercent,
       thresholdPercent: autoRevealThresholdPercent,
@@ -496,15 +447,13 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     });
   };
 
-  const scratchContent = !scratchCompleted && maskUrl ? (
-    <GroupScratchCoverChildren node={node} ctx={ctx} revealCompletedAtMs={scratchCompletedAtMs} />
-  ) : null;
+  const scratchContent = <GroupScratchCoverChildren node={node} ctx={ctx} />;
 
   return (
     <div ref={shellRef} style={scratchShellStyle}>
       <canvas ref={maskCanvasRef} style={scratchCanvasStyle} aria-hidden="true" />
       {scratchContent ? (
-        <div style={!scratchCompleted && maskUrl ? buildScratchMaskStyle(maskUrl, coverBlur) : scratchRevealedContentStyle}>
+        <div style={scratchCompleted || !maskUrl ? scratchRevealedContentStyle : buildScratchMaskStyle(maskUrl, coverBlur)}>
           {scratchContent}
         </div>
       ) : null}

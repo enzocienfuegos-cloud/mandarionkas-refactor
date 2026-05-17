@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useLayoutEffect,
+  useMemo,
   useRef,
   type CSSProperties,
   type HTMLAttributes,
@@ -8,28 +9,32 @@ import {
   type Ref,
 } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
-import {
-  getAnimationClockSignature,
-  buildRevealAnimationPlan,
-  buildTimelineAnimationPlan,
-  isEventDrivenClock,
-  SCENE_ANIMATION_CLOCK,
-  type AnimationClock,
-} from '../animation-clocks';
-import { buildCompositorMotionSpec, toKeyframeAnimationOptions } from '../compositor-motion';
-import { waapiAnimationAdapter, type AnimationEnginePlayback } from '../motion-engine';
-import type { CompositorMotionSpec } from '../motion-template-contract';
+import { SCENE_CLOCK, createEventClock } from '../animation-engine/clock';
+import type { AnimationTrigger } from '../animation-engine/events';
+import { useAnimationEngine } from '../animation-engine';
 
 type MotionLayerProps = HTMLAttributes<HTMLDivElement> & {
   widget: WidgetNode;
+  widgetsById?: Record<string, WidgetNode>;
   playheadMs: number;
+  previewMode?: boolean;
   isReproducing: boolean;
-  clock?: AnimationClock;
-  startedAtMs?: number;
   children: ReactNode;
   innerClassName?: string;
   innerStyle?: CSSProperties;
 };
+
+const EVENT_TRIGGERS: readonly AnimationTrigger[] = [
+  'scene-enter',
+  'scene-exit',
+  'reveal',
+  'scratch-complete',
+  'click',
+  'hover-enter',
+  'hover-exit',
+  'completion',
+  'game-state',
+];
 
 function setRefValue(ref: Ref<HTMLDivElement> | undefined, value: HTMLDivElement | null): void {
   if (!ref) return;
@@ -40,104 +45,79 @@ function setRefValue(ref: Ref<HTMLDivElement> | undefined, value: HTMLDivElement
   (ref as { current: HTMLDivElement | null }).current = value;
 }
 
-function anchorTimelineAwareMotion(widget: WidgetNode, spec: CompositorMotionSpec, clock: AnimationClock): CompositorMotionSpec {
-  if (widget.motion?.templateId !== 'fade-out') return spec;
-  if (isEventDrivenClock(clock)) return spec;
-  const durationMs = Math.max(1, Number(spec.options.duration || 1));
-  const timelineDurationMs = Math.max(0, widget.timeline.endMs - widget.timeline.startMs);
-  return {
-    ...spec,
-    options: {
-      ...spec.options,
-      delay: Math.max(0, timelineDurationMs - durationMs),
-    },
-  };
-}
-
-function resolveMotionClock(clock: AnimationClock | undefined, startedAtMs?: number): AnimationClock {
-  if (clock) return clock;
-  if (Number.isFinite(startedAtMs)) {
-    return {
-      kind: 'event',
-      trigger: 'reveal',
-      startMode: 'trigger-local-zero',
-      startedAtMs,
-    };
-  }
-  return SCENE_ANIMATION_CLOCK;
-}
-
 export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function MotionLayer({
   widget,
+  widgetsById,
   playheadMs,
+  previewMode = false,
   isReproducing,
-  clock,
-  startedAtMs,
   children,
   innerClassName = 'stage-widget-compositor-motion',
   innerStyle,
   ...outerProps
 }, forwardedRef): JSX.Element {
+  const engine = useAnimationEngine();
   const outerRef = useRef<HTMLDivElement | null>(null);
   const motionTargetRef = useRef<HTMLDivElement | null>(null);
-  const animationRef = useRef<AnimationEnginePlayback | null>(null);
-  const motionClock = resolveMotionClock(clock, startedAtMs);
   const motionSignature = JSON.stringify({
     motion: widget.motion ?? null,
     timeline: widget.timeline,
+    previewMode,
     isReproducing,
-    clock: getAnimationClockSignature(motionClock),
   });
+  const planContext = useMemo(() => ({
+    widgetsById: widgetsById ?? { [widget.id]: widget },
+    previewMode,
+  }), [previewMode, widget, widgetsById]);
 
   useLayoutEffect(() => {
-    const currentAnimation = animationRef.current;
-    const node = motionTargetRef.current;
-    const rawSpec = buildCompositorMotionSpec(widget.motion);
-    const spec = rawSpec ? anchorTimelineAwareMotion(widget, rawSpec, motionClock) : null;
-    if (!isReproducing || !node || !spec || typeof node.animate !== 'function') {
-      currentAnimation?.cancel();
-      animationRef.current = null;
-      return;
-    }
-
-    currentAnimation?.cancel();
-    const previousWillChange = node.style.willChange;
-    if (spec.willChange) {
-      node.style.willChange = spec.willChange;
-    }
-
-    const plan = isEventDrivenClock(motionClock)
-      ? buildRevealAnimationPlan(widget)
-      : buildTimelineAnimationPlan(widget);
-    if (!plan) {
-      node.style.willChange = previousWillChange;
+    if (!isReproducing || !motionTargetRef.current) {
+      engine.cancelAllForWidget(widget.id);
       return undefined;
     }
-    const animation = waapiAnimationAdapter.play(
-      node,
-      spec.keyframes as Keyframe[],
-      toKeyframeAnimationOptions(spec.options),
-      {
-        plan,
-        clock: motionClock,
-        sceneTimeMs: playheadMs,
-        timelineStartMs: widget.timeline.startMs,
-      },
-    );
-    if (!animation) {
-      node.style.willChange = previousWillChange;
-      return undefined;
-    }
-    animationRef.current = animation;
+
+    const unsubscribes = EVENT_TRIGGERS.map((trigger) => engine.subscribe(trigger, (event) => {
+      if (!motionTargetRef.current) return;
+      const matchesWidget = event.targetId === widget.id || event.sourceId === widget.id;
+      if (!matchesWidget) return;
+      const plans = engine
+        .buildPlansForWidget(widget, planContext)
+        .filter((plan) => plan.trigger === event.trigger);
+      plans.forEach((plan) => {
+        engine.play({ node: motionTargetRef.current as Element, widget }, plan, event.clock);
+      });
+    }));
 
     return () => {
-      animation.cancel();
-      node.style.willChange = previousWillChange;
-      if (animationRef.current === animation) {
-        animationRef.current = null;
-      }
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
+      engine.cancelAllForWidget(widget.id);
     };
-  }, [motionSignature]);
+  }, [engine, isReproducing, motionSignature, planContext, widget]);
+
+  useLayoutEffect(() => {
+    if (!isReproducing || !motionTargetRef.current) return undefined;
+    const plans = engine.buildPlansForWidget(widget, planContext);
+    plans
+      .filter((plan) => plan.trigger === 'timeline')
+      .forEach((plan) => {
+        engine.play({ node: motionTargetRef.current as Element, widget }, plan, SCENE_CLOCK);
+      });
+    plans
+      .filter((plan) => plan.trigger === 'load')
+      .forEach((plan) => {
+        engine.play(
+          { node: motionTargetRef.current as Element, widget },
+          plan,
+          createEventClock('load', performance.now()),
+        );
+      });
+    return undefined;
+  }, [engine, isReproducing, motionSignature, planContext, widget]);
+
+  useLayoutEffect(() => {
+    if (!isReproducing) return;
+    engine.seekScene(playheadMs);
+  }, [engine, isReproducing, playheadMs]);
 
   return (
     <div

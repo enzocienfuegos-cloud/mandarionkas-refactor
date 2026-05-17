@@ -2,6 +2,25 @@ import type { WidgetMotion } from '../domain/document/types';
 import type { CompositorMotionOptions, CompositorMotionSpec } from './motion-template-contract';
 import { getMotionTemplate } from './motion-registry';
 
+function isLegacyMotionSlotCandidate(value: unknown): value is { templateId: string; config: Record<string, number | string> } {
+  return Boolean(
+    value
+      && typeof value === 'object'
+      && 'templateId' in value
+      && typeof (value as { templateId?: unknown }).templateId === 'string'
+      && 'config' in value
+      && typeof (value as { config?: unknown }).config === 'object'
+      && (value as { config?: unknown }).config !== null,
+  );
+}
+
+function resolvePrimaryMotionSlot(motion: WidgetMotion | null | undefined) {
+  if (isLegacyMotionSlotCandidate(motion)) {
+    return motion;
+  }
+  return motion?.enter ?? motion?.idle ?? motion?.exit;
+}
+
 function cloneCompositorMotionSpec(spec: CompositorMotionSpec | null | undefined): CompositorMotionSpec | null {
   if (!spec || !Array.isArray(spec.keyframes) || spec.keyframes.length === 0) return null;
   return {
@@ -12,10 +31,11 @@ function cloneCompositorMotionSpec(spec: CompositorMotionSpec | null | undefined
 }
 
 export function buildCompositorMotionSpec(motion: WidgetMotion | null | undefined): CompositorMotionSpec | null {
-  if (!motion?.templateId) return null;
-  const template = getMotionTemplate(motion.templateId);
+  const slot = resolvePrimaryMotionSlot(motion);
+  if (!slot?.templateId) return null;
+  const template = getMotionTemplate(slot.templateId);
   if (!template) return null;
-  return cloneCompositorMotionSpec(template.buildCompositorMotion(motion.config));
+  return cloneCompositorMotionSpec(template.buildCompositorMotion(slot.config));
 }
 
 export function toKeyframeAnimationOptions(options: CompositorMotionOptions): KeyframeAnimationOptions {

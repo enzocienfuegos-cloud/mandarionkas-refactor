@@ -35,13 +35,16 @@ describe('normalizeStudioState', () => {
     const widget = normalized.document.widgets.hero;
 
     expect(widget?.motion).toEqual({
-      templateId: 'fade-up',
-      config: {
-        durationMs: 840,
-        delayMs: 120,
-        distancePx: 36,
-        intensity: 0.66,
-        repeatMode: 'repeat',
+      enter: {
+        templateId: 'fade-up',
+        config: {
+          durationMs: 840,
+          delayMs: 120,
+          distancePx: 36,
+          intensity: 0.66,
+          repeatMode: 'repeat',
+        },
+        trigger: 'timeline',
       },
     });
     expect(widget?.hoverMotion).toEqual({
@@ -83,10 +86,9 @@ describe('normalizeStudioState', () => {
     const normalized = normalizeStudioState(state);
     const keyframes = normalized.document.widgets.hero?.timeline.keyframes ?? [];
 
-    expect(keyframes.length).toBeGreaterThan(1);
+    expect(keyframes).toHaveLength(1);
     expect(keyframes.some((keyframe) => keyframe.property === 'x' && !keyframe.managedBy)).toBe(true);
-    expect(keyframes.some((keyframe) => keyframe.property === 'opacity' && keyframe.managedBy === 'motion:fade-up')).toBe(true);
-    expect(keyframes.some((keyframe) => keyframe.property === 'y' && keyframe.managedBy === 'motion:fade-up')).toBe(true);
+    expect(keyframes.some((keyframe) => keyframe.managedBy?.startsWith('motion:'))).toBe(false);
   });
 
   it('uses explicit widget capability flags for motion support', () => {
@@ -128,10 +130,13 @@ describe('normalizeStudioState', () => {
     const group = normalized.document.widgets.group_1;
 
     expect(group?.motion).toEqual({
-      templateId: 'fade-up',
-      config: { durationMs: 700, delayMs: 0, distancePx: 24, intensity: 0.55, repeatMode: 'once' },
+      enter: {
+        templateId: 'fade-up',
+        config: { durationMs: 700, delayMs: 0, distancePx: 24, intensity: 0.55, repeatMode: 'once' },
+        trigger: 'timeline',
+      },
     });
-    expect((group?.timeline.keyframes ?? []).filter((keyframe) => keyframe.managedBy?.startsWith('motion:'))).toHaveLength(4);
+    expect((group?.timeline.keyframes ?? []).filter((keyframe) => keyframe.managedBy?.startsWith('motion:'))).toHaveLength(0);
   });
 
   it('migrates legacy excluded widgets to a full-scene timeline', () => {

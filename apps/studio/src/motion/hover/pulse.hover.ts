@@ -14,7 +14,6 @@ const pulseHoverTemplate: MotionTemplate = {
     { key: 'durationMs', label: 'Cycle duration', kind: 'number', min: 300, max: 2000, step: 50, unit: 'ms', defaultValue: 600 },
   ],
   defaults,
-  buildKeyframes: () => [],
   buildCompositorMotion: (config) => {
     const durationMs = Math.max(300, readConfigNumber(config, 'durationMs', defaults.durationMs));
     return {
@@ -32,6 +31,7 @@ const pulseHoverTemplate: MotionTemplate = {
       willChange: 'opacity',
     };
   },
+  isLoop: true,
   thumbnail: () => createElement(MotionThumbnail, { label: 'Pulse' }),
 };
 

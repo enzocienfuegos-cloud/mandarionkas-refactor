@@ -1,9 +1,25 @@
 import { createInitialState } from './factories';
 import { createCanvasVariantFromCanvas, ensureSingleMasterVariant, syncDocumentCanvasToVariant } from './canvas-variants';
-import type { FeedCatalog, StudioState, WidgetHoverMotion, WidgetMotion, WidgetNode } from './types';
-import { buildWidgetHoverMotion, buildWidgetMotion } from '../../motion/motion-model';
+import type { FeedCatalog, MotionSlot, StudioState, WidgetHoverMotion, WidgetMotion, WidgetNode } from './types';
+import { buildWidgetHoverMotion, buildWidgetMotion, cloneWidgetMotion } from '../../motion/motion-model';
 import { widgetSupportsMotion } from '../../motion/motion-widget-compatibility';
 import { rebuildWidgetMotionKeyframes } from '../../motion/motion-template-keyframes';
+import { stripMotionManagedKeyframes } from '../../motion/motion-managed-keyframes';
+
+function isLegacyMotionShape(motion: unknown): motion is { templateId: string | null; config: Record<string, number | string> } {
+  return Boolean(
+    motion
+      && typeof motion === 'object'
+      && 'templateId' in motion
+      && !('enter' in motion)
+      && !('idle' in motion)
+      && !('exit' in motion),
+  );
+}
+
+function cloneMotionSlot(slot: MotionSlot | undefined): MotionSlot | undefined {
+  return slot ? { ...slot, config: { ...slot.config } } : undefined;
+}
 
 function migrateLegacyExcludedFlag(
   widgets: Record<string, WidgetNode> | undefined,
@@ -42,8 +58,15 @@ function normalizeFeeds(feeds: StudioState['document']['feeds'] | undefined): Fe
 
 function resolveNormalizedMotion(widget: WidgetNode): WidgetMotion | undefined {
   if (!widgetSupportsMotion(widget)) return undefined;
-  if (widget.motion?.templateId) {
-    return buildWidgetMotion(widget.motion.templateId, widget.motion.config);
+  if (isLegacyMotionShape(widget.motion)) {
+    return buildWidgetMotion(widget.motion.templateId, widget.motion.config, { trigger: 'timeline' });
+  }
+  if (widget.motion?.enter || widget.motion?.idle || widget.motion?.exit) {
+    return {
+      enter: cloneMotionSlot(widget.motion.enter),
+      idle: cloneMotionSlot(widget.motion.idle),
+      exit: cloneMotionSlot(widget.motion.exit),
+    };
   }
   const templateId = typeof widget.style.animationPreset === 'string' ? widget.style.animationPreset : '';
   if (!templateId) return undefined;
@@ -53,7 +76,7 @@ function resolveNormalizedMotion(widget: WidgetNode): WidgetMotion | undefined {
     distancePx: Number(widget.style.animationDistancePx ?? undefined),
     intensity: Number(widget.style.animationIntensity ?? undefined),
     repeatMode: String(widget.style.animationRepeatMode ?? 'once'),
-  });
+  }, { trigger: 'timeline' });
 }
 
 function resolveNormalizedHoverMotion(widget: WidgetNode): WidgetHoverMotion | undefined {
@@ -78,11 +101,13 @@ function normalizeWidgets(widgets: StudioState['document']['widgets'] | undefine
         widgetId,
         {
           ...widget,
-          motion,
+          motion: cloneWidgetMotion(motion),
           hoverMotion: resolveNormalizedHoverMotion(widget),
           timeline: {
             ...widget.timeline,
-            keyframes: rebuildWidgetMotionKeyframes(widget, motion, widget.timeline.keyframes ?? []),
+            keyframes: motion
+              ? rebuildWidgetMotionKeyframes(widget, motion, widget.timeline.keyframes ?? [])
+              : stripMotionManagedKeyframes(widget.timeline.keyframes ?? []),
           },
         },
       ];

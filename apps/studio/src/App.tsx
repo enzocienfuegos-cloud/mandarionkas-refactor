@@ -6,6 +6,7 @@ import { AutosaveGate } from './persistence/autosave/AutosaveGate';
 import { PlatformShell } from './platform/PlatformShell';
 import { FontAssetRuntime } from './assets/FontAssetRuntime';
 import { ToastProvider } from './shared/ui/ToastProvider';
+import { AnimationEngineProvider } from './motion/animation-engine';
 import { registerBuiltins } from './widgets/registry/register-builtins';
 
 registerBuiltins();
@@ -15,17 +16,21 @@ export default function App(): JSX.Element {
 
   if (previewRoute) {
     return (
-      <ToastProvider>
-        <ClientPreviewShell projectId={previewRoute.projectId} token={previewRoute.token} />
-      </ToastProvider>
+      <AnimationEngineProvider>
+        <ToastProvider>
+          <ClientPreviewShell projectId={previewRoute.projectId} token={previewRoute.token} />
+        </ToastProvider>
+      </AnimationEngineProvider>
     );
   }
 
   return (
-    <ToastProvider>
-      <AutosaveGate />
-      <FontAssetRuntime />
-      <PlatformShell />
-    </ToastProvider>
+    <AnimationEngineProvider>
+      <ToastProvider>
+        <AutosaveGate />
+        <FontAssetRuntime />
+        <PlatformShell />
+      </ToastProvider>
+    </AnimationEngineProvider>
   );
 }

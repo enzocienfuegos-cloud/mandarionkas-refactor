@@ -35,6 +35,7 @@ import {
 } from './stage-view-preferences';
 import { getPreviewFrame, type PreviewFrame } from '../../domain/preview/preview-frames';
 import { useStageToolbarDrag } from './use-stage-toolbar-drag';
+import { useAnimationEngine } from '../../motion/animation-engine';
 
 const stageWrap: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '100%' };
 
@@ -48,6 +49,7 @@ type StageProps = {
 };
 
 export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
+  const animationEngine = useAnimationEngine();
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
@@ -273,6 +275,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
 
   const stageSurfaceProps: StageSurfaceProps = {
     stageRef,
+    sceneId: scene.id,
     canvas,
     widgets,
     widgetsById,
@@ -367,6 +370,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
         toolbarCollapsed={toolbarCollapsed}
         toolbarStyle={toolbarStyle}
         sceneName={scene.name}
+        previewMode={previewMode}
         stageBackdrop={stageBackdrop}
         showStageRulers={showStageRulers}
         editModeWireframe={editModeWireframe}
@@ -384,6 +388,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
         onZoomOut={() => uiActions.setZoom(Math.max(ZOOM_MIN, zoom - 0.1))}
         onZoomIn={() => uiActions.setZoom(Math.min(ZOOM_MAX, zoom + 0.1))}
         onFitToViewport={fitToViewport}
+        onResetInteractions={() => animationEngine.resetEventClocks()}
       />
     </div>
   );

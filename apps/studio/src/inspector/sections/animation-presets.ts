@@ -6,6 +6,7 @@ import {
   buildWidgetMotion,
   resolveWidgetHoverMotion,
   resolveWidgetMotion,
+  resolveWidgetMotionSelection,
 } from '../../motion/motion-model';
 import { rebuildWidgetMotionKeyframes } from '../../motion/motion-template-keyframes';
 import { listHoverMotionTemplates, listMotionTemplates } from '../../motion/motion-registry';
@@ -124,13 +125,20 @@ export function applyAnimationPreset(
   motion: WidgetMotion | undefined;
 } {
   const currentConfig = getAnimationPresetConfig(widget);
-  const motion = buildWidgetMotion(preset, {
+  const nextSlotMotion = buildWidgetMotion(preset, {
     durationMs: currentConfig.durationMs,
     delayMs: currentConfig.delayMs,
     distancePx: currentConfig.distancePx,
     intensity: currentConfig.intensity,
     repeatMode: currentConfig.repeatMode,
   });
+  const selection = resolveWidgetMotionSelection({ ...widget, motion: nextSlotMotion });
+  const motion = selection
+    ? {
+        ...(widget.motion ?? {}),
+        [selection.phase]: nextSlotMotion?.[selection.phase],
+      }
+    : nextSlotMotion;
   return {
     keyframes: rebuildWidgetMotionKeyframes(widget, motion, widget.timeline.keyframes ?? []),
     stylePatch: buildLegacyMotionStylePatch(motion),

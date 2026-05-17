@@ -1,8 +1,9 @@
 import type { JSX } from 'react';
-import type { KeyframeNode, WidgetFrame, WidgetTimeline, WidgetType } from '../domain/document/types';
+import type { WidgetNode, WidgetType } from '../domain/document/types';
 import type { WidgetCapabilities } from '../widgets/registry/widget-definition';
+import type { AnimationSpec } from './animation-engine/plan';
 
-export type MotionCategory = 'entrance' | 'exit' | 'loop' | 'hover';
+export type MotionCategory = 'entrance' | 'idle' | 'exit' | 'hover';
 export type MotionConfig = Record<string, number | string>;
 
 export type CompositorMotionKeyframe = {
@@ -48,15 +49,12 @@ export type MotionTemplate = {
   id: string;
   label: string;
   category: MotionCategory;
-  description?: string;
+  description: string;
   fields: MotionConfigField[];
   defaults: MotionConfig;
-  buildKeyframes: (
-    config: MotionConfig,
-    widgetFrame: WidgetFrame,
-    widgetTimeline: WidgetTimeline,
-  ) => KeyframeNode[];
+  buildSpec?: (config: MotionConfig, widget: WidgetNode) => AnimationSpec;
   buildCompositorMotion: (config: MotionConfig) => CompositorMotionSpec;
+  isLoop: boolean;
   thumbnail: (config?: MotionConfig) => JSX.Element;
   supportsWidgetType?: (type: WidgetType, capabilities: WidgetCapabilities | undefined) => boolean;
 };

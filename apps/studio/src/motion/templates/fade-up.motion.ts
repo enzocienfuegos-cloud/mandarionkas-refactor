@@ -2,7 +2,6 @@ import { createElement } from 'react';
 import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
-import { buildTranslateInKeyframes } from './shared';
 
 const defaults = { durationMs: 700, delayMs: 0, distancePx: 24 };
 
@@ -17,17 +16,12 @@ const fadeUpTemplate: MotionTemplate = {
     { key: 'distancePx', label: 'Distance', kind: 'number', min: 0, max: 160, step: 2, unit: 'px', defaultValue: 24 },
   ],
   defaults,
-  buildKeyframes: (config, widgetFrame, widgetTimeline) => buildTranslateInKeyframes(
-    'fade-up',
-    'y',
-    widgetFrame,
-    widgetTimeline,
-    readConfigNumber(config, 'durationMs', defaults.durationMs),
-    readConfigNumber(config, 'delayMs', defaults.delayMs),
-    readConfigNumber(config, 'distancePx', defaults.distancePx),
-    1,
-    true,
-  ),
+  buildSpec: (config) => ({
+    from: { y: readConfigNumber(config, 'distancePx', defaults.distancePx), opacity: 0 },
+    to: { y: 0, opacity: 1 },
+    ease: 'expo.out',
+    willChange: 'transform, opacity',
+  }),
   buildCompositorMotion: (config) => {
     const durationMs = readConfigNumber(config, 'durationMs', defaults.durationMs);
     const delayMs = readConfigNumber(config, 'delayMs', defaults.delayMs);
@@ -41,6 +35,7 @@ const fadeUpTemplate: MotionTemplate = {
       willChange: 'opacity, transform',
     };
   },
+  isLoop: false,
   thumbnail: () => createElement(MotionThumbnail, { label: 'Fade up' }),
 };
 

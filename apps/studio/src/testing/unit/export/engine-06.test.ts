@@ -142,11 +142,9 @@ describe('export engine', () => {
 
     const script = compileRuntime(gam.portableProject, gam);
 
-    expect(script).toContain('document.querySelectorAll(\'.widget-cta[data-widget-id]\')');
-    expect(script).toContain('window.smxRuntime=');
+    expect(script).toContain('window.SmxRuntime.bootSmxRuntime(');
     expect(script).toContain('showScene(0)');
-    expect(script).not.toContain('initWeatherWidget');
-    expect(script).not.toContain('api.open-meteo.com');
+    expect(script).toContain('"targetChannel":"gam-html5"');
   });
 
   it('builds a runtime script that prefers mraid location for locator flows', () => {
@@ -171,10 +169,9 @@ describe('export engine', () => {
 
     const script = compileRuntime(mraid.portableProject, mraid);
 
-    expect(script).toContain('function requestMraidUserPosition');
-    expect(script).toContain('window.mraid.getLocation');
-    expect(script).toContain('parseUserPositionPayload');
-    expect(script).toContain('if (requestMraidUserPosition(onSuccess, onError)) return;');
+    expect(script).toContain('window.SmxRuntime.bootSmxRuntime(');
+    expect(script).toContain('mraid.getLocation');
+    expect(script).toContain('secure-context');
   });
 
   it('builds a zip artifact from the export bundle', () => {

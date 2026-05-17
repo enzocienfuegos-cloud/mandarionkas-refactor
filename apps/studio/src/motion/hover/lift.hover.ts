@@ -15,7 +15,6 @@ const liftHoverTemplate: MotionTemplate = {
     { key: 'distancePx', label: 'Lift distance', kind: 'number', min: 1, max: 60, step: 1, unit: 'px', defaultValue: 12 },
   ],
   defaults,
-  buildKeyframes: () => [],
   buildCompositorMotion: (config) => {
     const durationMs = Math.max(120, readConfigNumber(config, 'durationMs', defaults.durationMs));
     const distancePx = Math.max(1, readConfigNumber(config, 'distancePx', defaults.distancePx));
@@ -33,6 +32,7 @@ const liftHoverTemplate: MotionTemplate = {
       willChange: 'transform',
     };
   },
+  isLoop: false,
   thumbnail: () => createElement(MotionThumbnail, { label: 'Lift' }),
 };
 

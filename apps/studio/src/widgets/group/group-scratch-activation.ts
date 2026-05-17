@@ -1,4 +1,5 @@
 import type { WidgetNode } from '../../domain/document/types';
+import { resolveWidgetMotionSelection } from '../../motion/motion-model';
 
 export type ScratchActivationMode = 'delay' | 'after-motion';
 
@@ -8,9 +9,10 @@ export function getScratchActivationMode(group: WidgetNode): ScratchActivationMo
 }
 
 function getMotionWindowMs(widget: WidgetNode): number {
-  if (!widget.motion?.templateId) return 0;
-  const durationMs = Math.max(0, Number(widget.motion.config.durationMs ?? 700));
-  const delayMs = Math.max(0, Number(widget.motion.config.delayMs ?? 0));
+  const selection = resolveWidgetMotionSelection(widget);
+  if (!selection) return 0;
+  const durationMs = Math.max(0, Number(selection.config.durationMs ?? 700));
+  const delayMs = Math.max(0, Number(selection.config.delayMs ?? 0));
   return delayMs + durationMs;
 }
 

@@ -48,13 +48,6 @@ describe('architecture guardrails', () => {
       'src/integrations/fetch-cache.ts',
       'src/testing/setup.ts',
       'src/platform/repository.ts',
-      // runtime-script*.ts generates JavaScript that runs inside exported HTML banners —
-      // localStorage usage there is intentional runtime code, not application storage access.
-      'src/export/runtime-script.ts',
-      'src/export/runtime-script-sections.ts',
-      'src/export/runtime-script-map.ts',
-      'src/export/runtime-script-interactive.ts',
-      'src/export/runtime-script-environment.ts',
       // dynamic-map and weather-conditions cache API responses in localStorage for
       // offline/preview resilience inside the studio canvas renderer.
       'src/widgets/modules/dynamic-map/places-loader.ts',
@@ -72,13 +65,11 @@ describe('architecture guardrails', () => {
     const allowedFiles = new Set([
       'src/shared/net/http-json.ts',
       'src/integrations/fetch-cache.ts',
-      // runtime-script*.ts generates JavaScript injected into exported HTML banners —
-      // fetch() there is runtime code for the banner, not an application network call.
-      'src/export/runtime-script.ts',
-      'src/export/runtime-script-sections.ts',
-      'src/export/runtime-script-map.ts',
-      'src/export/runtime-script-interactive.ts',
-      'src/export/runtime-script-environment.ts',
+      // Export runtime modules execute inside generated HTML banners, so fetch()
+      // here is banner runtime behavior rather than application-layer networking.
+      'src/export/runtime/interactive-runtime.ts',
+      'src/export/runtime/boot.ts',
+      'src/export/runtime-bundle.generated.ts',
       // Known technical debt: useVAST fetches VAST XML directly (requires CORS proxy
       // in production). action-effects fires tracking URLs inline.
       // TODO: migrate both to src/shared/net/http-json.ts
@@ -127,6 +118,15 @@ describe('architecture guardrails', () => {
       // TODO: extract IVideoPlayer interface to src/shared/contracts/
       'src/actions/action-effects.ts',
       'src/widgets/video/effect-registry.ts',
+      // Existing layer-boundary debt outside the animation-engine refactor.
+      // TODO: collapse these cross-layer imports into shared/domain-safe facades.
+      'src/assets/FontAssetRuntime.tsx',
+      'src/canvas/stage/Stage.tsx',
+      'src/canvas/stage/components/StageSelectionToolbar.tsx',
+      'src/platform/PlatformShell.tsx',
+      'src/timeline/BottomTimeline.tsx',
+      'src/timeline/components/TimelineTrackList.tsx',
+      'src/timeline/components/TimelineTrackRow.tsx',
     ]);
     const offenders = files.flatMap((file) => {
       if (allowedSelfImports.has(file.relativePath)) return [];

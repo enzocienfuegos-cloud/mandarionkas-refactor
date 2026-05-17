@@ -2,7 +2,6 @@ import { createElement } from 'react';
 import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
-import { buildFadeOutKeyframes } from './shared';
 
 const defaults = { durationMs: 700 };
 
@@ -15,11 +14,12 @@ const fadeOutTemplate: MotionTemplate = {
     { key: 'durationMs', label: 'Duration', kind: 'number', min: 120, max: 4000, step: 20, unit: 'ms', defaultValue: 700 },
   ],
   defaults,
-  buildKeyframes: (config, _widgetFrame, widgetTimeline) => buildFadeOutKeyframes(
-    'fade-out',
-    widgetTimeline,
-    readConfigNumber(config, 'durationMs', defaults.durationMs),
-  ),
+  buildSpec: () => ({
+    from: { opacity: 1 },
+    to: { opacity: 0 },
+    ease: 'power2.in',
+    willChange: 'opacity',
+  }),
   buildCompositorMotion: (config) => {
     const durationMs = readConfigNumber(config, 'durationMs', defaults.durationMs);
     return {
@@ -31,6 +31,7 @@ const fadeOutTemplate: MotionTemplate = {
       willChange: 'opacity',
     };
   },
+  isLoop: false,
   thumbnail: () => createElement(MotionThumbnail, { label: 'Fade out' }),
 };
 

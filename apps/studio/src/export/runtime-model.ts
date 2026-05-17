@@ -1,6 +1,7 @@
 import { buildPortableProjectExport, type PortableExportInteraction, type PortableExportProject, type PortableExportScene, type PortableExportWidget } from './portable';
 import type { StudioState } from '../domain/document/types';
 import { buildCompositorMotionSpec } from '../motion/compositor-motion';
+import { cloneWidgetMotion } from '../motion/motion-model';
 import type { CompositorMotionSpec } from '../motion/motion-template-contract';
 
 export type ExportRuntimeGesture =
@@ -136,7 +137,7 @@ function inferWidgetGestures(widget: PortableExportWidget): ExportRuntimeGesture
 function buildRuntimeCompositorMotion(widget: PortableExportWidget, motion: PortableExportWidget['motion'] | undefined): CompositorMotionSpec | undefined {
   const spec = buildCompositorMotionSpec(motion);
   if (!spec) return undefined;
-  if (motion?.templateId !== 'fade-out') return spec;
+  if (motion?.exit?.templateId !== 'fade-out') return spec;
   const durationMs = Math.max(1, Number(spec.options.duration || 1));
   const timelineDurationMs = Math.max(0, widget.timeline.endMs - widget.timeline.startMs);
   return {
@@ -150,7 +151,7 @@ function buildRuntimeCompositorMotion(widget: PortableExportWidget, motion: Port
 
 function buildRuntimeWidget(widget: PortableExportWidget): ExportRuntimeWidget {
   const gestures = inferWidgetGestures(widget);
-  const motion = widget.motion ? { ...widget.motion, config: { ...widget.motion.config } } : undefined;
+  const motion = cloneWidgetMotion(widget.motion);
   return {
     id: widget.id,
     type: widget.type,

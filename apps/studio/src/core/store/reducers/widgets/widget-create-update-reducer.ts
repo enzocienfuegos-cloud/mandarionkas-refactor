@@ -1,6 +1,7 @@
 import type { StudioCommand } from '../../../commands/types';
 import type { StudioState } from '../../../../domain/document/types';
 import { buildResolvedWidgetsById, resolveWidgetForCanvasVariant } from '../../../../domain/document/canvas-variants';
+import { cloneWidgetMotion } from '../../../../motion/motion-model';
 import { rebuildWidgetMotionKeyframes } from '../../../../motion/motion-template-keyframes';
 import { currentScene, getPlacedFrameForPoint, getSmartPlacedFrame, getWidgetDefinition, withDirty } from './shared';
 
@@ -201,10 +202,10 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
             ...state.document.widgets,
             [target.id]: {
               ...target,
-              motion: command.motion ? { ...command.motion, config: { ...command.motion.config } } : undefined,
+              motion: cloneWidgetMotion(command.motion),
               timeline: {
                 ...target.timeline,
-                keyframes: rebuildWidgetMotionKeyframes(target, command.motion ? { ...command.motion, config: { ...command.motion.config } } : undefined, target.timeline.keyframes ?? []),
+                keyframes: rebuildWidgetMotionKeyframes(target, cloneWidgetMotion(command.motion), target.timeline.keyframes ?? []),
               },
             },
           },
@@ -236,7 +237,7 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
       const sameType = target.type === command.clipboard.widgetType;
       const nextProps = sameType ? { ...command.clipboard.props } : target.props;
       const nextStyle = sameType ? { ...command.clipboard.style } : { ...target.style, ...command.clipboard.style };
-      const nextMotion = sameType && command.clipboard.motion ? { ...command.clipboard.motion, config: { ...command.clipboard.motion.config } } : rawTarget?.motion;
+      const nextMotion = sameType && command.clipboard.motion ? cloneWidgetMotion(command.clipboard.motion) : rawTarget?.motion;
       const nextHoverMotion = sameType && command.clipboard.hoverMotion ? { ...command.clipboard.hoverMotion, config: { ...command.clipboard.hoverMotion.config } } : rawTarget?.hoverMotion;
 
       if (rawTarget?.sharedLayerId) {

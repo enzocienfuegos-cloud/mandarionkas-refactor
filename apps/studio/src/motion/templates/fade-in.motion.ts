@@ -2,7 +2,6 @@ import { createElement } from 'react';
 import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
-import { buildFadeInKeyframes } from './shared';
 
 const defaults = { durationMs: 700, delayMs: 0 };
 
@@ -16,12 +15,12 @@ const fadeInTemplate: MotionTemplate = {
     { key: 'delayMs', label: 'Delay', kind: 'number', min: 0, max: 6000, step: 20, unit: 'ms', defaultValue: 0 },
   ],
   defaults,
-  buildKeyframes: (config, _widgetFrame, widgetTimeline) => buildFadeInKeyframes(
-    'fade-in',
-    widgetTimeline,
-    readConfigNumber(config, 'durationMs', defaults.durationMs),
-    readConfigNumber(config, 'delayMs', defaults.delayMs),
-  ),
+  buildSpec: () => ({
+    from: { opacity: 0 },
+    to: { opacity: 1 },
+    ease: 'expo.out',
+    willChange: 'opacity',
+  }),
   buildCompositorMotion: (config) => {
     const durationMs = readConfigNumber(config, 'durationMs', defaults.durationMs);
     const delayMs = readConfigNumber(config, 'delayMs', defaults.delayMs);
@@ -34,6 +33,7 @@ const fadeInTemplate: MotionTemplate = {
       willChange: 'opacity',
     };
   },
+  isLoop: false,
   thumbnail: () => createElement(MotionThumbnail, { label: 'Fade in' }),
 };
 

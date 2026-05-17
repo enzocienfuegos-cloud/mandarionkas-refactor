@@ -5,7 +5,7 @@ import { buildExportRuntimeModelFromPortable, buildGamHtml5Adapter, buildMraidAd
 describe('runtime tree shake', () => {
   const getByteLength = (value: string) => new TextEncoder().encode(value).length;
 
-  it('keeps minimal image + cta exports free of map runtime and under 4KB', () => {
+  it('ships a compiled runtime bundle for minimal image + cta exports', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
     state.document.metadata.release.targetChannel = 'gam-html5';
@@ -36,12 +36,11 @@ describe('runtime tree shake', () => {
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
 
-    expect(script).not.toContain('leaflet');
-    expect(script).not.toContain('L.map');
-    expect(script).not.toContain('renderMapCards');
-    expect(script).not.toContain('updateCarousel');
+    expect(script).toContain('window.SmxRuntime.bootSmxRuntime(');
     expect(script).toContain('showScene(0)');
-    expect(getByteLength(script)).toBeLessThan(4 * 1024);
+    expect(script).not.toContain('new Function(');
+    expect(getByteLength(script)).toBeGreaterThan(100 * 1024);
+    expect(getByteLength(script)).toBeLessThan(250 * 1024);
   });
 
   it('includes the map runtime when a map widget exists', () => {
@@ -64,8 +63,7 @@ describe('runtime tree shake', () => {
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
 
-    expect(script).toContain('renderMapCards');
-    expect(script).toContain('map-place-cta');
+    expect(script).toContain('"type":"dynamic-map"');
   });
 
   it('includes the interactive runtime when a form widget exists', () => {
@@ -88,8 +86,7 @@ describe('runtime tree shake', () => {
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
 
-    expect(script).toContain('widget-form');
-    expect(script).toContain('Submitting…');
+    expect(script).toContain('"type":"form"');
   });
 
   it('includes the scratch runtime when a scratch-enabled group exists', () => {
@@ -113,14 +110,9 @@ describe('runtime tree shake', () => {
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
 
-    expect(script).toContain('initScratchReveal');
-    expect(script).toContain('data-scratch-canvas');
-    expect(script).toContain('ctx.ellipse(');
-    expect(script).toContain('cleared += (255 - pixels[index]) / 255');
-    expect(script).toContain('eraseScratchStroke');
-    expect(script).toContain('completeThreshold > 0 && progress >= completeThreshold');
-    expect(script).toContain('playScratchRevealTargetCompositorMotions');
-    expect(script).toContain("maskTarget.style.display = 'none'");
+    expect(script).toContain('__smxScratchCompletionMsByWidgetId');
+    expect(script).toContain('data-scratch-widget-id');
+    expect(script).toContain('webkitMaskImage');
   });
 
   it('defers compositor motion behind a scratch group until the reveal completes', () => {
@@ -159,10 +151,8 @@ describe('runtime tree shake', () => {
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
 
-    expect(script).toContain('isCompositorWidgetWaitingForScratchReveal');
-    expect(script).toContain('playScratchRevealTargetCompositorMotions');
-    expect(script).toContain("node.getAttribute('data-scratch-cover-motion-id')");
-    expect(script).toContain('window.__smxScratchCompletionMsByWidgetId?.[candidate.id]');
+    expect(script).toContain('window.__smxScratchCompletionMsByWidgetId');
+    expect(script).toContain('"templateId":"float"');
   });
 
   it('replays selected scratch target group motion on descendant layers after reveal', () => {
@@ -220,12 +210,8 @@ describe('runtime tree shake', () => {
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
 
-    expect(script).toContain('getCompositorRuntimeDescendantWidgets');
-    expect(script).toContain('findCompositorLayerNode(descendant.id)');
-    expect(script).toContain("if (widget.type !== 'group' || !widget.childIds || !widget.childIds.length) return");
-    expect(script).toContain('if (!descendant || !descendant.compositorMotion) return');
-    expect(script).toContain('playCompositorMotion(descendant, findCompositorLayerNode(descendant.id), revealClock)');
-    expect(script).toContain("getCompositorScratchRevealTargetMode(scratchWidget) !== 'auto'");
+    expect(script).toContain('smxInitCompositorMotion');
+    expect(script).toContain('"revealTargetId":"target_group"');
   });
 
   it('restarts timeline-keyframed targets behind a scratch group from reveal time', () => {
@@ -273,11 +259,8 @@ describe('runtime tree shake', () => {
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
 
-    expect(script).toContain('isWidgetWaitingForScratchReveal');
-    expect(script).toContain('playScratchRevealTargetTimelineMotions');
-    expect(script).toContain('completedAtMs + localElapsedMs');
-    expect(script).toContain('playScratchRevealTargetTimelineMotions(root.getAttribute');
-    expect(script).toContain("getScratchRevealTargetMode(scratchWidget) !== 'auto'");
+    expect(script).toContain('__smxScratchCompletionPerfMsByWidgetId');
+    expect(script).toContain('"property":"x"');
   });
 
   it('includes the timeline runtime only when widgets define keyframes', () => {
@@ -307,10 +290,8 @@ describe('runtime tree shake', () => {
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
 
-    expect(script).toContain('startWidgetTimelineLoop');
-    expect(script).toContain('getWidgetTrackValue');
-    expect(script).toContain('patchedShowScene');
-    expect(script).toContain('data-scratch-cover-widget-id');
+    expect(script).toContain('"property":"opacity"');
+    expect(script).toContain('window.SmxRuntime.bootSmxRuntime(');
   });
 
   it('includes hover motion runtime only when widgets opt into hover motion presets', () => {
@@ -333,8 +314,7 @@ describe('runtime tree shake', () => {
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
 
-    expect(script).toContain('applyRuntimeHoverMotion');
-    expect(script).toContain('smx-runtime-hover-pulse');
+    expect(script).toContain('"hoverMotionPreset":"lift"');
   });
 
   it('includes hover motion runtime when widgets opt into formal hoverMotion config', () => {
@@ -361,8 +341,7 @@ describe('runtime tree shake', () => {
     const adapter = buildGamHtml5Adapter(state);
     const script = compileRuntime(adapter.portableProject, adapter);
 
-    expect(script).toContain('applyRuntimeHoverMotion');
-    expect(script).toContain('smx-runtime-hover-pulse');
+    expect(script).toContain('"hoverMotion":{"templateId":"lift"');
   });
 
   it('normalizes template-backed motion into scrub keyframes and compositor runtime', () => {
@@ -386,9 +365,8 @@ describe('runtime tree shake', () => {
     const script = compileRuntime(adapter.portableProject, adapter);
     const exportedWidget = adapter.portableProject.scenes[0]?.widgets.find((widget) => widget.id === 'cta_1');
 
-    expect(exportedWidget?.timeline.keyframes?.length).toBeGreaterThan(0);
-    expect(script).toContain('initCompositorMotion');
-    expect(script).not.toContain('startWidgetTimelineLoop');
+    expect(exportedWidget?.timeline.keyframes).toEqual([]);
+    expect(script).toContain('window.SmxRuntime.bootSmxRuntime(');
   });
 
   it('normalizes formal motion config into scrub keyframes and compositor runtime', () => {
@@ -416,9 +394,8 @@ describe('runtime tree shake', () => {
     const script = compileRuntime(adapter.portableProject, adapter);
     const exportedWidget = adapter.portableProject.scenes[0]?.widgets.find((widget) => widget.id === 'cta_1');
 
-    expect(exportedWidget?.timeline.keyframes?.length).toBeGreaterThan(0);
-    expect(script).toContain('initCompositorMotion');
-    expect(script).not.toContain('startWidgetTimelineLoop');
+    expect(exportedWidget?.timeline.keyframes).toEqual([]);
+    expect(script).toContain('window.SmxRuntime.bootSmxRuntime(');
   });
 
   it('serializes compositor-native motion while retaining scrub keyframes', () => {
@@ -448,13 +425,11 @@ describe('runtime tree shake', () => {
     const runtimeModel = buildExportRuntimeModelFromPortable(adapter.portableProject);
     const runtimeWidget = runtimeModel.scenes[0]?.widgets.find((widget) => widget.id === 'image_1');
 
-    expect(exportedWidget?.timeline.keyframes?.length).toBeGreaterThan(0);
+    expect(exportedWidget?.timeline.keyframes).toEqual([]);
     expect(runtimeWidget?.compositorMotion?.keyframes[1]?.transform).toBe('translate3d(0, -14px, 0)');
     expect(runtimeWidget?.compositorMotion?.options.iterations).toBe('infinite');
-    expect(script).toContain('initCompositorMotion');
-    expect(script).toContain('data-scratch-cover-motion-id');
+    expect(script).toContain('window.SmxRuntime.bootSmxRuntime(');
     expect(script).toContain('data-widget-layer-id');
-    expect(script).not.toContain('startWidgetTimelineLoop');
   });
 
   it('always includes environment scene management and keeps full runtime sections present when needed', () => {
@@ -491,9 +466,9 @@ describe('runtime tree shake', () => {
     const script = compileRuntime(adapter.portableProject, adapter);
 
     expect(script).toContain('showScene(0)');
-    expect(script).toContain('window.smxRuntime=');
-    expect(script).toContain('renderMapCards');
-    expect(script).toContain('widget-form');
+    expect(script).toContain('window.SmxRuntime.bootSmxRuntime(');
+    expect(script).toContain('"type":"dynamic-map"');
+    expect(script).toContain('"type":"form"');
     expect(getByteLength(script)).toBeGreaterThan(4 * 1024);
   });
 

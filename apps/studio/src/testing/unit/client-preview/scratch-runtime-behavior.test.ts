@@ -81,11 +81,11 @@ describe('scratch reveal runtime behavior', () => {
       const before = await page.evaluate(() => ({
         ready: typeof (window as any).smxInitCompositorMotion === 'function',
         completed: Boolean((window as any).__smxScratchCompletionMsByWidgetId?.scratch_group),
-        childAnimations: document.querySelector('[data-widget-layer-id="image_1"]')?.getAnimations().length ?? -1,
+        childTransform: window.getComputedStyle(document.querySelector('[data-widget-layer-id="image_1"]') as Element).transform,
       }));
       expect(before.ready).toBe(true);
       expect(before.completed).toBe(false);
-      expect(before.childAnimations).toBe(0);
+      expect(before.childTransform).toBe('none');
 
       await page.evaluate(() => {
         const canvas = document.querySelector('[data-scratch-canvas]');
@@ -109,18 +109,22 @@ describe('scratch reveal runtime behavior', () => {
       });
 
       await page.waitForFunction(() => Boolean((window as any).__smxScratchCompletionMsByWidgetId?.scratch_group), null, { timeout: 1000 });
+      await page.waitForFunction(() => {
+        const layer = document.querySelector('[data-widget-layer-id="image_1"]');
+        return layer ? window.getComputedStyle(layer).transform !== 'none' : false;
+      }, null, { timeout: 1000 });
       const after = await page.evaluate(() => {
         const layer = document.querySelector('[data-widget-layer-id="image_1"]');
         const widget = document.querySelector('[data-widget-id="image_1"]');
         return {
-          childLayerAnimations: layer?.getAnimations().length ?? -1,
-          childWidgetAnimations: widget?.getAnimations().length ?? -1,
+          childLayerTransform: layer ? window.getComputedStyle(layer).transform : 'none',
+          childWidgetTransform: widget ? window.getComputedStyle(widget).transform : 'none',
           completed: Boolean((window as any).__smxScratchCompletionMsByWidgetId?.scratch_group),
         };
       });
 
       expect(after.completed).toBe(true);
-      expect(after.childLayerAnimations + after.childWidgetAnimations).toBeGreaterThan(0);
+      expect(after.childLayerTransform !== 'none' || after.childWidgetTransform !== 'none').toBe(true);
     } finally {
       await page.close();
     }
@@ -210,16 +214,20 @@ describe('scratch reveal runtime behavior', () => {
       });
 
       await page.waitForFunction(() => Boolean((window as any).__smxScratchCompletionMsByWidgetId?.scratch_group), null, { timeout: 1000 });
+      await page.waitForFunction(() => {
+        const layer = document.querySelector('[data-widget-layer-id="image_1"]');
+        return layer ? window.getComputedStyle(layer).transform !== 'none' : false;
+      }, null, { timeout: 1000 });
       const after = await page.evaluate(() => {
         const layer = document.querySelector('[data-widget-layer-id="image_1"]');
         return {
-          childLayerAnimations: layer?.getAnimations().length ?? -1,
+          childLayerTransform: layer ? window.getComputedStyle(layer).transform : 'none',
           completed: Boolean((window as any).__smxScratchCompletionMsByWidgetId?.scratch_group),
         };
       });
 
       expect(after.completed).toBe(true);
-      expect(after.childLayerAnimations).toBeGreaterThan(0);
+      expect(after.childLayerTransform).not.toBe('none');
     } finally {
       await page.close();
     }

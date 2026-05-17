@@ -1,5 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { buildResolvedWidgetsById } from '../domain/document/canvas-variants';
+import { resolveNextSceneId } from '../domain/document/resolvers';
 import { replaceStudioState, studioStore } from '../core/store/studio-store';
+import { useStudioStoreRef } from '../core/store/use-studio-store';
 import type { WidgetClipboardPayload, WidgetPropertyClipboardPayload } from '../core/commands/types';
 import type {
   ActionNode,
@@ -17,9 +20,33 @@ import type {
   WidgetNode,
 } from '../domain/document/types';
 import type { VariantContext, VariantRule } from '../domain/variants/types';
+import { createEventClock } from '../motion/animation-engine/clock';
+import { useOptionalAnimationEngine } from '../motion/animation-engine/react';
+import { resolveSceneExitDurationMs } from '../motion/animation-engine/scene-exit';
 
 function dispatch(command: any): void {
   studioStore.dispatch(command as never);
+}
+
+function nowMs(): number {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+}
+
+function getSceneWidgets(state: import('../domain/document/types').StudioState, sceneId: string): WidgetNode[] {
+  const resolvedWidgetsById = buildResolvedWidgetsById(state.document);
+  const scene = state.document.scenes.find((item) => item.id === sceneId);
+  if (!scene) return [];
+  return scene.widgetIds
+    .map((widgetId) => resolvedWidgetsById[widgetId])
+    .filter((widget): widget is WidgetNode => Boolean(widget));
+}
+
+function resolvePreviousSceneId(state: import('../domain/document/types').StudioState): string | undefined {
+  const scenes = [...state.document.scenes].sort((left, right) => left.order - right.order);
+  const activeIndex = scenes.findIndex((scene) => scene.id === state.document.selection.activeSceneId);
+  return activeIndex > 0 ? scenes[activeIndex - 1]?.id : undefined;
 }
 
 export function useDocumentActions() {
@@ -43,15 +70,91 @@ export function useDocumentActions() {
 }
 
 export function useSceneActions() {
-  return useMemo(() => ({
-    selectScene: (sceneId: string) => dispatch({ type: 'SELECT_SCENE', sceneId }),
-    previousScene: () => dispatch({ type: 'GO_TO_PREVIOUS_SCENE' }),
-    nextScene: () => dispatch({ type: 'GO_TO_NEXT_SCENE' }),
-    addScene: () => dispatch({ type: 'ADD_SCENE' }),
-    duplicateScene: (sceneId: string) => dispatch({ type: 'DUPLICATE_SCENE', sceneId }),
-    deleteScene: (sceneId: string) => dispatch({ type: 'DELETE_SCENE', sceneId }),
-    updateScene: (sceneId: string, patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_SCENE', sceneId, patch }),
-  }), []);
+  const engine = useOptionalAnimationEngine();
+  const stateRef = useStudioStoreRef((state) => state);
+  const transitionTimerRef = useRef<number>(0);
+  const pendingTransitionRef = useRef<{ sourceSceneId: string; targetSceneId: string } | null>(null);
+
+  useEffect(() => () => {
+    if (transitionTimerRef.current) {
+      globalThis.clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = 0;
+    }
+    pendingTransitionRef.current = null;
+  }, []);
+
+  return useMemo(() => {
+    const clearPendingTransition = () => {
+      if (transitionTimerRef.current) {
+        globalThis.clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = 0;
+      }
+      pendingTransitionRef.current = null;
+    };
+
+    const finalizeSceneSelection = (sceneId: string) => {
+      clearPendingTransition();
+      dispatch({ type: 'SELECT_SCENE', sceneId });
+    };
+
+    const maybeTransitionToScene = (sceneId: string | undefined) => {
+      if (!sceneId) return;
+      const state = stateRef.current;
+      const sourceSceneId = state.document.selection.activeSceneId;
+      if (!sceneId || sceneId === sourceSceneId) return;
+
+      const shouldAnimateExit = Boolean(engine) && state.ui.previewMode && state.ui.isPlaying;
+      if (!shouldAnimateExit) {
+        finalizeSceneSelection(sceneId);
+        return;
+      }
+
+      const pendingTransition = pendingTransitionRef.current;
+      if (pendingTransition?.sourceSceneId === sourceSceneId && pendingTransition.targetSceneId === sceneId) {
+        return;
+      }
+
+      const sceneWidgets = getSceneWidgets(state, sourceSceneId);
+      const exitDurationMs = resolveSceneExitDurationMs(sceneWidgets);
+      const realTimeMs = nowMs();
+      const clock = createEventClock('scene-exit', realTimeMs, 'exit');
+
+      sceneWidgets.forEach((widget) => {
+        engine?.emit({
+          trigger: 'scene-exit',
+          sourceId: widget.id,
+          targetId: widget.id,
+          sceneTimeMs: state.ui.playheadMs,
+          realTimeMs,
+          clock,
+        });
+      });
+
+      clearPendingTransition();
+      pendingTransitionRef.current = { sourceSceneId, targetSceneId: sceneId };
+
+      if (!exitDurationMs) {
+        finalizeSceneSelection(sceneId);
+        return;
+      }
+
+      transitionTimerRef.current = globalThis.setTimeout(() => {
+        const pending = pendingTransitionRef.current;
+        if (!pending || pending.sourceSceneId !== sourceSceneId || pending.targetSceneId !== sceneId) return;
+        finalizeSceneSelection(sceneId);
+      }, exitDurationMs);
+    };
+
+    return {
+      selectScene: (sceneId: string) => maybeTransitionToScene(sceneId),
+      previousScene: () => maybeTransitionToScene(resolvePreviousSceneId(stateRef.current)),
+      nextScene: () => maybeTransitionToScene(resolveNextSceneId(stateRef.current, stateRef.current.document.selection.activeSceneId)),
+      addScene: () => dispatch({ type: 'ADD_SCENE' }),
+      duplicateScene: (sceneId: string) => dispatch({ type: 'DUPLICATE_SCENE', sceneId }),
+      deleteScene: (sceneId: string) => dispatch({ type: 'DELETE_SCENE', sceneId }),
+      updateScene: (sceneId: string, patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_SCENE', sceneId, patch }),
+    };
+  }, [engine, stateRef]);
 }
 
 export function useWidgetActions() {
