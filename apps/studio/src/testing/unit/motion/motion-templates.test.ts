@@ -48,12 +48,13 @@ describe('motion templates build timeline keyframes', () => {
     expect(keyframes.at(-1)?.atMs).toBeLessThanOrEqual(2300);
   });
 
-  it('builds float as compositor transform motion instead of timeline y cycles', () => {
+  it('builds float scrub keyframes and compositor transform motion', () => {
     const template = getMotionTemplate('float');
     const keyframes = template?.buildKeyframes({ durationMs: 1200, delayMs: 0, distancePx: 8 }, frame, timeline) ?? [];
     const compositorMotion = template?.buildCompositorMotion?.({ durationMs: 1200, delayMs: 25, distancePx: 8 });
 
-    expect(keyframes).toEqual([]);
+    expect(keyframes.length).toBeGreaterThan(4);
+    expect(keyframes.every((keyframe) => keyframe.property === 'y')).toBe(true);
     expect(compositorMotion?.willChange).toBe('transform');
     expect(compositorMotion?.options).toEqual(expect.objectContaining({
       duration: 1200,

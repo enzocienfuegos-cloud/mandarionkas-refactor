@@ -28,6 +28,19 @@ const slideInLeftTemplate: MotionTemplate = {
     -1,
     false,
   ),
+  buildCompositorMotion: (config) => {
+    const durationMs = readConfigNumber(config, 'durationMs', defaults.durationMs);
+    const delayMs = readConfigNumber(config, 'delayMs', defaults.delayMs);
+    const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);
+    return {
+      keyframes: [
+        { transform: `translate3d(-${distancePx}px, 0, 0)`, offset: 0 },
+        { transform: 'translate3d(0, 0, 0)', offset: 1 },
+      ],
+      options: { duration: durationMs, delay: delayMs, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', iterations: 1, fill: 'both' },
+      willChange: 'transform',
+    };
+  },
   thumbnail: () => createElement(MotionThumbnail, { label: 'Slide ←' }),
 };
 

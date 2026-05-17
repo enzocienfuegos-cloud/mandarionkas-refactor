@@ -22,6 +22,18 @@ const appearTemplate: MotionTemplate = {
     readConfigNumber(config, 'durationMs', defaults.durationMs),
     readConfigNumber(config, 'delayMs', defaults.delayMs),
   ),
+  buildCompositorMotion: (config) => {
+    const durationMs = readConfigNumber(config, 'durationMs', defaults.durationMs);
+    const delayMs = readConfigNumber(config, 'delayMs', defaults.delayMs);
+    return {
+      keyframes: [
+        { opacity: 0, offset: 0 },
+        { opacity: 1, offset: 1 },
+      ],
+      options: { duration: durationMs, delay: delayMs, easing: 'ease-out', iterations: 1, fill: 'both' },
+      willChange: 'opacity',
+    };
+  },
   thumbnail: () => createElement(MotionThumbnail, { label: 'Appear' }),
 };
 

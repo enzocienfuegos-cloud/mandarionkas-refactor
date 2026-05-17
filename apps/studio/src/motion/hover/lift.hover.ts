@@ -1,4 +1,5 @@
 import { createElement } from 'react';
+import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
@@ -15,6 +16,23 @@ const liftHoverTemplate: MotionTemplate = {
   ],
   defaults,
   buildKeyframes: () => [],
+  buildCompositorMotion: (config) => {
+    const durationMs = Math.max(120, readConfigNumber(config, 'durationMs', defaults.durationMs));
+    const distancePx = Math.max(1, readConfigNumber(config, 'distancePx', defaults.distancePx));
+    return {
+      keyframes: [
+        { transform: 'translate3d(0, 0, 0)', offset: 0 },
+        { transform: `translate3d(0, -${distancePx}px, 0)`, offset: 1 },
+      ],
+      options: {
+        duration: durationMs,
+        easing: 'ease-out',
+        iterations: 1,
+        fill: 'both',
+      },
+      willChange: 'transform',
+    };
+  },
   thumbnail: () => createElement(MotionThumbnail, { label: 'Lift' }),
 };
 

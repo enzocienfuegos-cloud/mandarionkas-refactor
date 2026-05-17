@@ -35,6 +35,21 @@ const pulseTemplate: MotionTemplate = {
     }
     return dedupeMotionKeyframes(keyframes);
   },
+  buildCompositorMotion: (config) => {
+    const durationMs = Math.max(300, readConfigNumber(config, 'durationMs', defaults.durationMs));
+    const delayMs = Math.max(0, readConfigNumber(config, 'delayMs', defaults.delayMs));
+    const intensity = readConfigNumber(config, 'intensity', defaults.intensity);
+    const lowOpacity = Math.max(0.15, 1 - intensity * 0.45);
+    return {
+      keyframes: [
+        { opacity: 1, offset: 0 },
+        { opacity: lowOpacity, offset: 0.5 },
+        { opacity: 1, offset: 1 },
+      ],
+      options: { duration: durationMs, delay: delayMs, easing: 'ease-in-out', iterations: 'infinite', fill: 'both' },
+      willChange: 'opacity',
+    };
+  },
   thumbnail: () => createElement(MotionThumbnail, { label: 'Pulse' }),
 };
 

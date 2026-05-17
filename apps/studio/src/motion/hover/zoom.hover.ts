@@ -1,4 +1,5 @@
 import { createElement } from 'react';
+import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
@@ -15,6 +16,23 @@ const zoomHoverTemplate: MotionTemplate = {
   ],
   defaults,
   buildKeyframes: () => [],
+  buildCompositorMotion: (config) => {
+    const durationMs = Math.max(120, readConfigNumber(config, 'durationMs', defaults.durationMs));
+    const scale = Math.max(1.01, readConfigNumber(config, 'scale', defaults.scale));
+    return {
+      keyframes: [
+        { transform: 'scale(1)', offset: 0 },
+        { transform: `scale(${scale})`, offset: 1 },
+      ],
+      options: {
+        duration: durationMs,
+        easing: 'ease-out',
+        iterations: 1,
+        fill: 'both',
+      },
+      willChange: 'transform',
+    };
+  },
   thumbnail: () => createElement(MotionThumbnail, { label: 'Zoom' }),
 };
 

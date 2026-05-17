@@ -132,6 +132,21 @@ function inferWidgetGestures(widget: PortableExportWidget): ExportRuntimeGesture
   return [...gestures];
 }
 
+function buildRuntimeCompositorMotion(widget: PortableExportWidget, motion: PortableExportWidget['motion'] | undefined): CompositorMotionSpec | undefined {
+  const spec = buildCompositorMotionSpec(motion);
+  if (!spec) return undefined;
+  if (motion?.templateId !== 'fade-out') return spec;
+  const durationMs = Math.max(1, Number(spec.options.duration || 1));
+  const timelineDurationMs = Math.max(0, widget.timeline.endMs - widget.timeline.startMs);
+  return {
+    ...spec,
+    options: {
+      ...spec.options,
+      delay: Math.max(0, timelineDurationMs - durationMs),
+    },
+  };
+}
+
 function buildRuntimeWidget(widget: PortableExportWidget): ExportRuntimeWidget {
   const gestures = inferWidgetGestures(widget);
   const motion = widget.motion ? { ...widget.motion, config: { ...widget.motion.config } } : undefined;
@@ -146,7 +161,7 @@ function buildRuntimeWidget(widget: PortableExportWidget): ExportRuntimeWidget {
     style: widget.style,
     motion,
     hoverMotion: widget.hoverMotion ? { ...widget.hoverMotion, config: { ...widget.hoverMotion.config } } : undefined,
-    compositorMotion: buildCompositorMotionSpec(motion) ?? undefined,
+    compositorMotion: buildRuntimeCompositorMotion(widget, motion),
     timeline: widget.timeline,
     hidden: widget.hidden,
     interactive: gestures.length > 0,

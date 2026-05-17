@@ -75,7 +75,7 @@ export function analyzeRuntimeCapabilities(document: PortableExportProject): Run
   const hasWeather = widgets.some((widget) => WEATHER_WIDGET_TYPES.has(widget.type));
   const hasScratchReveal = widgets.some((widget) => SCRATCH_WIDGET_TYPES.has(widget.type) || (widget.type === 'group' && Boolean(widget.props?.scratchEnabled)));
   const hasCountdown = widgets.some((widget) => COUNTDOWN_WIDGET_TYPES.has(widget.type));
-  const hasTimelineAnimations = widgets.some((widget) => (widget.timeline.keyframes?.length ?? 0) > 0);
+  const hasTimelineAnimations = widgets.some((widget) => (widget.timeline.keyframes?.length ?? 0) > 0 && !buildCompositorMotionSpec(widget.motion));
   const hasCompositorMotion = widgets.some((widget) => Boolean(buildCompositorMotionSpec(widget.motion)));
   const hasFontFaces = widgets.some((widget) => typeof widget.props?.fontAssetSrc === 'string' && widget.props.fontAssetSrc.trim().length > 0);
   const hasHoverMotion = widgets.some((widget) => {

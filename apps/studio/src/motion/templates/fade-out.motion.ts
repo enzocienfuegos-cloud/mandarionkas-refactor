@@ -20,6 +20,17 @@ const fadeOutTemplate: MotionTemplate = {
     widgetTimeline,
     readConfigNumber(config, 'durationMs', defaults.durationMs),
   ),
+  buildCompositorMotion: (config) => {
+    const durationMs = readConfigNumber(config, 'durationMs', defaults.durationMs);
+    return {
+      keyframes: [
+        { opacity: 1, offset: 0 },
+        { opacity: 0, offset: 1 },
+      ],
+      options: { duration: durationMs, easing: 'ease-in', iterations: 1, fill: 'both' },
+      willChange: 'opacity',
+    };
+  },
   thumbnail: () => createElement(MotionThumbnail, { label: 'Fade out' }),
 };
 

@@ -1,7 +1,9 @@
 import { createElement } from 'react';
 import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
+import type { KeyframeNode } from '../../domain/document/types';
 import { MotionThumbnail } from '../react/MotionThumbnail';
+import { dedupeMotionKeyframes, motionKeyframe } from './shared';
 
 const defaults = { durationMs: 3000, distancePx: 8, delayMs: 0 };
 
@@ -16,7 +18,28 @@ const floatTemplate: MotionTemplate = {
     { key: 'delayMs', label: 'Start delay', kind: 'number', min: 0, max: 3000, step: 50, unit: 'ms', defaultValue: 0 },
   ],
   defaults,
-  buildKeyframes: () => [],
+  buildKeyframes: (config, widgetFrame, widgetTimeline) => {
+    const durationMs = Math.max(800, readConfigNumber(config, 'durationMs', defaults.durationMs));
+    const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);
+    const delayMs = Math.max(0, readConfigNumber(config, 'delayMs', defaults.delayMs));
+    const baseY = widgetFrame.y;
+    const startMs = widgetTimeline.startMs + delayMs;
+    const samplesPerCycle = 8;
+    const sampleStepMs = durationMs / samplesPerCycle;
+    const keyframes: KeyframeNode[] = [];
+    for (let atMs = startMs; atMs <= widgetTimeline.endMs; atMs += sampleStepMs) {
+      const localMs = (atMs - startMs) % durationMs;
+      const phase = (localMs / durationMs) * 2 * Math.PI;
+      keyframes.push(motionKeyframe(
+        `float:y:${Math.round(atMs)}`,
+        'y',
+        atMs,
+        baseY + Math.sin(phase) * distancePx,
+        'linear',
+      ));
+    }
+    return dedupeMotionKeyframes(keyframes);
+  },
   buildCompositorMotion: (config) => {
     const durationMs = Math.max(800, readConfigNumber(config, 'durationMs', defaults.durationMs));
     const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);

@@ -28,6 +28,19 @@ const fadeUpTemplate: MotionTemplate = {
     1,
     true,
   ),
+  buildCompositorMotion: (config) => {
+    const durationMs = readConfigNumber(config, 'durationMs', defaults.durationMs);
+    const delayMs = readConfigNumber(config, 'delayMs', defaults.delayMs);
+    const distancePx = readConfigNumber(config, 'distancePx', defaults.distancePx);
+    return {
+      keyframes: [
+        { opacity: 0, transform: `translate3d(0, ${distancePx}px, 0)`, offset: 0 },
+        { opacity: 1, transform: 'translate3d(0, 0, 0)', offset: 1 },
+      ],
+      options: { duration: durationMs, delay: delayMs, easing: 'ease-out', iterations: 1, fill: 'both' },
+      willChange: 'opacity, transform',
+    };
+  },
   thumbnail: () => createElement(MotionThumbnail, { label: 'Fade up' }),
 };
 

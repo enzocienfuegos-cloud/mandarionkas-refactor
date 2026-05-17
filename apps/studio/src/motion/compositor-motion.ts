@@ -14,7 +14,7 @@ function cloneCompositorMotionSpec(spec: CompositorMotionSpec | null | undefined
 export function buildCompositorMotionSpec(motion: WidgetMotion | null | undefined): CompositorMotionSpec | null {
   if (!motion?.templateId) return null;
   const template = getMotionTemplate(motion.templateId);
-  if (!template?.buildCompositorMotion) return null;
+  if (!template) return null;
   return cloneCompositorMotionSpec(template.buildCompositorMotion(motion.config));
 }
 

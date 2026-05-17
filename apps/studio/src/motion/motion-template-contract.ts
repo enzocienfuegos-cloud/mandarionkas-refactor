@@ -56,7 +56,7 @@ export type MotionTemplate = {
     widgetFrame: WidgetFrame,
     widgetTimeline: WidgetTimeline,
   ) => KeyframeNode[];
-  buildCompositorMotion?: (config: MotionConfig) => CompositorMotionSpec | null;
+  buildCompositorMotion: (config: MotionConfig) => CompositorMotionSpec;
   thumbnail: (config?: MotionConfig) => JSX.Element;
   supportsWidgetType?: (type: WidgetType, capabilities: WidgetCapabilities | undefined) => boolean;
 };

@@ -18,6 +18,7 @@ export type StageSurfaceProps = {
   widgetsById: Record<string, WidgetNode>;
   selectedIds: string[];
   previewMode: boolean;
+  isPlaying: boolean;
   editModeWireframe: boolean;
   zoom: number;
   playheadMs: number;
@@ -52,6 +53,7 @@ export function StageSurface({
   widgetsById,
   selectedIds,
   previewMode,
+  isPlaying,
   editModeWireframe,
   zoom,
   playheadMs,
@@ -79,6 +81,7 @@ export function StageSurface({
   onExecuteAction,
 }: StageSurfaceProps): JSX.Element {
   const stageDropActive = Boolean(dropPreview);
+  const isReproducing = previewMode && isPlaying;
   const transitionDuration = Math.max(120, sceneTransitionDurationMs);
   const [scratchCompletionMsByWidgetId, setScratchCompletionMsByWidgetId] = useState<Record<string, number>>({});
   const previousPlayheadRef = useRef(playheadMs);
@@ -206,6 +209,11 @@ export function StageSurface({
     return getLiveWidgetOpacity(widget, getEffectiveWidgetPlayheadMs(widget));
   }
 
+  function getBaseWidgetOpacity(widget: WidgetNode): number {
+    const opacity = Number(widget.style.opacity ?? 1);
+    return Number.isFinite(opacity) ? opacity : 1;
+  }
+
   function isWidgetVisibleAtEffectiveTime(widget: WidgetNode): boolean {
     if (widget.hidden) return false;
     return isWidgetVisibleAt(widget, getEffectiveWidgetPlayheadMs(widget));
@@ -262,27 +270,32 @@ export function StageSurface({
           && (!Boolean(widget.props.scratchEnabled) || !scratchGroupActive);
         const groupSelectedInEditor = !previewMode && selectedIds.includes(widget.id);
         if (isPassThroughGroup && !groupSelectedInEditor) return null;
-        const liveFrame = getStageLiveFrame(widget);
+        const scratchCompletionMs = findScratchRevealCompletionMs(widget);
+        const liveFrame = isReproducing ? widget.frame : getStageLiveFrame(widget);
         const baseFrame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
           ? resolveScratchGroupFrame(widget)
           : liveFrame;
-        const inheritedLiveFrameById = findScratchRevealCompletionMs(widget) === undefined ? liveFrameById : {};
-        const frame = resolveInheritedMotionFrame({
-          widget,
-          widgetsById,
-          liveFrameById: inheritedLiveFrameById,
-          playheadMs,
-          getLiveFrame: (target, _playheadMs) => getEffectiveLiveFrame(target),
-          ownFrame: baseFrame,
-        });
+        const inheritedLiveFrameById = scratchCompletionMs === undefined ? liveFrameById : {};
+        const frame = isReproducing
+          ? baseFrame
+          : resolveInheritedMotionFrame({
+              widget,
+              widgetsById,
+              liveFrameById: inheritedLiveFrameById,
+              playheadMs,
+              getLiveFrame: (target, _playheadMs) => getEffectiveLiveFrame(target),
+              ownFrame: baseFrame,
+            });
         const renderNode = frame === widget.frame ? widget : { ...widget, frame };
-        const opacity = resolveInheritedOpacity({
-          widget,
-          widgetsById,
-          playheadMs,
-          ownOpacity: getEffectiveLiveOpacity(widget),
-          getLiveOpacity: (target, _playheadMs) => getEffectiveLiveOpacity(target),
-        });
+        const opacity = isReproducing
+          ? getBaseWidgetOpacity(widget)
+          : resolveInheritedOpacity({
+              widget,
+              widgetsById,
+              playheadMs,
+              ownOpacity: getEffectiveLiveOpacity(widget),
+              getLiveOpacity: (target, _playheadMs) => getEffectiveLiveOpacity(target),
+            });
 
         return (
           <StageWidget
@@ -296,6 +309,8 @@ export function StageSurface({
             opacity={opacity}
             showBadge={showWidgetBadges}
             previewMode={previewMode}
+            isReproducing={isReproducing}
+            motionStartedAtMs={scratchCompletionMs}
             editModeWireframe={editModeWireframe}
             playheadMs={playheadMs}
             sceneDurationMs={sceneDurationMs}

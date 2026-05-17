@@ -1,4 +1,5 @@
 import { createElement } from 'react';
+import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
@@ -14,6 +15,23 @@ const pulseHoverTemplate: MotionTemplate = {
   ],
   defaults,
   buildKeyframes: () => [],
+  buildCompositorMotion: (config) => {
+    const durationMs = Math.max(300, readConfigNumber(config, 'durationMs', defaults.durationMs));
+    return {
+      keyframes: [
+        { opacity: 1, offset: 0 },
+        { opacity: 0.7, offset: 0.5 },
+        { opacity: 1, offset: 1 },
+      ],
+      options: {
+        duration: durationMs,
+        easing: 'ease-in-out',
+        iterations: 'infinite',
+        fill: 'both',
+      },
+      willChange: 'opacity',
+    };
+  },
   thumbnail: () => createElement(MotionThumbnail, { label: 'Pulse' }),
 };
 

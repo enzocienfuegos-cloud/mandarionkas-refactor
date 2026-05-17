@@ -202,7 +202,7 @@ describe('runtime tree shake', () => {
     expect(script).toContain('smx-runtime-hover-pulse');
   });
 
-  it('normalizes template-backed motion into timeline keyframes for export runtime', () => {
+  it('normalizes template-backed motion into scrub keyframes and compositor runtime', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
     state.document.metadata.release.targetChannel = 'gam-html5';
@@ -224,10 +224,11 @@ describe('runtime tree shake', () => {
     const exportedWidget = adapter.portableProject.scenes[0]?.widgets.find((widget) => widget.id === 'cta_1');
 
     expect(exportedWidget?.timeline.keyframes?.length).toBeGreaterThan(0);
-    expect(script).toContain('startWidgetTimelineLoop');
+    expect(script).toContain('initCompositorMotion');
+    expect(script).not.toContain('startWidgetTimelineLoop');
   });
 
-  it('normalizes formal motion config into timeline keyframes for export runtime', () => {
+  it('normalizes formal motion config into scrub keyframes and compositor runtime', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
     state.document.metadata.release.targetChannel = 'gam-html5';
@@ -253,10 +254,11 @@ describe('runtime tree shake', () => {
     const exportedWidget = adapter.portableProject.scenes[0]?.widgets.find((widget) => widget.id === 'cta_1');
 
     expect(exportedWidget?.timeline.keyframes?.length).toBeGreaterThan(0);
-    expect(script).toContain('startWidgetTimelineLoop');
+    expect(script).toContain('initCompositorMotion');
+    expect(script).not.toContain('startWidgetTimelineLoop');
   });
 
-  it('serializes compositor-native motion without adding timeline runtime', () => {
+  it('serializes compositor-native motion while retaining scrub keyframes', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
     state.document.metadata.release.targetChannel = 'gam-html5';
@@ -283,7 +285,7 @@ describe('runtime tree shake', () => {
     const runtimeModel = buildExportRuntimeModelFromPortable(adapter.portableProject);
     const runtimeWidget = runtimeModel.scenes[0]?.widgets.find((widget) => widget.id === 'image_1');
 
-    expect(exportedWidget?.timeline.keyframes ?? []).toHaveLength(0);
+    expect(exportedWidget?.timeline.keyframes?.length).toBeGreaterThan(0);
     expect(runtimeWidget?.compositorMotion?.keyframes[1]?.transform).toBe('translate3d(0, -14px, 0)');
     expect(runtimeWidget?.compositorMotion?.options.iterations).toBe('infinite');
     expect(script).toContain('initCompositorMotion');

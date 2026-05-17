@@ -31,7 +31,6 @@ export function buildMotionTemplateKeyframes(
   if (!motion.templateId) return [];
   const template = getMotionTemplate(motion.templateId);
   if (!template) return [];
-  if (template.buildCompositorMotion?.(motion.config)) return [];
   const built = template.buildKeyframes(motion.config, widgetFrame, widgetTimeline);
   return markMotionManagedKeyframes(
     ensureKeyframeIds(scaleOpacityTrack(built, baseOpacity)),

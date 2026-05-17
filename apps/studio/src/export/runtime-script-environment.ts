@@ -288,7 +288,7 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets)) return;
     sceneRuntime.widgets.forEach((widget) => {
       if (!widget) return;
-      const hasKeyframes = Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length);
+      const hasKeyframes = Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length && !widget.compositorMotion);
       if (!hasKeyframes) return;
       const node = document.querySelector('[data-scratch-cover-widget-id="' + widget.id + '"]') || document.querySelector('[data-widget-id="' + widget.id + '"]');
       if (!node) return;
@@ -324,7 +324,7 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     const sceneRuntime = getRuntimeScene(sceneIndex);
     if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !sceneRuntime.widgets.some((widget) => {
       if (!widget) return false;
-      return Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length);
+      return Boolean(widget.timeline && Array.isArray(widget.timeline.keyframes) && widget.timeline.keyframes.length && !widget.compositorMotion);
     })) return;
     const startedAt = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
     const durationMs = Math.max(0, Number(sceneRuntime.durationMs || 0));
