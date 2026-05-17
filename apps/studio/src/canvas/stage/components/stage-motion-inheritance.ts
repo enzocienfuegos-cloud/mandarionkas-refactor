@@ -41,8 +41,9 @@ export function resolveInheritedOpacity(args: {
   widgetsById: WidgetsById;
   playheadMs: number;
   ownOpacity: number;
+  getLiveOpacity?: typeof getLiveWidgetOpacity;
 }): number {
-  const { widget, widgetsById, playheadMs, ownOpacity } = args;
+  const { widget, widgetsById, playheadMs, ownOpacity, getLiveOpacity = getLiveWidgetOpacity } = args;
   let nextOpacity = ownOpacity;
   const visited = new Set<string>([widget.id]);
   let currentParentId = widget.parentId;
@@ -52,7 +53,7 @@ export function resolveInheritedOpacity(args: {
     visited.add(currentParentId);
     const parent = widgetsById[currentParentId];
     if (!parent) break;
-    nextOpacity *= getLiveWidgetOpacity(parent, playheadMs);
+    nextOpacity *= getLiveOpacity(parent, playheadMs);
     currentParentId = parent.parentId;
   }
 

@@ -30,6 +30,7 @@ type StageWidgetProps = {
   onSetActiveWidget: (widgetId?: string) => void;
   onSetHoveredWidget: (widgetId?: string) => void;
   onExecuteAction: (actionId: string) => void;
+  onWidgetTrigger?: (widgetId: string, trigger: ActionNode['trigger'], metadata?: Record<string, unknown>) => void;
 };
 
 export const StageWidget = memo(function StageWidget({
@@ -52,11 +53,13 @@ export const StageWidget = memo(function StageWidget({
   onSetActiveWidget,
   onSetHoveredWidget,
   onExecuteAction,
+  onWidgetTrigger,
 }: StageWidgetProps): JSX.Element {
   const managesNativeDrag = isNativeStageDragWidgetType(node.type);
   const useWireframe = !previewMode && editModeWireframe && !selected && !active && !hovered;
   const triggerWidgetAction = (trigger: ActionNode['trigger'], _metadata?: Record<string, unknown>) => {
     if (!previewMode) return;
+    onWidgetTrigger?.(node.id, trigger, _metadata);
     const actions = getWidgetActions(stateRef.current, node.id, trigger);
     actions.forEach((action) => onExecuteAction(action.id));
   };
@@ -191,7 +194,8 @@ function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProp
     && previous.playheadMs === next.playheadMs
     && previous.sceneDurationMs === next.sceneDurationMs
     && previous.hovered === next.hovered
-    && previous.active === next.active;
+    && previous.active === next.active
+    && previous.onWidgetTrigger === next.onWidgetTrigger;
 }
 
 function SelectionOverlay({ primary, onResizePointerDown }: { primary: boolean; onResizePointerDown: StageWidgetProps['onResizePointerDown'] }): JSX.Element {

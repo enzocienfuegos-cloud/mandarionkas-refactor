@@ -300,7 +300,11 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     scratchCompletedRef.current = true;
     clearScratchCompletion(canvas);
     setRevealAnimationTick((current) => current + 1);
-    ctx.triggerWidgetAction('scratch-complete', { clearedPercent, thresholdPercent: autoRevealThresholdPercent });
+    ctx.triggerWidgetAction('scratch-complete', {
+      clearedPercent,
+      thresholdPercent: autoRevealThresholdPercent,
+      completedAtMs: ctx.playheadMs,
+    });
   };
 
   const revealBackground = useMemo(() => (

@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent, RefObject } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import type { CSSProperties } from 'react';
 import { getLiveWidgetFrame, getLiveWidgetOpacity } from '../../../domain/document/timeline';
 import type { WidgetFrame, WidgetNode } from '../../../domain/document/types';
@@ -79,6 +79,27 @@ export function StageSurface({
 }: StageSurfaceProps): JSX.Element {
   const stageDropActive = Boolean(dropPreview);
   const transitionDuration = Math.max(120, sceneTransitionDurationMs);
+  const [scratchCompletionMsByWidgetId, setScratchCompletionMsByWidgetId] = useState<Record<string, number>>({});
+  const previousPlayheadRef = useRef(playheadMs);
+
+  useEffect(() => {
+    if (!previewMode) {
+      setScratchCompletionMsByWidgetId({});
+      previousPlayheadRef.current = playheadMs;
+      return;
+    }
+    if (playheadMs === 0 || playheadMs < previousPlayheadRef.current) {
+      setScratchCompletionMsByWidgetId({});
+    }
+    previousPlayheadRef.current = playheadMs;
+  }, [playheadMs, previewMode]);
+
+  function rectsOverlap(left: WidgetFrame, right: WidgetFrame): boolean {
+    return left.x < right.x + right.width
+      && left.x + left.width > right.x
+      && left.y < right.y + right.height
+      && left.y + left.height > right.y;
+  }
 
   function isCoveredByScratchGroup(widget: WidgetNode): boolean {
     if (!previewMode) return false;
@@ -120,6 +141,42 @@ export function StageSurface({
       width: maxX - minX,
       height: maxY - minY,
     };
+  }
+
+  function findScratchRevealCompletionMs(widget: WidgetNode): number | undefined {
+    if (!previewMode) return undefined;
+    const widgetFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
+    let topCoverId: string | null = null;
+    let topCoverZIndex = Number.NEGATIVE_INFINITY;
+
+    widgets.forEach((candidate) => {
+      if (candidate.id === widget.id) return;
+      if (candidate.type !== 'group' || !candidate.props.scratchEnabled) return;
+      if (candidate.zIndex <= widget.zIndex) return;
+      const candidateFrame = resolveScratchGroupFrame(candidate);
+      if (!rectsOverlap(candidateFrame, widgetFrame)) return;
+      if (candidate.zIndex > topCoverZIndex) {
+        topCoverId = candidate.id;
+        topCoverZIndex = candidate.zIndex;
+      }
+    });
+
+    if (!topCoverId) return undefined;
+    return scratchCompletionMsByWidgetId[topCoverId];
+  }
+
+  function getEffectiveWidgetPlayheadMs(widget: WidgetNode): number {
+    const completedAtMs = findScratchRevealCompletionMs(widget);
+    if (completedAtMs === undefined) return playheadMs;
+    return widget.timeline.startMs + Math.max(0, playheadMs - completedAtMs);
+  }
+
+  function getEffectiveLiveFrame(widget: WidgetNode): WidgetFrame {
+    return getLiveWidgetFrame(widget, getEffectiveWidgetPlayheadMs(widget));
+  }
+
+  function getEffectiveLiveOpacity(widget: WidgetNode): number {
+    return getLiveWidgetOpacity(widget, getEffectiveWidgetPlayheadMs(widget));
   }
 
   function buildStageSurfaceStyle(): CSSProperties {
@@ -166,7 +223,7 @@ export function StageSurface({
           && (!Boolean(widget.props.scratchEnabled) || !scratchGroupActive);
         const groupSelectedInEditor = !previewMode && selectedIds.includes(widget.id);
         if (isPassThroughGroup && !groupSelectedInEditor) return null;
-        const liveFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
+        const liveFrame = liveFrameById[widget.id] ?? getEffectiveLiveFrame(widget);
         const baseFrame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
           ? resolveScratchGroupFrame(widget)
           : liveFrame;
@@ -175,7 +232,7 @@ export function StageSurface({
           widgetsById,
           liveFrameById,
           playheadMs,
-          getLiveFrame: getLiveWidgetFrame,
+          getLiveFrame: (target, _playheadMs) => getEffectiveLiveFrame(target),
           ownFrame: baseFrame,
         });
         const renderNode = frame === widget.frame ? widget : { ...widget, frame };
@@ -183,7 +240,8 @@ export function StageSurface({
           widget,
           widgetsById,
           playheadMs,
-          ownOpacity: getLiveWidgetOpacity(widget, playheadMs),
+          ownOpacity: getEffectiveLiveOpacity(widget),
+          getLiveOpacity: (target, _playheadMs) => getEffectiveLiveOpacity(target),
         });
 
         return (
@@ -206,6 +264,15 @@ export function StageSurface({
             onSetActiveWidget={onSetActiveWidget}
             onSetHoveredWidget={onSetHoveredWidget}
             onExecuteAction={onExecuteAction}
+            onWidgetTrigger={(widgetId, trigger, metadata) => {
+              if (trigger !== 'scratch-complete') return;
+              const completedAtMs = Number(metadata?.completedAtMs ?? playheadMs);
+              setScratchCompletionMsByWidgetId((current) => (
+                current[widgetId] === completedAtMs
+                  ? current
+                  : { ...current, [widgetId]: completedAtMs }
+              ));
+            }}
             onWidgetPointerDown={(event) => onWidgetPointerDown(event, renderNode.id, Boolean(renderNode.locked))}
             onResizePointerDown={(event, handle) => onResizePointerDown(event, renderNode.id, Boolean(renderNode.locked), handle)}
           />
