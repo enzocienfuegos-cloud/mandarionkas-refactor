@@ -133,12 +133,10 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const [activeIndex, setActiveIndex] = useState(clamp(Number(node.props.activeIndex ?? 1), 1, Math.max(1, slides.length || 1)) - 1);
   const swipeStartRef = useRef<number | null>(null);
   const swipeLastRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!autoplay || slides.length <= 1 || !ctx.previewMode) return;
-    const timer = window.setInterval(() => setActiveIndex((value) => (value + 1) % slides.length), intervalMs);
-    return () => window.clearInterval(timer);
-  }, [autoplay, slides.length, intervalMs, ctx.previewMode]);
-  const activeSlide = slides[activeIndex] ?? slides[0];
+  const effectiveActiveIndex = autoplay && slides.length > 1 && ctx.previewMode
+    ? Math.floor(ctx.playheadMs / intervalMs) % slides.length
+    : activeIndex;
+  const activeSlide = slides[effectiveActiveIndex] ?? slides[0];
   const visibleCaption = activeSlide?.caption && !isFilenameLikeCaption(activeSlide.caption) ? activeSlide.caption : '';
   const handleSwipeCommit = () => {
     if (swipeStartRef.current == null || swipeLastRef.current == null || slides.length <= 1) return;
@@ -202,7 +200,7 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
                       event.stopPropagation();
                       setActiveIndex(index);
                     }}
-                    style={buildImageCarouselDotStyle(paginationDotSize, index === activeIndex, accent)}
+                    style={buildImageCarouselDotStyle(paginationDotSize, index === effectiveActiveIndex, accent)}
                   />
                 ))}
               </div>

@@ -1,5 +1,5 @@
 // render-tokenized: brand/theme split enforced by lint-color-literals.mjs
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
@@ -32,7 +32,7 @@ function buildTimerBarTrackStyle(
   };
 }
 
-function buildTimerBarFillBoxStyle(fillStyle: React.CSSProperties, fillColor: string, borderRadius: number): CSSProperties {
+function buildTimerBarFillBoxStyle(fillStyle: CSSProperties, fillColor: string, borderRadius: number): CSSProperties {
   return {
     ...fillStyle,
     background: fillColor,
@@ -48,21 +48,9 @@ function TimerBarRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
   const trackColor = String(node.props.trackColor ?? 'var(--white-a-18)');
   const borderRadius = Math.max(0, Number(node.props.borderRadius ?? 4));
   const thickness = Math.max(8, Number(node.props.thickness ?? 8));
-  const [progress, setProgress] = useState(1);
+  const progress = Math.max(0, 1 - (ctx.playheadMs / durationMs));
 
-  useEffect(() => {
-    const start = performance.now();
-    let frame = 0;
-    const tick = (now: number) => {
-      const ratio = Math.max(0, 1 - (now - start) / durationMs);
-      setProgress(ratio);
-      if (ratio > 0) frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [durationMs]);
-
-  const fillStyle = useMemo<React.CSSProperties>(() => (
+  const fillStyle = useMemo<CSSProperties>(() => (
     orientation === 'horizontal'
       ? { width: `${progress * 100}%`, height: '100%' }
       : { width: '100%', height: `${progress * 100}%`, marginTop: 'auto' }

@@ -277,8 +277,6 @@ function InstagramStoryRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCo
   const username = String(node.props.username ?? INSTAGRAM_STORY_DEFAULT_USERNAME);
   const avatarSrc = String(node.props.avatarSrc ?? '').trim();
 
-  const [activeSlide, setActiveSlide] = useState<SlideIndex>(0);
-  const [progressMs, setProgressMs] = useState(0);
   const [muted, setMuted] = useState(Boolean(node.props.muted ?? true));
   const [videoDurations, setVideoDurations] = useState<Record<number, number>>({});
 
@@ -286,49 +284,23 @@ function InstagramStoryRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCo
   const effectiveDurations = slides.map((s, i) =>
     s.kind === 'video' && videoDurations[i] ? videoDurations[i] : s.durationMs,
   );
+  const totalDurationMs = effectiveDurations.reduce((sum, value) => sum + value, 0);
+  const normalizedPlayheadMs = totalDurationMs > 0
+    ? (ctx.previewMode ? ctx.playheadMs % totalDurationMs : Math.min(ctx.playheadMs, totalDurationMs))
+    : 0;
+  let remainingPlayheadMs = normalizedPlayheadMs;
+  let activeSlide: SlideIndex = 0;
+  let progressMs = 0;
 
-  const rafRef = useRef<number>(0);
-  const lastTimeRef = useRef<number>(0);
-
-  useEffect(() => {
-    if (ctx.previewMode) {
-      // Animate continuously in preview mode
-      lastTimeRef.current = performance.now();
-
-      function tick(now: number) {
-        const delta = now - lastTimeRef.current;
-        lastTimeRef.current = now;
-        setProgressMs((prev) => {
-          const next = prev + delta;
-          const slideDuration = effectiveDurations[activeSlide] ?? 5000;
-          if (next >= slideDuration) {
-            const nextSlide = ((activeSlide + 1) % 3) as SlideIndex;
-            setActiveSlide(nextSlide);
-            return 0;
-          }
-          return next;
-        });
-        rafRef.current = requestAnimationFrame(tick);
-      }
-
-      rafRef.current = requestAnimationFrame(tick);
-      return () => cancelAnimationFrame(rafRef.current);
-    } else {
-      // Edit mode: derive active slide + progress from studio playhead
-      const playheadMs = ctx.playheadMs;
-      let elapsed = playheadMs;
-      let idx = 0;
-      for (let i = 0; i < 3; i++) {
-        const dur = effectiveDurations[i] ?? 5000;
-        if (elapsed < dur) { idx = i; break; }
-        elapsed -= dur;
-        if (i === 2) { idx = 2; elapsed = dur; } // clamp at last
-      }
-      setActiveSlide(idx as SlideIndex);
-      setProgressMs(elapsed);
+  for (let index = 0; index < effectiveDurations.length; index += 1) {
+    const durationMs = effectiveDurations[index] ?? 5000;
+    if (remainingPlayheadMs < durationMs || index === effectiveDurations.length - 1) {
+      activeSlide = index as SlideIndex;
+      progressMs = Math.min(durationMs, remainingPlayheadMs);
+      break;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctx.previewMode, ctx.playheadMs, activeSlide]);
+    remainingPlayheadMs -= durationMs;
+  }
 
   const borderRadius = 12;
 

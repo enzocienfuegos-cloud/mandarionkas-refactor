@@ -1,5 +1,5 @@
 // render-tokenized: brand/theme split enforced by lint-color-literals.mjs
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import type { WidgetNode } from '../../domain/document/types';
 import {
@@ -97,37 +97,20 @@ function VerticalAccordionRenderer({ node, ctx }: { node: WidgetNode; ctx: Rende
     surface: 'stage',
   }, () => ({}));
   const [expandedIndex, setExpandedIndex] = useState<number>(-1);
-  const [autoplayActive, setAutoplayActive] = useState(false);
-
-  useEffect(() => {
-    if (!viewModel.autoplay || !ctx.previewMode) return;
-
-    let step = 0;
-    let timer: ReturnType<typeof window.setTimeout> | undefined;
-    setAutoplayActive(true);
-    setExpandedIndex(-1);
-
-    function advance(): void {
-      if (step >= viewModel.rows.length) {
-        setExpandedIndex(-1);
-        setAutoplayActive(false);
-        return;
-      }
-      setExpandedIndex(step);
-      step += 1;
-      timer = window.setTimeout(advance, viewModel.autoplayIntervalMs);
-    }
-
-    const startTimer = window.setTimeout(advance, 400);
-    return () => {
-      window.clearTimeout(startTimer);
-      if (timer) window.clearTimeout(timer);
-      setAutoplayActive(false);
-    };
-  }, [ctx.previewMode, viewModel.autoplay, viewModel.autoplayIntervalMs, viewModel.rows.length]);
+  const autoplayDerivedIndex = (() => {
+    if (!viewModel.autoplay || !ctx.previewMode || viewModel.rows.length === 0) return null;
+    const startDelayMs = 400;
+    if (ctx.playheadMs < startDelayMs) return -1;
+    const elapsedMs = ctx.playheadMs - startDelayMs;
+    const step = Math.floor(elapsedMs / viewModel.autoplayIntervalMs);
+    if (step >= viewModel.rows.length) return -1;
+    return step;
+  })();
+  const effectiveExpandedIndex = autoplayDerivedIndex ?? expandedIndex;
+  const autoplayActive = autoplayDerivedIndex !== null && autoplayDerivedIndex >= 0;
 
   function handleToggle(index: number): void {
-    if (autoplayActive) setAutoplayActive(false);
+    if (autoplayDerivedIndex !== null) return;
     setExpandedIndex((current) => (current === index ? -1 : index));
   }
 
@@ -152,9 +135,9 @@ function VerticalAccordionRenderer({ node, ctx }: { node: WidgetNode; ctx: Rende
       <div style={verticalAccordionUi.verticalAccordionScrollAreaStyle}>
         {viewModel.showDots && autoplayActive ? (
           <div style={verticalAccordionUi.verticalAccordionDotsWrapStyle}>
-            {viewModel.rows.map((_, index) => (
-              <div key={index} style={buildVerticalAccordionDotStyle(index === expandedIndex)} />
-            ))}
+            {viewModel.rows.map((_, index) => {
+              return <div key={index} style={buildVerticalAccordionDotStyle(index === effectiveExpandedIndex)} />;
+            })}
           </div>
         ) : null}
 
@@ -163,7 +146,7 @@ function VerticalAccordionRenderer({ node, ctx }: { node: WidgetNode; ctx: Rende
             key={index}
             row={row}
             index={index}
-            isExpanded={expandedIndex === index}
+            isExpanded={effectiveExpandedIndex === index}
             stripHeight={viewModel.stripHeight}
             expandedHeight={viewModel.expandedHeight}
             onToggle={handleToggle}
