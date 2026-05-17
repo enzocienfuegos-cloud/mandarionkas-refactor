@@ -185,6 +185,21 @@ export function documentSceneReducer(state: StudioState, command: StudioCommand)
         ui: { ...state.ui, playheadMs: 0 },
       });
     }
+    case 'ADD_SCENE_FROM_CURRENT': {
+      const sourceScene = currentScene(state);
+      if (!sourceScene) return state;
+      const scene = createScene(state.document.scenes.length);
+      scene.widgetIds = [...sourceScene.widgetIds];
+      return withDirty({
+        ...state,
+        document: {
+          ...state.document,
+          scenes: [...state.document.scenes, scene],
+          selection: { ...state.document.selection, activeSceneId: scene.id, widgetIds: [], primaryWidgetId: undefined },
+        },
+        ui: { ...state.ui, playheadMs: 0 },
+      });
+    }
     case 'SELECT_SCENE': {
       const sceneExists = state.document.scenes.some((scene) => scene.id === command.sceneId);
       if (!sceneExists) return state;
@@ -251,6 +266,23 @@ export function documentSceneReducer(state: StudioState, command: StudioCommand)
       const scenes = state.document.scenes.filter((item) => item.id !== command.sceneId).map((item, index) => ({ ...item, order: index, flow: { ...item.flow, nextSceneId: item.flow?.nextSceneId === command.sceneId ? undefined : item.flow?.nextSceneId, branchEquals: item.flow?.branchEquals?.targetSceneId === command.sceneId ? undefined : item.flow?.branchEquals } }));
       const activeSceneId = state.document.selection.activeSceneId === command.sceneId ? scenes[0].id : state.document.selection.activeSceneId;
       return withDirty({ ...state, document: { ...state.document, widgets, actions, scenes, selection: { ...state.document.selection, activeSceneId, widgetIds: [], primaryWidgetId: undefined } }, ui: { ...state.ui, playheadMs: 0 } });
+    }
+    case 'REORDER_SCENES': {
+      const { fromIndex, toIndex } = command;
+      if (fromIndex === toIndex) return state;
+      const scenes = [...state.document.scenes].sort((left, right) => left.order - right.order);
+      if (fromIndex < 0 || fromIndex >= scenes.length) return state;
+      if (toIndex < 0 || toIndex >= scenes.length) return state;
+      const [moved] = scenes.splice(fromIndex, 1);
+      if (!moved) return state;
+      scenes.splice(toIndex, 0, moved);
+      return withDirty({
+        ...state,
+        document: {
+          ...state.document,
+          scenes: scenes.map((scene, index) => ({ ...scene, order: index })),
+        },
+      });
     }
     case 'UPDATE_SCENE':
       return withDirty({ ...state, document: { ...state.document, scenes: state.document.scenes.map((scene) => scene.id === command.sceneId ? { ...scene, ...command.patch } : scene) } });

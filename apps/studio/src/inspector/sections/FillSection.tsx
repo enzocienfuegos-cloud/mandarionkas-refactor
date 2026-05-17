@@ -8,6 +8,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { usePlatformSnapshot } from '../../platform/runtime';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import { Button } from '../../shared/ui/Button';
 import { getCapability } from '../../widgets/registry/widget-definition';
 import { getWidgetDefinition } from '../../widgets/registry/widget-registry';
@@ -74,9 +75,9 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
   }, [eligibleAssets, targetChannel, widget.props.assetId, widget.props.src]);
   const resetTarget = isSharedLayerClone ? inheritedSharedBaseWidget : baseWidget;
   const hasFillSectionOverride = hasAny(localVariantStyleOverrideKeys, ['backgroundColor', 'fit'])
-    || hasAny(localVariantPropsOverrideKeys, ['src', 'assetId', 'alt', 'posterSrc'])
+    || hasAny(localVariantPropsOverrideKeys, ['src', 'assetId', 'alt', 'posterSrc', 'posterAssetId'])
     || hasAny(localSceneStyleOverrideKeys, ['backgroundColor', 'fit'])
-    || hasAny(localScenePropsOverrideKeys, ['src', 'assetId', 'alt', 'posterSrc']);
+    || hasAny(localScenePropsOverrideKeys, ['src', 'assetId', 'alt', 'posterSrc', 'posterAssetId']);
 
   function renderInheritanceBadge(state: InheritanceBadgeState): JSX.Element | null {
     if (state === 'none') return null;
@@ -96,6 +97,7 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
       assetId: resetTarget.props.assetId,
       alt: resetTarget.props.alt,
       posterSrc: resetTarget.props.posterSrc,
+      posterAssetId: resetTarget.props.posterAssetId,
     });
   }
 
@@ -150,7 +152,25 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
                 isMasterVariant,
               }))}
             </label>
-            <input value={String(widget.props.src ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { src: event.target.value })} placeholder={acceptsVideoAsset ? 'https://.../video.mp4' : 'https://.../image.jpg'} />
+            <AssetPickerButton
+              label={acceptsVideoAsset ? 'Video source' : 'Image source'}
+              assetId={linkedAssetId || undefined}
+              imageUrl={String(widget.props.src ?? '')}
+              accept={acceptsVideoAsset ? 'video' : 'image'}
+              assets={eligibleAssets}
+              onChange={(asset) => {
+                widgetActions.updateWidgetProps(widget.id, {
+                  assetId: asset.id,
+                  src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+                  assetQualityPreference: asset.qualityPreference ?? 'auto',
+                  alt: asset.name,
+                  ...(asset.kind === 'video'
+                    ? { posterSrc: asset.derivatives?.poster?.src ?? asset.posterSrc ?? widget.props.posterSrc }
+                    : {}),
+                });
+              }}
+              onClear={() => widgetActions.updateWidgetProps(widget.id, { assetId: '', src: '' })}
+            />
           </div>
           <div>
             <label className="inspector-field-label">
@@ -189,13 +209,21 @@ export function FillSection({ widget }: { widget: WidgetNode }): JSX.Element {
             <label className="inspector-field-label">
               <span>Poster source</span>
               {renderInheritanceBadge(badgeStateFromInheritance({
-                sceneLocal: localScenePropsOverrideKeys.has('posterSrc'),
-                variantLocal: localVariantPropsOverrideKeys.has('posterSrc'),
+                sceneLocal: hasAny(localScenePropsOverrideKeys, ['posterSrc', 'posterAssetId']),
+                variantLocal: hasAny(localVariantPropsOverrideKeys, ['posterSrc', 'posterAssetId']),
                 sharedClone: isSharedLayerClone,
                 isMasterVariant,
               }))}
             </label>
-            <input value={String(widget.props.posterSrc ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { posterSrc: event.target.value })} placeholder="https://.../poster.jpg" />
+            <AssetPickerButton
+              label="Poster source"
+              assetId={String(widget.props.posterAssetId ?? '') || undefined}
+              imageUrl={String(widget.props.posterSrc ?? '')}
+              accept="image"
+              assets={assets.filter((asset) => asset.kind === 'image')}
+              onChange={(asset) => widgetActions.updateWidgetProps(widget.id, { posterAssetId: asset.id, posterSrc: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto') })}
+              onClear={() => widgetActions.updateWidgetProps(widget.id, { posterAssetId: '', posterSrc: '' })}
+            />
           </div> : null}
           {acceptsImageAsset ? <div>
             <label className="inspector-field-label">

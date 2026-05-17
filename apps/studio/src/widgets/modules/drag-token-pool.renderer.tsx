@@ -5,23 +5,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
 import { emitTokenDrag } from './token-drag-runtime';
-
-type TokenItem = {
-  id: string;
-  label: string;
-  src?: string;
-  accentColor?: string;
-};
-
-function parseTokens(raw: unknown): TokenItem[] {
-  if (Array.isArray(raw)) return raw as TokenItem[];
-  try {
-    const parsed = JSON.parse(String(raw ?? '[]'));
-    return Array.isArray(parsed) ? parsed as TokenItem[] : [];
-  } catch {
-    return [];
-  }
-}
+import { tokenShapeToBorderRadius, type DragTokenItem, type TokenShape } from './drag-token-pool.types';
 
 const dragTokenPoolShellStyle: CSSProperties = {
   width: '100%',
@@ -39,7 +23,6 @@ const dragTokenPoolTrackBaseStyle: CSSProperties = {
 };
 
 const dragTokenBaseStyle: CSSProperties = {
-  borderRadius: '50%',
   overflow: 'hidden',
   display: 'flex',
   alignItems: 'center',
@@ -54,6 +37,7 @@ const dragTokenBaseStyle: CSSProperties = {
   WebkitUserSelect: 'none',
   touchAction: 'none',
   pointerEvents: 'auto',
+  position: 'relative',
 };
 
 const dragTokenImageStyle: CSSProperties = {
@@ -69,7 +53,6 @@ const dragTokenGhostImageStyle: CSSProperties = {
 
 const dragTokenGhostBaseStyle: CSSProperties = {
   position: 'fixed',
-  borderRadius: '50%',
   overflow: 'hidden',
   background: 'var(--neutral-slate-800)',
   color: 'var(--surface-card-light)',
@@ -96,9 +79,11 @@ function buildDragTokenStyle(
   tokenSize: number,
   accentColor: string | undefined,
   isDisabled: boolean,
+  radius: string,
 ): CSSProperties {
   return {
     ...dragTokenBaseStyle,
+    borderRadius: radius,
     width: tokenSize,
     height: tokenSize,
     border: `2px solid ${accentColor ?? 'var(--white-a-35)'}`,
@@ -112,9 +97,11 @@ function buildDragTokenGhostStyle(
   pointerPosition: { x: number; y: number },
   tokenSize: number,
   accentColor: string | undefined,
+  radius: string,
 ): CSSProperties {
   return {
     ...dragTokenGhostBaseStyle,
+    borderRadius: radius,
     left: pointerPosition.x,
     top: pointerPosition.y,
     width: tokenSize,
@@ -128,13 +115,17 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [pointerPosition, setPointerPosition] = useState<{ x: number; y: number } | null>(null);
   const pointerStateRef = useRef<{ pointerId: number; tokenId: string } | null>(null);
-  const tokens = parseTokens(node.props.tokens);
+  const tokens: DragTokenItem[] = Array.isArray(node.props.tokens) ? node.props.tokens as DragTokenItem[] : [];
   const tokenSize = Math.max(32, Number(node.props.tokenSize ?? 72));
   const gap = Math.max(4, Number(node.props.gap ?? 16));
-  const disabled = new Set(String(node.props.disabledIds ?? '').split(',').map((value) => value.trim()).filter(Boolean));
+  const disabled = new Set(Array.isArray(node.props.disabledIds) ? node.props.disabledIds.map((value) => String(value)) : []);
+  const tokenShape: TokenShape = node.props.tokenShape === 'square' || node.props.tokenShape === 'rounded' || node.props.tokenShape === 'circle'
+    ? node.props.tokenShape
+    : 'circle';
+  const radius = tokenShapeToBorderRadius(tokenShape);
 
   useEffect(() => {
-    if (!draggingId) return;
+    if (!draggingId) return undefined;
     const handlePointerMove = (event: PointerEvent) => {
       const current = pointerStateRef.current;
       if (!current || event.pointerId !== current.pointerId) return;
@@ -196,9 +187,20 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                   clientY: event.clientY,
                 });
               }}
-              style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled)}
+              style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, radius)}
             >
-              {token.src ? <img src={token.src} alt={token.label} draggable={false} style={dragTokenImageStyle} /> : token.label}
+              {token.baseImageUrl ? (
+                <img
+                  src={token.baseImageUrl}
+                  alt=""
+                  aria-hidden="true"
+                  draggable={false}
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0, pointerEvents: 'none' }}
+                />
+              ) : null}
+              <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                {token.imageUrl ? <img src={token.imageUrl} alt={token.label} draggable={false} style={dragTokenImageStyle} /> : token.label}
+              </span>
             </div>
           );
         })}
@@ -209,14 +211,28 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
             pointerPosition,
             tokenSize,
             tokens.find((token) => token.id === draggingId)?.accentColor,
+            radius,
           )}
         >
           {(() => {
             const token = tokens.find((item) => item.id === draggingId);
             if (!token) return null;
-            return token.src
-              ? <img src={token.src} alt={token.label} draggable={false} style={dragTokenGhostImageStyle} />
-              : token.label;
+            return (
+              <>
+                {token.baseImageUrl ? (
+                  <img
+                    src={token.baseImageUrl}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                    style={{ ...dragTokenGhostImageStyle, position: 'absolute', inset: 0, zIndex: 0 }}
+                  />
+                ) : null}
+                <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                  {token.imageUrl ? <img src={token.imageUrl} alt={token.label} draggable={false} style={dragTokenGhostImageStyle} /> : token.label}
+                </span>
+              </>
+            );
           })()}
         </div>,
         document.body,

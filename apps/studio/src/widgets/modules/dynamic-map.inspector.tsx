@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import { Button } from '../../shared/ui/Button';
 import {
   buildNearbyPlacesCsv,
@@ -184,14 +185,22 @@ export function DynamicMapInspector({ widget }: { widget: WidgetNode }): JSX.Ele
         </div>
         {String(widget.props.renderMode ?? DYNAMIC_MAP_DEFAULT_RENDER_MODE) === 'search-bar' ? (
           <>
-            <div>
-              <label>Hero image</label>
-              <input value={String(widget.props.heroImage ?? '')} placeholder="https://..." onChange={(event) => updateProps({ heroImage: event.target.value })} />
-            </div>
-            <div>
-              <label>Logo image</label>
-              <input value={String(widget.props.logoImage ?? '')} placeholder="https://..." onChange={(event) => updateProps({ logoImage: event.target.value })} />
-            </div>
+            <AssetPickerButton
+              label="Hero image"
+              assetId={String(widget.props.heroImageAssetId ?? '') || undefined}
+              imageUrl={String(widget.props.heroImage ?? '')}
+              accept="image"
+              onChange={(asset) => updateProps({ heroImageAssetId: asset.id, heroImage: asset.src })}
+              onClear={() => updateProps({ heroImageAssetId: '', heroImage: '' })}
+            />
+            <AssetPickerButton
+              label="Logo image"
+              assetId={String(widget.props.logoImageAssetId ?? '') || undefined}
+              imageUrl={String(widget.props.logoImage ?? '')}
+              accept="image"
+              onChange={(asset) => updateProps({ logoImageAssetId: asset.id, logoImage: asset.src })}
+              onClear={() => updateProps({ logoImageAssetId: '', logoImage: '' })}
+            />
             <div>
               <label>Headline</label>
               <input value={String(widget.props.headlineText ?? '')} onChange={(event) => updateProps({ headlineText: event.target.value })} />

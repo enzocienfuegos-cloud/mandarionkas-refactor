@@ -56,7 +56,9 @@ export type DynamicMapResolvedProps = {
   locatingText: string;
   locationFoundText: string;
   heroImage: string;
+  heroImageAssetId: string;
   logoImage: string;
+  logoImageAssetId: string;
   bottomBackgroundColor: string;
   searchBackgroundColor: string;
   heroOverlayOpacity: number;
@@ -107,7 +109,9 @@ export function resolveDynamicMapProps(node: Pick<WidgetNode, 'name' | 'props'>)
     locatingText: String(node.props.locatingText ?? 'Buscando cerca de ti'),
     locationFoundText: String(node.props.locationFoundText ?? 'Ubicacion encontrada'),
     heroImage: String(node.props.heroImage ?? ''),
+    heroImageAssetId: String(node.props.heroImageAssetId ?? ''),
     logoImage: String(node.props.logoImage ?? ''),
+    logoImageAssetId: String(node.props.logoImageAssetId ?? ''),
     bottomBackgroundColor: String(node.props.bottomBackgroundColor ?? '#ffffff'),
     searchBackgroundColor: String(node.props.searchBackgroundColor ?? 'rgba(255,255,255,0.7)'),
     heroOverlayOpacity: Math.max(0, Math.min(1, Number(node.props.heroOverlayOpacity ?? 0.45))),

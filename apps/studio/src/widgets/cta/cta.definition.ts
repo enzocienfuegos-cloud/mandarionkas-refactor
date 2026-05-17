@@ -29,9 +29,9 @@ export const ctaDefinition: WidgetDefinition = {
     style: { color: '#10161c', backgroundColor: '#ffd400', fontSize: 24, fontWeight: 700 },
     timeline: { startMs: 0, endMs: 15000 },
   }),
-  inspectorSections: ['position-size', 'text-content', 'fill', 'timing', 'states', 'data-bindings', 'variants'],
+  inspectorSections: ['position-size', 'text-content', 'fill', 'shadow', 'timing', 'states', 'data-bindings', 'variants'],
   inspectorTabs: createInspectorTabs([
-    { id: 'basics', label: 'Basics', panels: ['position-size', 'text-content', 'fill', 'timing'] },
+    { id: 'basics', label: 'Basics', panels: ['position-size', 'text-content', 'fill', 'shadow', 'timing'] },
     { id: 'behavior', label: 'Behavior', panels: ['conditions', 'actions', 'states', 'keyframes'] },
     { id: 'data', label: 'Data', panels: ['data-bindings', 'variants'] },
   ]),

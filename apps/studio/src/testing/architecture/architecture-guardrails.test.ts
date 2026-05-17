@@ -124,6 +124,10 @@ describe('architecture guardrails', () => {
       'src/canvas/stage/Stage.tsx',
       'src/canvas/stage/components/StageSelectionToolbar.tsx',
       'src/platform/PlatformShell.tsx',
+      // S56 debt: asset picker UI lives in shared/ui for reuse, but still reaches
+      // into the asset repository until we extract a domain-safe picker facade.
+      'src/shared/ui/AssetPickerButton.tsx',
+      'src/shared/ui/AssetPickerModal.tsx',
       'src/timeline/BottomTimeline.tsx',
       'src/timeline/components/TimelineTrackList.tsx',
       'src/timeline/components/TimelineTrackRow.tsx',

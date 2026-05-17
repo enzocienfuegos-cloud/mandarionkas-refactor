@@ -2,9 +2,16 @@ import { useMemo } from 'react';
 import type { SceneNode, WidgetNode } from '../../domain/document/types';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
+import type { AnimationTrigger } from '../../motion/animation-engine/events';
+import { Button } from '../../shared/ui/Button';
 import { InspectorRangeField } from '../../shared/ui/InspectorRangeField';
 import { getScratchActivationMode } from './group-scratch-activation';
-import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
+import {
+  DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD,
+  generateScratchMilestoneId,
+  MAX_SCRATCH_MILESTONES,
+  type ScratchMilestone,
+} from './group-scratch-constants';
 import { getScratchRevealTargetId, getScratchRevealTargetMode, isRevealTargetCandidate } from './group-reveal-target';
 
 export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element {
@@ -15,6 +22,9 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
   const revealTargetMode = getScratchRevealTargetMode(widget);
   const revealTargetId = getScratchRevealTargetId(widget);
   const scratchActivationMode = getScratchActivationMode(widget);
+  const milestones: ScratchMilestone[] = Array.isArray(widget.props.scratchMilestones)
+    ? (widget.props.scratchMilestones as ScratchMilestone[])
+    : [];
   const sceneOptions = useMemo(
     () => [...scenes].sort((left, right) => left.order - right.order),
     [scenes],
@@ -64,6 +74,32 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
   const renderWidgetLabel = (candidate: WidgetNode): string => {
     const kind = candidate.type === 'group' ? 'Group' : 'Layer';
     return `${candidate.name} · ${kind}`;
+  };
+
+  const addMilestone = () => {
+    if (milestones.length >= MAX_SCRATCH_MILESTONES) return;
+    const usedThresholds = new Set(milestones.map((milestone) => milestone.thresholdPercent));
+    const suggested = [25, 50, 75].find((threshold) => !usedThresholds.has(threshold)) ?? 50;
+    const next: ScratchMilestone = {
+      id: generateScratchMilestoneId(),
+      thresholdPercent: suggested,
+      emitTrigger: 'reveal',
+    };
+    widgetActions.updateWidgetProps(widget.id, { scratchMilestones: [...milestones, next] });
+  };
+
+  const updateMilestone = (milestoneId: string, patch: Partial<ScratchMilestone>) => {
+    widgetActions.updateWidgetProps(widget.id, {
+      scratchMilestones: milestones.map((milestone) => (
+        milestone.id === milestoneId ? { ...milestone, ...patch } : milestone
+      )),
+    });
+  };
+
+  const removeMilestone = (milestoneId: string) => {
+    widgetActions.updateWidgetProps(widget.id, {
+      scratchMilestones: milestones.filter((milestone) => milestone.id !== milestoneId),
+    });
   };
 
   return (
@@ -173,6 +209,44 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
                 <option value="delay">Use exact delay</option>
                 <option value="after-motion">After child motion + delay</option>
               </select>
+            </div>
+            <div className="field-stack">
+              <strong>Milestones intermedios</strong>
+              <small className="muted">Dispará triggers al cruzar % de rascado sin completar. Útil para animar capas escalonadas.</small>
+              {milestones.map((milestone, index) => (
+                <div key={milestone.id} className="fields-grid">
+                  <div>
+                    <label>{`Milestone ${index + 1} (%)`}</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={milestone.thresholdPercent}
+                      onChange={(event) => updateMilestone(milestone.id, {
+                        thresholdPercent: Number(event.target.value),
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <label>Trigger emitido</label>
+                    <select
+                      value={milestone.emitTrigger}
+                      onChange={(event) => updateMilestone(milestone.id, {
+                        emitTrigger: event.target.value as AnimationTrigger,
+                      })}
+                    >
+                      <option value="reveal">reveal</option>
+                      <option value="scratch-complete">scratch-complete</option>
+                      <option value="completion">completion</option>
+                      <option value="game-state">game-state</option>
+                    </select>
+                  </div>
+                  <Button variant="danger" size="sm" onClick={() => removeMilestone(milestone.id)}>Remover</Button>
+                </div>
+              ))}
+              <Button onClick={addMilestone} disabled={milestones.length >= MAX_SCRATCH_MILESTONES}>
+                {`Agregar milestone (${milestones.length}/${MAX_SCRATCH_MILESTONES})`}
+              </Button>
             </div>
             <small className="muted">
               The grouped child layers become the scratchable cover. Reveal target can stay automatic or point explicitly to a layer, group, or scene.

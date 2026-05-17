@@ -7,6 +7,7 @@ export type InspectorSectionKey =
   | 'position-size'
   | 'text-content'
   | 'fill'
+  | 'shadow'
   | 'timing'
   | 'module-config'
   | 'states'
@@ -23,6 +24,7 @@ export type WidgetInspectorPanelKey =
   | 'widget-fields'
   | 'module-config'
   | 'fill'
+  | 'shadow'
   | 'timing'
   | 'conditions'
   | 'actions'
@@ -194,6 +196,7 @@ export function resolveInspectorTabs(definition: WidgetDefinition): WidgetInspec
   if (hasInspectorSection(definition, 'text-content')) basicsPanels.push('text-content');
   if (fieldPanel) basicsPanels.push(fieldPanel);
   if (hasInspectorSection(definition, 'fill')) basicsPanels.push('fill');
+  if (hasInspectorSection(definition, 'shadow')) basicsPanels.push('shadow');
   if (hasInspectorSection(definition, 'timing')) basicsPanels.push('timing');
 
   const behaviorPanels: WidgetInspectorPanelKey[] = ['conditions', 'actions'];

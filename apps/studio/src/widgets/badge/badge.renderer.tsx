@@ -2,8 +2,10 @@ import type { CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { baseTextStyle, resolveCssTextAlign, resolveTextHorizontalAlign, resolveTextVerticalAlign } from '../../canvas/stage/render-helpers';
+import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
 
 export function renderBadgeWidget(node: WidgetNode, ctx: RenderContext): JSX.Element {
+  const shadow = readShadowFromStyle(node.style);
   const frame = node.frame;
   const containerStyle: CSSProperties = {
     position: 'absolute',
@@ -20,7 +22,7 @@ export function renderBadgeWidget(node: WidgetNode, ctx: RenderContext): JSX.Ele
     borderRadius: Number(node.style.borderRadius ?? 999),
     background: String(node.style.backgroundColor ?? '#7c3aed'),
     border: `1px solid ${String(node.style.borderColor ?? 'rgba(255,255,255,0.18)')}`,
-    boxShadow: String(node.style.boxShadow ?? '0 12px 24px rgba(0,0,0,0.18)'),
+    boxShadow: shadow.enabled ? shadowConfigToBoxShadow(shadow) : String(node.style.boxShadow ?? '0 12px 24px rgba(0,0,0,0.18)'),
     opacity: Number(node.style.opacity ?? 1),
     overflow: 'hidden',
     boxSizing: 'border-box',

@@ -27,7 +27,7 @@ export const videoHeroDefinition: WidgetDefinition = {
     { id: 'data', label: 'Data', panels: ['data-bindings', 'variants'] },
   ]),
   inspectorTitle: 'Video settings',
-  inspectorFields: [{ key: 'src', label: 'Video URL' }, { key: 'posterSrc', label: 'Poster URL' }, { key: 'autoplay', type: 'checkbox' }, { key: 'muted', type: 'checkbox' }, { key: 'loop', type: 'checkbox' }, { key: 'controls', type: 'checkbox' }],
+  inspectorFields: [{ key: 'autoplay', type: 'checkbox' }, { key: 'muted', type: 'checkbox' }, { key: 'loop', type: 'checkbox' }, { key: 'controls', type: 'checkbox' }],
   capabilities: {
     supportsMotion: true,
     supportsHoverMotion: true,

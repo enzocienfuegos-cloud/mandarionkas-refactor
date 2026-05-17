@@ -5,9 +5,8 @@ import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
-import { Button } from '../../shared/ui/Button';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import { VERTICAL_ACCORDION_DEFAULTS, VERTICAL_ACCORDION_ROW_DEFAULTS } from './vertical-accordion.shared';
-import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 function useImageAssets(): AssetRecord[] {
   const platform = usePlatformSnapshot();
@@ -66,37 +65,16 @@ function AssetPicker({
           <img src={previewSrc} alt="" className="inspector-preview-media" />
         </div>
       ) : null}
-      <div>
-        <label>URL</label>
-        <input
-          value={String(node.props[srcKey] ?? '')}
-          placeholder={placeholder ?? 'https://...'}
-          onChange={(event) => updateWidgetProps(node.id, { [srcKey]: event.target.value, [assetIdKey]: '' })}
-        />
-      </div>
-      <div>
-        <label>Asset library</label>
-        <div className="asset-inline-actions">
-          <select
-            value={linkedAssetId}
-            onChange={(event) => {
-              const asset = assets.find((record) => record.id === event.target.value);
-              updateWidgetProps(
-                node.id,
-                asset ? { [assetIdKey]: asset.id, [srcKey]: asset.src } : { [assetIdKey]: '', [srcKey]: '' },
-              );
-            }}
-          >
-            <option value="">No linked asset</option>
-            {assets.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.name}
-              </option>
-            ))}
-          </select>
-          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
-        </div>
-      </div>
+      <AssetPickerButton
+        label="Image asset"
+        assetId={linkedAssetId || undefined}
+        imageUrl={String(node.props[srcKey] ?? '')}
+        accept="image"
+        assets={assets}
+        emptyLabel={placeholder ?? 'No image selected.'}
+        onChange={(asset) => updateWidgetProps(node.id, { [assetIdKey]: asset.id, [srcKey]: asset.src })}
+        onClear={() => updateWidgetProps(node.id, { [assetIdKey]: '', [srcKey]: '' })}
+      />
     </div>
   );
 }
@@ -265,7 +243,7 @@ export function VerticalAccordionInspector({ node }: { node: WidgetNode }): JSX.
           </div>
           <div>
             <label>Logo image</label>
-            <AssetPicker node={node} srcKey="logoSrc" assetIdKey="logoAssetId" placeholder="https://.../logo.png" />
+            <AssetPicker node={node} srcKey="logoSrc" assetIdKey="logoAssetId" placeholder="Logo from the asset library." />
           </div>
         </div>
       </section>

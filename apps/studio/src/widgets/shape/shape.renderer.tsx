@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
+import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
 import { buildShapeClipPath, buildShapeInnerStyle, resolveShapeKind } from './shape-shared';
 import { ShapeMaskInspector } from './shape-mask-inspector';
 
@@ -17,6 +18,7 @@ export function renderShapeWidget(node: WidgetNode, ctx: RenderContext): JSX.Ele
   const fit = String(node.props.maskFit ?? 'cover') as CSSProperties['objectFit'];
   const focalX = Number(node.props.maskFocalX ?? 50);
   const focalY = Number(node.props.maskFocalY ?? 50);
+  const boxShadow = shadowConfigToBoxShadow(readShadowFromStyle(node.style));
 
   const wrapperStyle: CSSProperties = {
     width: '100%',
@@ -25,6 +27,7 @@ export function renderShapeWidget(node: WidgetNode, ctx: RenderContext): JSX.Ele
     alignItems: 'center',
     justifyContent: 'center',
     opacity: resolveWidgetOpacity(node, ctx),
+    boxShadow,
   };
 
   const maskedImageStyle: CSSProperties = {

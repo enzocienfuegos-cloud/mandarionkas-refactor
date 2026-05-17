@@ -6,6 +6,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { usePlatformSnapshot } from '../../platform/runtime';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import type { AssetRecord } from '../../assets/types';
 import { Button } from '../../shared/ui/Button';
 import { IconButton } from '../../shared/ui/IconButton';
@@ -237,10 +238,14 @@ export function ImageCarouselInspector({ widget }: { widget: WidgetNode }): JSX.
                   </div>
                 )}
               </div>
-              <input
-                value={slide.src}
-                onChange={(event) => updateSlide(index, { src: event.target.value, assetId: undefined })}
-                placeholder="https://.../image.jpg"
+              <AssetPickerButton
+                label="Slide image"
+                assetId={slide.assetId}
+                imageUrl={slide.src}
+                accept="image"
+                assets={assets}
+                onChange={(asset) => updateSlide(index, { assetId: asset.id, src: asset.src })}
+                onClear={() => updateSlide(index, { assetId: undefined, src: '' })}
               />
               <input
                 value={slide.caption}

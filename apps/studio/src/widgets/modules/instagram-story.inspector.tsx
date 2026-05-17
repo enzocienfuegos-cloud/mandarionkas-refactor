@@ -5,9 +5,8 @@ import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { usePlatformSnapshot } from '../../platform/runtime';
-import { Button } from '../../shared/ui/Button';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import { INSTAGRAM_STORY_DEFAULT_USERNAME } from './instagram-story.shared';
-import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 // ─── Shared asset hook ────────────────────────────────────────────────────────
 
@@ -55,11 +54,6 @@ function SlideConfig({
   const currentAssetId = String(node.props[assetIdKey] ?? '');
   const currentDur = Number(node.props[durKey] ?? 5000);
 
-  const eligibleAssets = useMemo(
-    () => assets.filter((a) => a.kind === currentKind),
-    [assets, currentKind],
-  );
-
   return (
     <div className="inspector-subsection inspector-subsection--spacious">
       <div className="inspector-subsection-title">
@@ -83,34 +77,15 @@ function SlideConfig({
         </div>
 
         {/* Source URL */}
-        <div>
-          <label>Source URL</label>
-          <input
-            value={String(node.props[srcKey] ?? '')}
-            placeholder={currentKind === 'video' ? 'https://.../video.mp4' : 'https://.../image.jpg'}
-            onChange={(e) => updateWidgetProps(node.id, { [srcKey]: e.target.value, [assetIdKey]: '' })}
-          />
-        </div>
-
-        {/* Asset library picker */}
-        <div>
-          <label>Asset library</label>
-          <div className="asset-inline-actions">
-            <select
-              value={currentAssetId}
-              onChange={(e) => {
-                const asset = eligibleAssets.find((a) => a.id === e.target.value);
-                updateWidgetProps(node.id, asset
-                  ? { [assetIdKey]: asset.id, [srcKey]: asset.src }
-                  : { [assetIdKey]: '', [srcKey]: '' });
-              }}
-            >
-              <option value="">No linked asset</option>
-              {eligibleAssets.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-            <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
-          </div>
-        </div>
+        <AssetPickerButton
+          label={currentKind === 'video' ? 'Slide video' : 'Slide image'}
+          assetId={currentAssetId || undefined}
+          imageUrl={String(node.props[srcKey] ?? '')}
+          accept={currentKind === 'video' ? 'video' : 'image'}
+          assets={assets.filter((asset) => asset.kind === currentKind)}
+          onChange={(asset) => updateWidgetProps(node.id, { [assetIdKey]: asset.id, [srcKey]: asset.src })}
+          onClear={() => updateWidgetProps(node.id, { [assetIdKey]: '', [srcKey]: '' })}
+        />
 
         {/* Duration (only for image slides — video duration is auto) */}
         {currentKind === 'image' && (
@@ -157,32 +132,15 @@ export function InstagramStoryInspector({ node }: { node: WidgetNode }): JSX.Ele
               onChange={(e) => updateWidgetProps(node.id, { username: e.target.value })}
             />
           </div>
-          <div>
-            <label>Avatar URL</label>
-            <input
-              value={String(node.props.avatarSrc ?? '')}
-              placeholder="https://.../avatar.jpg"
-              onChange={(e) => updateWidgetProps(node.id, { avatarSrc: e.target.value, avatarAssetId: '' })}
-            />
-          </div>
-          <div>
-            <label>Avatar from library</label>
-            <div className="asset-inline-actions">
-              <select
-                value={String(node.props.avatarAssetId ?? '')}
-                onChange={(e) => {
-                  const asset = avatarAssets.find((a) => a.id === e.target.value);
-                  updateWidgetProps(node.id, asset
-                    ? { avatarAssetId: asset.id, avatarSrc: asset.src }
-                    : { avatarAssetId: '', avatarSrc: '' });
-                }}
-              >
-                <option value="">No linked asset</option>
-                {avatarAssets.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-              <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
-            </div>
-          </div>
+          <AssetPickerButton
+            label="Avatar"
+            assetId={String(node.props.avatarAssetId ?? '') || undefined}
+            imageUrl={String(node.props.avatarSrc ?? '')}
+            accept="image"
+            assets={avatarAssets}
+            onChange={(asset) => updateWidgetProps(node.id, { avatarAssetId: asset.id, avatarSrc: asset.src })}
+            onClear={() => updateWidgetProps(node.id, { avatarAssetId: '', avatarSrc: '' })}
+          />
           <label className="checkbox-row">
             <input
               type="checkbox"

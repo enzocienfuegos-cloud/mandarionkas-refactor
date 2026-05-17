@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { createProjectStarterState, getProjectStarters } from '../../../app/shell/topbar/project-starters';
 import { getTemplate } from '../../../templates/library/registry';
 
-const EXPECTED_DOCUMENT_SHA256 = '4b055a82e30f16049f5418f2d71d6bd8bd0b015d2c2cee406a3705c461c58c9d';
-const EXPECTED_DOCUMENT_LENGTH = 47423;
+const EXPECTED_DOCUMENT_SHA256 = '3eea1f69ed95c4ece7406c8c90dcafe45fa7eae90c918d087dc3845a9584b7ec';
+const EXPECTED_DOCUMENT_LENGTH = 47489;
 
 function withDeterministicRandom<T>(callback: () => T): T {
   const originalRandom = Math.random;

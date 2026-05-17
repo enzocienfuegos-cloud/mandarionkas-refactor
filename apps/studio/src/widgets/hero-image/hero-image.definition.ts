@@ -28,7 +28,6 @@ export const heroImageDefinition: WidgetDefinition = {
   ]),
   inspectorTitle: 'Hero image',
   inspectorFields: [
-    { key: 'src', label: 'Source URL' },
     { key: 'alt', label: 'Alt text' },
     { key: 'focalX', label: 'Focal X', type: 'number' },
     { key: 'focalY', label: 'Focal Y', type: 'number' },

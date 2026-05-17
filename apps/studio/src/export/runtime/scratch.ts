@@ -1,7 +1,13 @@
 import { createEventClock } from '../../motion/animation-engine/clock';
 import type { AnimationEngine } from '../../motion/animation-engine/engine';
-import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from '../../widgets/group/group-scratch-constants';
+import {
+  DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD,
+  type ScratchMilestone,
+} from '../../widgets/group/group-scratch-constants';
 import type { ExportRuntimeModel, ExportRuntimeScene, ExportRuntimeWidget } from './runtime-model';
+import type { SceneManager } from './scene-manager';
+
+type ScratchMilestoneTrigger = Exclude<ScratchMilestone['emitTrigger'], 'timeline'>;
 
 type ScratchRuntimeWindow = Window & typeof globalThis & {
   __smxScratchCompletionMsByWidgetId?: Record<string, number>;
@@ -202,7 +208,11 @@ function resolveScratchTargets(scene: ExportRuntimeScene, scratchWidget: ExportR
   return scene.widgets.filter((widget) => isCoveredByScratchGroup(scene, scratchWidget, widget));
 }
 
-export function mountScratchReveal(engine: AnimationEngine, runtimeModel: ExportRuntimeModel): { dispose(): void } {
+export function mountScratchReveal(
+  engine: AnimationEngine,
+  runtimeModel: ExportRuntimeModel,
+  sceneManager: SceneManager,
+): { dispose(): void } {
   const runtimeWindow = window as ScratchRuntimeWindow;
   runtimeWindow.__smxScratchCompletionMsByWidgetId = runtimeWindow.__smxScratchCompletionMsByWidgetId ?? {};
   runtimeWindow.__smxScratchCompletionPerfMsByWidgetId = runtimeWindow.__smxScratchCompletionPerfMsByWidgetId ?? {};
@@ -237,10 +247,40 @@ export function mountScratchReveal(engine: AnimationEngine, runtimeModel: Export
       || root.getAttribute('data-scratch-threshold')
       || String(DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD);
     const completeThreshold = Math.max(0, Math.min(100, Number(thresholdValue)));
+    const milestonesAttr = shell.getAttribute('data-scratch-milestones') || '[]';
+    let milestones: ScratchMilestone[] = [];
+    try {
+      const parsed = JSON.parse(milestonesAttr) as unknown;
+      if (Array.isArray(parsed)) {
+        milestones = parsed
+          .filter((entry): entry is ScratchMilestone => Boolean(
+            entry
+              && typeof entry === 'object'
+              && typeof (entry as ScratchMilestone).id === 'string'
+              && Number.isFinite(Number((entry as ScratchMilestone).thresholdPercent))
+              && typeof (entry as ScratchMilestone).emitTrigger === 'string',
+          ))
+          .map((entry) => ({
+            id: entry.id,
+            thresholdPercent: Math.max(1, Math.min(99, Number(entry.thresholdPercent))),
+            emitTrigger: entry.emitTrigger,
+          }))
+          .sort((left, right) => left.thresholdPercent - right.thresholdPercent);
+      }
+    } catch {
+      milestones = [];
+    }
+    const firedMilestoneIds = new Set<string>();
     const coverImage = shell.getAttribute('data-scratch-cover-image') || root.getAttribute('data-scratch-cover-image') || '';
     const coverBlur = Number(shell.getAttribute('data-scratch-cover-blur') || root.getAttribute('data-scratch-cover-blur') || 0);
     const accent = shell.getAttribute('data-scratch-accent') || root.getAttribute('data-scratch-accent') || '#ffffff';
     const activationDelayMs = Math.max(0, Number(shell.getAttribute('data-scratch-activation-delay') || root.getAttribute('data-scratch-activation-delay') || 0));
+    const revealTargetMode = (shell.getAttribute('data-scratch-reveal-target-mode')
+      || root.getAttribute('data-scratch-reveal-target-mode')
+      || 'auto').trim().toLowerCase();
+    const revealTargetId = (shell.getAttribute('data-scratch-reveal-target-id')
+      || root.getAttribute('data-scratch-reveal-target-id')
+      || '').trim();
 
     paintScratchCover(canvas, coverImage, coverBlur, accent, () => applyScratchMask(maskTarget, canvas));
 
@@ -260,6 +300,27 @@ export function mountScratchReveal(engine: AnimationEngine, runtimeModel: Export
 
     const startedAt = nowMs();
     const scratchWidgetId = root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || '';
+
+    const emitScratchMilestone = (milestone: ScratchMilestone, perfNow: number): void => {
+      const scene = resolveScratchScene(runtimeModel, scratchWidgetId);
+      if (!scene) return;
+      const scratchWidget = scene.widgets.find((widget) => widget.id === scratchWidgetId);
+      if (!scratchWidget) return;
+      const targets = resolveScratchTargets(scene, scratchWidget);
+      const trigger = milestone.emitTrigger as ScratchMilestoneTrigger;
+      const clock = createEventClock(trigger, perfNow);
+      const sceneTimeMs = perfNow - startedAt;
+      targets.forEach((widget) => {
+        engine.emit({
+          trigger,
+          sourceId: scratchWidgetId,
+          targetId: widget.id,
+          sceneTimeMs,
+          realTimeMs: perfNow,
+          clock,
+        });
+      });
+    };
 
     const completeScratch = (): void => {
       if (completed) return;
@@ -298,6 +359,12 @@ export function mountScratchReveal(engine: AnimationEngine, runtimeModel: Export
           clock: createEventClock('scratch-complete', completionPerfMs),
         });
       });
+      if (revealTargetMode === 'scene' && revealTargetId) {
+        const targetSceneIndex = sceneManager.findSceneIndexById(revealTargetId);
+        if (targetSceneIndex >= 0) {
+          window.setTimeout(() => sceneManager.showScene(targetSceneIndex), 50);
+        }
+      }
     };
 
     const scratchAt = (clientX: number, clientY: number): void => {
@@ -311,6 +378,13 @@ export function mountScratchReveal(engine: AnimationEngine, runtimeModel: Export
       const progress = progressCanvas
         ? eraseScratchProgress(progressCanvas, previousPoint, point, scratchRadius, width, height)
         : 100;
+      const perfNow = nowMs();
+      for (const milestone of milestones) {
+        if (firedMilestoneIds.has(milestone.id)) continue;
+        if (progress < milestone.thresholdPercent) break;
+        firedMilestoneIds.add(milestone.id);
+        emitScratchMilestone(milestone, perfNow);
+      }
       if (completeThreshold > 0 && progress >= completeThreshold) {
         completeScratch();
       }

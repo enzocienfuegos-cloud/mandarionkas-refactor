@@ -3,6 +3,7 @@ import { PositionSection } from '../../inspector/sections/PositionSection';
 import { TextSection } from '../../inspector/sections/TextSection';
 import { ModuleConfigSection } from '../../inspector/sections/ModuleConfigSection';
 import { FillSection } from '../../inspector/sections/FillSection';
+import { ShadowSection } from '../../inspector/sections/ShadowSection';
 import { MotionSection } from '../../inspector/sections/MotionSection';
 import { StatesSection } from '../../inspector/sections/StatesSection';
 import { DataBindingsSection } from '../../inspector/sections/DataBindingsSection';
@@ -36,6 +37,7 @@ function mapPanelKeyToSectionKey(panelKey: WidgetInspectorPanelKey) {
     case 'text-content':
     case 'module-config':
     case 'fill':
+    case 'shadow':
     case 'timing':
     case 'conditions':
     case 'states':
@@ -107,6 +109,8 @@ export function getWidgetInspectorPanelMeta(key: WidgetInspectorPanelKey): Widge
       return { title: 'Module config', subtitle: 'Dynamic props and module-level options' };
     case 'fill':
       return { title: 'Fill / colors', subtitle: 'Background color and linked media controls' };
+    case 'shadow':
+      return { title: 'Shadow', subtitle: 'Depth, softness and inset treatment for this widget' };
     case 'timing':
       return { title: 'Timing', subtitle: 'Visibility windows and timeline defaults' };
     case 'conditions':
@@ -150,6 +154,8 @@ export function renderWidgetInspectorPanel(key: WidgetInspectorPanelKey, context
       return <ModuleConfigSection widget={widget} />;
     case 'fill':
       return <FillSection widget={widget} />;
+    case 'shadow':
+      return <ShadowSection node={widget} variant={widget.type === 'text' ? 'text' : 'element'} />;
     case 'conditions':
       return <ConditionsSection widget={widget} />;
     case 'actions':

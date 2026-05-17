@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
+import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
 
 function buildImageMediaStyle(
   node: WidgetNode,
@@ -18,6 +19,7 @@ function buildImageMediaStyle(
     opacity: resolveWidgetOpacity(node, ctx),
     display: 'block',
     background: resolveWidgetBackground(node, '#344454', ctx),
+    boxShadow: shadowConfigToBoxShadow(readShadowFromStyle(node.style)),
   };
 }
 
@@ -38,6 +40,7 @@ function buildImagePlaceholderStyle(
     fontSize: 14,
     border: `1px dashed ${resolveWidgetBorder(node, ctx)}`,
     opacity: resolveWidgetOpacity(node, ctx),
+    boxShadow: shadowConfigToBoxShadow(readShadowFromStyle(node.style)),
   };
 }
 

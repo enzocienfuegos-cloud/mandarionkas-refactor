@@ -5,8 +5,7 @@ import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
-import { Button } from '../../shared/ui/Button';
-import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 
 export function useAssets(kind: AssetRecord['kind']): AssetRecord[] {
   const platform = usePlatformSnapshot();
@@ -67,32 +66,18 @@ export function AssetPicker({
             : <video src={previewSrc} muted playsInline className="inspector-preview-media" />}
         </div>
       ) : null}
-      <div>
-        <label>{label} URL</label>
-        <input
-          value={String(node.props[srcKey] ?? '')}
-          placeholder={placeholder}
-          onChange={(event) => updateWidgetProps(node.id, { [srcKey]: event.target.value, [assetIdKey]: '' })}
-        />
-      </div>
-      <div>
-        <label>{label} asset</label>
-        <div className="asset-inline-actions">
-          <select
-            value={linkedId}
-            onChange={(event) => {
-              const asset = assets.find((record) => record.id === event.target.value);
-              updateWidgetProps(node.id, asset
-                ? { [assetIdKey]: asset.id, [srcKey]: asset.src, ...(srcKey === 'src' ? { posterSrc: asset.posterSrc ?? node.props.posterSrc } : {}) }
-                : { [assetIdKey]: '', [srcKey]: '' });
-            }}
-          >
-            <option value="">No linked asset</option>
-            {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name}</option>)}
-          </select>
-          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
-        </div>
-      </div>
+      <AssetPickerButton
+        label={label}
+        assetId={linkedId || undefined}
+        imageUrl={String(node.props[srcKey] ?? '')}
+        accept={label.toLowerCase().includes('poster') ? 'image' : 'video'}
+        assets={assets}
+        emptyLabel={placeholder}
+        onChange={(asset) => updateWidgetProps(node.id, asset
+          ? { [assetIdKey]: asset.id, [srcKey]: asset.src, ...(srcKey === 'src' ? { posterSrc: asset.posterSrc ?? node.props.posterSrc } : {}) }
+          : { [assetIdKey]: '', [srcKey]: '' })}
+        onClear={() => updateWidgetProps(node.id, { [assetIdKey]: '', [srcKey]: '' })}
+      />
     </div>
   );
 }

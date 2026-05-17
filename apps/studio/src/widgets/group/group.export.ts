@@ -4,7 +4,11 @@ import { exportTokens as exportPalette } from '../../export/export-tokens';
 import { escapeHtml, renderGenericExport } from '../registry/export-helpers';
 import { getWidgetDefinition } from '../registry/widget-registry';
 import { getScratchActivationDelayMs } from './group-scratch-activation';
-import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
+import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
+import {
+  DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD,
+  type ScratchMilestone,
+} from './group-scratch-constants';
 
 function renderGroupScratchChildren(
   node: WidgetNode,
@@ -122,8 +126,9 @@ export function renderGroupExport(
   state?: StudioState,
   assetPathMap: Record<string, string> = {},
 ): string {
+  const boxShadow = escapeHtml(shadowConfigToBoxShadow(readShadowFromStyle(node.style)));
   if (!node.props.scratchEnabled || !state) {
-    return renderGenericExport(node, node.name, 'Group');
+    return renderGenericExport(node, node.name, 'Group').replace('">', `;box-shadow:${boxShadow}">`);
   }
 
   const style = node.style ?? {};
@@ -136,6 +141,13 @@ export function renderGroupExport(
   );
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
   const scratchActivationDelayMs = getScratchActivationDelayMs(node, buildResolvedWidgetsById(state.document));
+  const milestones: ScratchMilestone[] = Array.isArray(node.props.scratchMilestones)
+    ? (node.props.scratchMilestones as ScratchMilestone[])
+    : [];
+  const sortedMilestones = [...milestones].sort((left, right) => left.thresholdPercent - right.thresholdPercent);
+  const milestonesJson = escapeHtml(JSON.stringify(sortedMilestones));
+  const revealTargetMode = escapeHtml(String(node.props.revealTargetMode ?? 'auto'));
+  const revealTargetId = escapeHtml(String(node.props.revealTargetId ?? ''));
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -148,6 +160,7 @@ export function renderGroupExport(
     `box-sizing:border-box`,
     `border-radius:${Number(style.borderRadius ?? 12)}px`,
     `background:transparent`,
+    `box-shadow:${boxShadow}`,
     `pointer-events:auto`,
   ].join(';');
 
@@ -158,6 +171,9 @@ export function renderGroupExport(
       data-scratch-widget-id="${node.id}"
       data-scratch-radius="${scratchRadius}"
       data-scratch-auto-reveal-threshold="${autoRevealThresholdPercent}"
+      data-scratch-milestones="${milestonesJson}"
+      data-scratch-reveal-target-mode="${revealTargetMode}"
+      data-scratch-reveal-target-id="${revealTargetId}"
       data-scratch-accent="${escapeHtml(accent)}"
       data-scratch-cover-blur="${coverBlur}"
       data-scratch-activation-delay="${scratchActivationDelayMs}"

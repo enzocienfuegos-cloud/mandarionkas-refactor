@@ -61,9 +61,11 @@ export type StudioCommand =
   | { type: 'UPSERT_FEED_RECORD'; source: BindingSource; record: import('../../domain/document/types').FeedRecord }
   | { type: 'DELETE_FEED_RECORD'; source: BindingSource; recordId: string }
   | { type: 'ADD_SCENE' }
+  | { type: 'ADD_SCENE_FROM_CURRENT' }
   | { type: 'SELECT_SCENE'; sceneId: string }
   | { type: 'DUPLICATE_SCENE'; sceneId: string }
   | { type: 'DELETE_SCENE'; sceneId: string }
+  | { type: 'REORDER_SCENES'; fromIndex: number; toIndex: number }
   | { type: 'UPDATE_SCENE'; sceneId: string; patch: Partial<import('../../domain/document/types').SceneNode> }
   | { type: 'GO_TO_NEXT_SCENE' }
   | { type: 'GO_TO_PREVIOUS_SCENE' }

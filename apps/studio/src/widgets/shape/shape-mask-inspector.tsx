@@ -1,12 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
-import { listAssets } from '../../repositories/asset';
-import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
-import { usePlatformSnapshot } from '../../platform/runtime';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import { Button } from '../../shared/ui/Button';
-import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 const shapeMaskFocusGridStyle = {
   display: 'grid',
@@ -16,29 +11,6 @@ const shapeMaskFocusGridStyle = {
 
 export function ShapeMaskInspector({ node }: { node: WidgetNode }): JSX.Element {
   const { updateWidgetProps } = useWidgetActions();
-  const platform = usePlatformSnapshot();
-  const [assets, setAssets] = useState<AssetRecord[]>([]);
-
-  useEffect(() => {
-    if (!platform.session.isAuthenticated || !platform.session.sessionId) {
-      setAssets([]);
-      return;
-    }
-    let cancelled = false;
-    const sync = () => {
-      void listAssets()
-        .then((records) => { if (!cancelled) setAssets(records); })
-        .catch(() => { if (!cancelled) setAssets([]); });
-    };
-    sync();
-    const unsub = subscribeToAssetLibraryChanges(sync);
-    return () => { cancelled = true; unsub(); };
-  }, [platform.session.isAuthenticated, platform.session.sessionId]);
-
-  const imageAssets = useMemo(
-    () => assets.filter((a) => a.kind === 'image'),
-    [assets],
-  );
 
   const hasMask = Boolean(String(node.props.maskSrc ?? '').trim());
 
@@ -50,32 +22,14 @@ export function ShapeMaskInspector({ node }: { node: WidgetNode }): JSX.Element 
     <section className="section section-premium">
       <h3>Image mask</h3>
       <div className="field-stack">
-        <div>
-          <label>Image source (URL)</label>
-          <input
-            value={String(node.props.maskSrc ?? '')}
-            placeholder="https://.../image.jpg"
-            onChange={(e) => updateWidgetProps(node.id, { maskSrc: e.target.value, maskAssetId: '' })}
-          />
-        </div>
-        <div>
-          <label>Asset library</label>
-          <div className="asset-inline-actions">
-            <select
-              value={String(node.props.maskAssetId ?? '')}
-              onChange={(e) => {
-                const asset = imageAssets.find((a) => a.id === e.target.value);
-                updateWidgetProps(node.id, asset
-                  ? { maskAssetId: asset.id, maskSrc: asset.src }
-                  : { maskAssetId: '', maskSrc: '' });
-              }}
-            >
-              <option value="">No linked asset</option>
-              {imageAssets.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-            <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
-          </div>
-        </div>
+        <AssetPickerButton
+          label="Mask image"
+          assetId={String(node.props.maskAssetId ?? '') || undefined}
+          imageUrl={String(node.props.maskSrc ?? '')}
+          accept="image"
+          onChange={(asset) => updateWidgetProps(node.id, { maskAssetId: asset.id, maskSrc: asset.src })}
+          onClear={clearMask}
+        />
         {hasMask && (
           <>
             <div>

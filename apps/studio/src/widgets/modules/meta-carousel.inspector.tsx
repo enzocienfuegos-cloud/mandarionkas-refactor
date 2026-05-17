@@ -1,72 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
-import { listAssets } from '../../repositories/asset';
-import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
-import { usePlatformSnapshot } from '../../platform/runtime';
-import { Button } from '../../shared/ui/Button';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import {
   META_CAROUSEL_DEFAULT_CTA_LABEL,
   META_CAROUSEL_DEFAULT_PRIMARY_TEXT,
   META_CAROUSEL_DEFAULT_SPONSORED_LABEL,
 } from './meta-carousel.shared';
-import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
-
-function useAssets() {
-  const platform = usePlatformSnapshot();
-  const [assets, setAssets] = useState<AssetRecord[]>([]);
-  useEffect(() => {
-    if (!platform.session.isAuthenticated) { setAssets([]); return; }
-    let cancelled = false;
-    const sync = () => void listAssets().then((r) => { if (!cancelled) setAssets(r); }).catch(() => { if (!cancelled) setAssets([]); });
-    sync();
-    const unsub = subscribeToAssetLibraryChanges(sync);
-    return () => { cancelled = true; unsub(); };
-  }, [platform.session.isAuthenticated, platform.session.sessionId]);
-  return assets;
-}
 
 function AssetPicker({ node, srcKey, assetIdKey, kindFilter, placeholder }: {
   node: WidgetNode; srcKey: string; assetIdKey: string;
   kindFilter: 'image' | 'video' | 'both'; placeholder?: string;
-}) {
+}): JSX.Element {
   const { updateWidgetProps } = useWidgetActions();
-  const assets = useAssets();
-  const eligible = useMemo(() => assets.filter((a) =>
-    kindFilter === 'both' ? a.kind === 'image' || a.kind === 'video'
-    : a.kind === kindFilter
-  ), [assets, kindFilter]);
-
   return (
-    <div className="field-stack">
-      <div>
-        <label>Source URL</label>
-        <input
-          value={String(node.props[srcKey] ?? '')}
-          placeholder={placeholder ?? 'https://...'}
-          onChange={(e) => updateWidgetProps(node.id, { [srcKey]: e.target.value, [assetIdKey]: '' })}
-        />
-      </div>
-      <div>
-        <label>Asset library</label>
-        <div className="asset-inline-actions">
-          <select
-            value={String(node.props[assetIdKey] ?? '')}
-            onChange={(e) => {
-              const asset = eligible.find((a) => a.id === e.target.value);
-              updateWidgetProps(node.id, asset
-                ? { [assetIdKey]: asset.id, [srcKey]: asset.src }
-                : { [assetIdKey]: '', [srcKey]: '' });
-            }}
-          >
-            <option value="">No linked asset</option>
-            {eligible.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
-        </div>
-      </div>
-    </div>
+    <AssetPickerButton
+      label="Asset"
+      assetId={String(node.props[assetIdKey] ?? '') || undefined}
+      imageUrl={String(node.props[srcKey] ?? '')}
+      accept={kindFilter === 'both' ? 'any' : kindFilter}
+      emptyLabel={placeholder ?? 'No asset selected.'}
+      onChange={(asset) => updateWidgetProps(node.id, { [assetIdKey]: asset.id, [srcKey]: asset.src })}
+      onClear={() => updateWidgetProps(node.id, { [assetIdKey]: '', [srcKey]: '' })}
+    />
   );
 }
 
@@ -111,7 +66,7 @@ export function MetaCarouselInspector({ node }: { node: WidgetNode }): JSX.Eleme
         <div className="field-stack">
           <div><label>Brand name</label><input value={String(node.props.brandName ?? '')} onChange={(e) => updateWidgetProps(node.id, { brandName: e.target.value })} /></div>
           <div><label>Sponsored label</label><input value={String(node.props.sponsoredLabel ?? META_CAROUSEL_DEFAULT_SPONSORED_LABEL)} onChange={(e) => updateWidgetProps(node.id, { sponsoredLabel: e.target.value })} /></div>
-          <AssetPicker node={node} srcKey="brandAvatarSrc" assetIdKey="brandAvatarAssetId" kindFilter="image" placeholder="https://.../avatar.jpg" />
+          <AssetPicker node={node} srcKey="brandAvatarSrc" assetIdKey="brandAvatarAssetId" kindFilter="image" placeholder="Avatar from the asset library." />
         </div>
       </section>
 

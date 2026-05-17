@@ -104,9 +104,33 @@ describe('group scratch export', () => {
     expect(html).toContain('data-scratch-shell');
     expect(html).toContain('data-scratch-mask-target');
     expect(html).toContain('data-scratch-auto-reveal-threshold="10"');
+    expect(html).toContain('data-scratch-milestones="[]"');
+    expect(html).toContain('data-scratch-reveal-target-mode="auto"');
+    expect(html).toContain('data-scratch-reveal-target-id=""');
     expect(html).toContain('Scratch me first');
     expect(html).toContain('Shop now');
     expect(html).toContain('data-scratch-canvas');
+  });
+
+  it('serializes scratch milestones in ascending order', () => {
+    const state = createState();
+    state.document.widgets.group_1 = createGroupWidget({
+      scratchMilestones: [
+        { id: 'm3', thresholdPercent: 75, emitTrigger: 'completion' },
+        { id: 'm1', thresholdPercent: 25, emitTrigger: 'reveal' },
+        { id: 'm2', thresholdPercent: 50, emitTrigger: 'scratch-complete' },
+      ],
+      revealTargetMode: 'scene',
+      revealTargetId: 'scene_2',
+    });
+
+    const html = renderGroupExport(state.document.widgets.group_1, state);
+
+    expect(html).toContain('data-scratch-reveal-target-mode="scene"');
+    expect(html).toContain('data-scratch-reveal-target-id="scene_2"');
+    expect(html).toContain('&quot;id&quot;:&quot;m1&quot;');
+    expect(html.indexOf('&quot;id&quot;:&quot;m1&quot;')).toBeLessThan(html.indexOf('&quot;id&quot;:&quot;m2&quot;'));
+    expect(html.indexOf('&quot;id&quot;:&quot;m2&quot;')).toBeLessThan(html.indexOf('&quot;id&quot;:&quot;m3&quot;'));
   });
 
   it('wraps scratch cover children so grouped animations survive export runtime', () => {

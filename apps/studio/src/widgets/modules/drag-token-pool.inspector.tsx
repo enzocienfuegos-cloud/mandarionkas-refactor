@@ -1,18 +1,176 @@
+import { useEffect, useState } from 'react';
+import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
+import { usePlatformSnapshot } from '../../platform/runtime';
+import { listAssets } from '../../repositories/asset';
+import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
+import { Button } from '../../shared/ui/Button';
+import {
+  DEFAULT_TOKEN_SHAPE,
+  generateTokenId,
+  MAX_TOKENS,
+  MIN_TOKENS,
+  TOKEN_SIZE_MAX,
+  TOKEN_SIZE_MIN,
+  type DragTokenItem,
+  type TokenShape,
+} from './drag-token-pool.types';
 
 export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Element {
   const { updateWidgetProps } = useWidgetActions();
+  const platform = usePlatformSnapshot();
+  const [assets, setAssets] = useState<AssetRecord[]>([]);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const tokens: DragTokenItem[] = Array.isArray(node.props.tokens) ? node.props.tokens as DragTokenItem[] : [];
+  const disabledIds = Array.isArray(node.props.disabledIds) ? node.props.disabledIds.map((value) => String(value)) : [];
+  const tokenSize = Math.max(TOKEN_SIZE_MIN, Math.min(TOKEN_SIZE_MAX, Number(node.props.tokenSize ?? 72)));
+  const gap = Math.max(4, Math.min(60, Number(node.props.gap ?? 16)));
+  const tokenShape: TokenShape = node.props.tokenShape === 'circle' || node.props.tokenShape === 'square' || node.props.tokenShape === 'rounded'
+    ? node.props.tokenShape
+    : DEFAULT_TOKEN_SHAPE;
+
+  useEffect(() => {
+    if (!platform.session.isAuthenticated || !platform.session.sessionId) {
+      setAssets([]);
+      return;
+    }
+    let cancelled = false;
+    const syncAssets = () => {
+      void listAssets()
+        .then((records) => {
+          if (!cancelled) setAssets(records.filter((asset) => asset.kind === 'image'));
+        })
+        .catch(() => {
+          if (!cancelled) setAssets([]);
+        });
+    };
+    syncAssets();
+    const unsubscribe = subscribeToAssetLibraryChanges(syncAssets);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [platform.session.isAuthenticated, platform.session.sessionId]);
+
+  const updateTokens = (nextTokens: DragTokenItem[]) => {
+    updateWidgetProps(node.id, { tokens: nextTokens });
+  };
+
+  const updateDisabledIds = (nextDisabledIds: string[]) => {
+    updateWidgetProps(node.id, { disabledIds: nextDisabledIds });
+  };
+
+  const addToken = () => {
+    if (tokens.length >= MAX_TOKENS) return;
+    updateTokens([...tokens, { id: generateTokenId(), label: `Token ${tokens.length + 1}` }]);
+  };
+
+  const removeToken = (tokenId: string) => {
+    if (tokens.length <= MIN_TOKENS) return;
+    updateTokens(tokens.filter((token) => token.id !== tokenId));
+    updateDisabledIds(disabledIds.filter((id) => id !== tokenId));
+  };
+
+  const updateToken = (tokenId: string, patch: Partial<DragTokenItem>) => {
+    updateTokens(tokens.map((token) => token.id === tokenId ? { ...token, ...patch } : token));
+  };
+
+  const reorderTokens = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    const nextTokens = [...tokens];
+    const [moved] = nextTokens.splice(fromIndex, 1);
+    if (!moved) return;
+    nextTokens.splice(toIndex, 0, moved);
+    updateTokens(nextTokens);
+  };
+
+  const setTokenDisabled = (tokenId: string, disabled: boolean) => {
+    if (disabled) {
+      if (disabledIds.includes(tokenId)) return;
+      updateDisabledIds([...disabledIds, tokenId]);
+      return;
+    }
+    updateDisabledIds(disabledIds.filter((id) => id !== tokenId));
+  };
 
   return (
     <section className="section section-premium">
       <h3>Drag token pool</h3>
       <div className="field-stack">
-        <div><label>Tokens JSON</label><textarea rows={8} value={String(node.props.tokens ?? '[]')} onChange={(e) => updateWidgetProps(node.id, { tokens: e.target.value })} /></div>
-        <div><label>Disabled ids CSV</label><input value={String(node.props.disabledIds ?? '')} onChange={(e) => updateWidgetProps(node.id, { disabledIds: e.target.value })} /></div>
-        <div><label>Drop target id</label><input value={String(node.props.dropTargetId ?? '')} onChange={(e) => updateWidgetProps(node.id, { dropTargetId: e.target.value })} /></div>
-        <div><label>Token size</label><input type="number" min={32} max={160} step={4} value={Number(node.props.tokenSize ?? 72)} onChange={(e) => updateWidgetProps(node.id, { tokenSize: Number(e.target.value) })} /></div>
-        <div><label>Gap</label><input type="number" min={4} max={60} step={2} value={Number(node.props.gap ?? 16)} onChange={(e) => updateWidgetProps(node.id, { gap: Number(e.target.value) })} /></div>
+        <div className="fields-grid">
+          <div><label>Token size</label><input type="number" min={TOKEN_SIZE_MIN} max={TOKEN_SIZE_MAX} value={tokenSize} onChange={(event) => updateWidgetProps(node.id, { tokenSize: Number(event.target.value) })} /></div>
+          <div><label>Gap</label><input type="number" min={4} max={60} value={gap} onChange={(event) => updateWidgetProps(node.id, { gap: Number(event.target.value) })} /></div>
+          <div>
+            <label>Shape</label>
+            <select value={tokenShape} onChange={(event) => updateWidgetProps(node.id, { tokenShape: event.target.value })}>
+              <option value="circle">Circle</option>
+              <option value="rounded">Rounded</option>
+              <option value="square">Square</option>
+            </select>
+          </div>
+          <div><label>Drop target id</label><input value={String(node.props.dropTargetId ?? '')} onChange={(event) => updateWidgetProps(node.id, { dropTargetId: event.target.value })} /></div>
+        </div>
+        <strong>{`Tokens (${tokens.length}/${MAX_TOKENS})`}</strong>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
+          {tokens.map((token, index) => (
+            <li
+              key={token.id}
+              draggable
+              onDragStart={() => setDraggedIndex(index)}
+              onDragEnd={() => setDraggedIndex(null)}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (draggedIndex === null) return;
+                reorderTokens(draggedIndex, index);
+                setDraggedIndex(null);
+              }}
+              className="inspector-item-card"
+            >
+              <div className="meta-line inspector-spread-row">
+                <strong>{`Token ${index + 1}`}</strong>
+                <Button variant="danger" size="sm" disabled={tokens.length <= MIN_TOKENS} onClick={() => removeToken(token.id)}>×</Button>
+              </div>
+              <div className="fields-grid">
+                <div>
+                  <label>Label</label>
+                  <input value={token.label} onChange={(event) => updateToken(token.id, { label: event.target.value })} placeholder="Label" />
+                </div>
+                <div>
+                  <label>Accent color</label>
+                  <input type="color" value={token.accentColor ?? '#ffffff'} onChange={(event) => updateToken(token.id, { accentColor: event.target.value })} />
+                </div>
+              </div>
+              <label className="checkbox-row">
+                <input type="checkbox" checked={disabledIds.includes(token.id)} onChange={(event) => setTokenDisabled(token.id, event.target.checked)} />
+                Disabled
+              </label>
+              <AssetPickerButton
+                label="Token image"
+                assetId={token.assetId}
+                imageUrl={token.imageUrl}
+                assets={assets}
+                accept="image"
+                emptyLabel="No token image selected."
+                onChange={(asset) => updateToken(token.id, { assetId: asset.id, imageUrl: asset.src })}
+                onClear={() => updateToken(token.id, { assetId: undefined, imageUrl: undefined })}
+              />
+              <AssetPickerButton
+                label="Base image"
+                assetId={token.baseAssetId}
+                imageUrl={token.baseImageUrl}
+                assets={assets}
+                accept="image"
+                emptyLabel="No base image selected."
+                onChange={(asset) => updateToken(token.id, { baseAssetId: asset.id, baseImageUrl: asset.src })}
+                onClear={() => updateToken(token.id, { baseAssetId: undefined, baseImageUrl: undefined })}
+              />
+            </li>
+          ))}
+        </ul>
+        <Button onClick={addToken} disabled={tokens.length >= MAX_TOKENS}>Add token</Button>
       </div>
     </section>
   );

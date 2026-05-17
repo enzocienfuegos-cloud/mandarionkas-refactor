@@ -5,8 +5,7 @@ import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
-import { Button } from '../../shared/ui/Button';
-import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import {
   TIKTOK_VIDEO_DEFAULT_CAPTION,
   TIKTOK_VIDEO_DEFAULT_COMMENTS_COUNT,
@@ -56,37 +55,16 @@ function VideoAssetPicker({ node }: { node: WidgetNode }): JSX.Element {
 
   return (
     <div className="field-stack">
-      <div>
-        <label>Video URL (MP4)</label>
-        <input
-          value={String(node.props.videoSrc ?? '')}
-          placeholder="https://.../video.mp4"
-          onChange={(event) => updateWidgetProps(node.id, { videoSrc: event.target.value, videoAssetId: '' })}
-        />
-      </div>
-      <div>
-        <label>Asset library</label>
-        <div className="asset-inline-actions">
-          <select
-            value={linkedId}
-            onChange={(event) => {
-              const asset = assets.find((record) => record.id === event.target.value);
-              updateWidgetProps(
-                node.id,
-                asset ? { videoAssetId: asset.id, videoSrc: asset.src } : { videoAssetId: '', videoSrc: '' },
-              );
-            }}
-          >
-            <option value="">No linked asset</option>
-            {assets.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.name}
-              </option>
-            ))}
-          </select>
-          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
-        </div>
-      </div>
+      <AssetPickerButton
+        label="Background video"
+        assetId={linkedId || undefined}
+        imageUrl={String(node.props.videoSrc ?? '')}
+        accept="video"
+        assets={assets}
+        emptyLabel="Choose a background video from the asset library."
+        onChange={(asset) => updateWidgetProps(node.id, { videoAssetId: asset.id, videoSrc: asset.src })}
+        onClear={() => updateWidgetProps(node.id, { videoAssetId: '', videoSrc: '' })}
+      />
       {linkedAsset ? <small className="muted">Linked: {linkedAsset.name}</small> : null}
     </div>
   );
@@ -120,37 +98,16 @@ function ImageAssetPicker({
           <img src={previewSrc} alt="" className="inspector-preview-media" />
         </div>
       ) : null}
-      <div>
-        <label>{label} URL</label>
-        <input
-          value={String(node.props[srcKey] ?? '')}
-          placeholder="https://.../image.jpg"
-          onChange={(event) => updateWidgetProps(node.id, { [srcKey]: event.target.value, [assetIdKey]: '' })}
-        />
-      </div>
-      <div>
-        <label>Asset library</label>
-        <div className="asset-inline-actions">
-          <select
-            value={linkedId}
-            onChange={(event) => {
-              const asset = assets.find((record) => record.id === event.target.value);
-              updateWidgetProps(
-                node.id,
-                asset ? { [assetIdKey]: asset.id, [srcKey]: asset.src } : { [assetIdKey]: '', [srcKey]: '' },
-              );
-            }}
-          >
-            <option value="">No linked asset</option>
-            {assets.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.name}
-              </option>
-            ))}
-          </select>
-          <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
-        </div>
-      </div>
+      <AssetPickerButton
+        label={label}
+        assetId={linkedId || undefined}
+        imageUrl={String(node.props[srcKey] ?? '')}
+        accept="image"
+        assets={assets}
+        emptyLabel={`Choose ${label.toLowerCase()} from the asset library.`}
+        onChange={(asset) => updateWidgetProps(node.id, { [assetIdKey]: asset.id, [srcKey]: asset.src })}
+        onClear={() => updateWidgetProps(node.id, { [assetIdKey]: '', [srcKey]: '' })}
+      />
     </div>
   );
 }

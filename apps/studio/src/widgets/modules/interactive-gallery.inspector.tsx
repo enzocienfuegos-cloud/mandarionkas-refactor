@@ -6,6 +6,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { usePlatformSnapshot } from '../../platform/runtime';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import type { AssetRecord } from '../../assets/types';
 import { Button } from '../../shared/ui/Button';
 import { IconButton } from '../../shared/ui/IconButton';
@@ -239,10 +240,14 @@ export function InteractiveGalleryInspector({ widget }: { widget: WidgetNode }):
                   </div>
                 )}
               </div>
-              <input
-                value={item.src}
-                onChange={(event) => updateItem(index, { src: event.target.value, assetId: undefined })}
-                placeholder="https://.../image.jpg"
+              <AssetPickerButton
+                label="Gallery image"
+                assetId={item.assetId}
+                imageUrl={item.src}
+                accept="image"
+                assets={assets}
+                onChange={(asset) => updateItem(index, { assetId: asset.id, src: asset.src })}
+                onClear={() => updateItem(index, { assetId: undefined, src: '' })}
               />
               <input
                 value={item.title}

@@ -5,7 +5,7 @@ import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-d
 import { GroupThumb } from '../registry/widget-thumbnails';
 import { GroupInspector } from './group.inspector';
 import { renderGroupExport } from './group.export';
-import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
+import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD, DEFAULT_SCRATCH_MILESTONES } from './group-scratch-constants';
 
 export const groupDefinition: WidgetDefinition = {
   type: 'group',
@@ -31,6 +31,7 @@ export const groupDefinition: WidgetDefinition = {
       coverBlur: 0,
       scratchRadius: 22,
       autoRevealThresholdPercent: DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD,
+      scratchMilestones: DEFAULT_SCRATCH_MILESTONES,
       scratchActivationMode: 'delay',
       scratchActivationDelayMs: 0,
     },
@@ -38,9 +39,9 @@ export const groupDefinition: WidgetDefinition = {
     timeline: { startMs: 0, endMs: 15000 },
     childIds: [],
   }),
-  inspectorSections: ['position-size', 'module-config', 'timing', 'states'],
+  inspectorSections: ['position-size', 'module-config', 'shadow', 'timing', 'states'],
   inspectorTabs: createInspectorTabs([
-    { id: 'basics', label: 'Basics', panels: ['position-size', 'widget-fields', 'timing'] },
+    { id: 'basics', label: 'Basics', panels: ['position-size', 'widget-fields', 'shadow', 'timing'] },
     { id: 'behavior', label: 'Behavior', panels: ['conditions', 'actions', 'states', 'keyframes'] },
   ]),
   inspectorTitle: 'Group settings',

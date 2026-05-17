@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
+import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import { Button } from '../../shared/ui/Button';
 import { buildShoppableProductsValue, parseShoppableProducts, type ShoppableProduct } from './shoppable-sidebar.shared';
 import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
@@ -127,6 +128,14 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
                   <strong>{`Product ${index + 1}`}</strong>
                   <Button type="button" variant="danger" size="sm" onClick={() => removeProduct(index)}>Remove</Button>
                 </div>
+                <AssetPickerButton
+                  label="Product image"
+                  assetId={product.assetId}
+                  imageUrl={product.src}
+                  accept="image"
+                  onChange={(asset) => patchProduct(index, { assetId: asset.id, src: asset.src })}
+                  onClear={() => patchProduct(index, { assetId: undefined, src: '' })}
+                />
                 <input value={product.title} placeholder="Product title" onChange={(event) => patchProduct(index, { title: event.target.value })} />
                 <input value={product.subtitle} placeholder="Subtitle" onChange={(event) => patchProduct(index, { subtitle: event.target.value })} />
                 <div className="inspector-two-col-grid">
@@ -135,14 +144,10 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
                 </div>
                 <input value={product.ctaLabel} placeholder="CTA label" onChange={(event) => patchProduct(index, { ctaLabel: event.target.value })} />
                 <input value={product.url} placeholder="https://example.com/product" onChange={(event) => patchProduct(index, { url: event.target.value })} />
-                <small className="muted inspector-truncate">{product.src}</small>
+                {product.assetId ? <small className="muted inspector-truncate">Linked asset: {product.assetId}</small> : null}
               </div>
             ))}
           </div>
-        </div>
-        <div>
-          <label>Advanced product data</label>
-          <textarea rows={5} value={String(widget.props.products ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { products: event.target.value, itemCount: parseShoppableProducts(event.target.value).length || Number(widget.props.itemCount ?? 1) })} />
         </div>
       </div>
     </section>

@@ -1,5 +1,6 @@
 export type ShoppableProduct = {
   src: string;
+  assetId?: string;
   title: string;
   subtitle: string;
   price: string;
@@ -15,6 +16,7 @@ export const SHOPPABLE_PRODUCT_DEFAULT_RATING = 4;
 export const SHOPPABLE_PRODUCT_DEFAULT_CTA_LABEL = 'Shop now';
 export const SHOPPABLE_PRODUCT_DEFAULT_ITEM: ShoppableProduct = {
   src: '',
+  assetId: '',
   title: `${SHOPPABLE_PRODUCT_DEFAULT_TITLE_PREFIX} 1`,
   subtitle: SHOPPABLE_PRODUCT_DEFAULT_SUBTITLE,
   price: SHOPPABLE_PRODUCT_DEFAULT_PRICE,
@@ -30,9 +32,10 @@ export function parseShoppableProducts(raw: unknown): ShoppableProduct[] {
     .map((item) => item.trim())
     .filter(Boolean)
     .map((item, index) => {
-      const [src, title, subtitle, price, rating, ctaLabel, url] = item.split('|');
+      const [src, title, subtitle, price, rating, ctaLabel, url, assetId] = item.split('|');
       return {
         src: (src ?? '').trim(),
+        assetId: (assetId ?? '').trim() || undefined,
         title: (title ?? `${SHOPPABLE_PRODUCT_DEFAULT_TITLE_PREFIX} ${index + 1}`).trim(),
         subtitle: (subtitle ?? '').trim(),
         price: (price ?? '').trim(),
@@ -55,6 +58,7 @@ export function buildShoppableProductsValue(items: ShoppableProduct[]): string {
       String(Math.max(0, Math.min(5, Number(item.rating) || 0))),
       item.ctaLabel.trim(),
       item.url.trim(),
+      item.assetId?.trim() ?? '',
     ].join('|'))
     .join(';');
 }

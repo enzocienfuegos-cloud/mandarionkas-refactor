@@ -2,6 +2,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { CSSProperties } from 'react';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { baseTextStyle, resolveCssTextAlign, resolveTextHorizontalAlign, resolveTextVerticalAlign } from '../../canvas/stage/render-helpers';
+import { readShadowFromStyle, shadowConfigToTextShadow } from '../../shared/style/shadow';
 
 function buildTextLayoutStyle(node: WidgetNode): CSSProperties {
   return {
@@ -15,9 +16,13 @@ function buildTextLayoutStyle(node: WidgetNode): CSSProperties {
 }
 
 export function renderTextWidget(node: WidgetNode, ctx: RenderContext): JSX.Element {
+  const textStyle: CSSProperties = {
+    ...baseTextStyle(node, ctx),
+    textShadow: shadowConfigToTextShadow(readShadowFromStyle(node.style)),
+  };
   return (
     <div style={buildTextLayoutStyle(node)}>
-      <div style={baseTextStyle(node, ctx)}>{String(node.props.text ?? '')}</div>
+      <div style={textStyle}>{String(node.props.text ?? '')}</div>
     </div>
   );
 }

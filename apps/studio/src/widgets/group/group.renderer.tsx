@@ -6,6 +6,7 @@ import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
 import { renderWidgetContents } from '../../canvas/stage/render-widget';
 import { MotionLayer } from '../../motion/react/MotionLayer';
+import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
 import { isScratchGroupActive } from './group-scratch-activation';
 import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
 
@@ -161,6 +162,7 @@ function buildScratchMaskStyle(maskUrl: string, blur: number): CSSProperties {
 }
 
 function renderDefaultGroup(node: WidgetNode, ctx: RenderContext): JSX.Element {
+  const boxShadow = shadowConfigToBoxShadow(readShadowFromStyle(node.style));
   if (node.childIds?.length) {
     return (
       <div
@@ -170,6 +172,7 @@ function renderDefaultGroup(node: WidgetNode, ctx: RenderContext): JSX.Element {
           borderRadius: Number(node.style.borderRadius ?? 18),
           background: resolveWidgetBackground(node, 'transparent', ctx),
           opacity: resolveWidgetOpacity(node, ctx),
+          boxShadow,
         }}
       />
     );
@@ -182,6 +185,7 @@ function renderDefaultGroup(node: WidgetNode, ctx: RenderContext): JSX.Element {
         background: resolveWidgetBackground(node, 'rgba(139,92,246,0.08)', ctx),
         color: resolveWidgetColor(node, ctx),
         opacity: resolveWidgetOpacity(node, ctx),
+        boxShadow,
       }}
     >
       {String(node.props.title ?? node.name)}
@@ -376,6 +380,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     Math.min(100, Number(node.props.autoRevealThresholdPercent ?? DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD)),
   );
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
+  const boxShadow = shadowConfigToBoxShadow(readShadowFromStyle(node.style));
 
   const syncMaskPreview = () => {
     const canvas = maskCanvasRef.current;
@@ -470,7 +475,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const scratchContent = <GroupScratchCoverChildren node={node} ctx={ctx} />;
 
   return (
-    <div ref={shellRef} style={scratchShellStyle}>
+    <div ref={shellRef} style={{ ...scratchShellStyle, borderRadius: Number(node.style.borderRadius ?? 18), boxShadow }}>
       <canvas ref={maskCanvasRef} style={scratchCanvasStyle} aria-hidden="true" />
       {scratchContent ? (
         <div style={scratchCompleted || !maskUrl ? scratchRevealedContentStyle : buildScratchMaskStyle(maskUrl, coverBlur)}>

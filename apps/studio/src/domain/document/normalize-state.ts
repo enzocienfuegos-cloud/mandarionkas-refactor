@@ -96,11 +96,33 @@ function normalizeWidgets(widgets: StudioState['document']['widgets'] | undefine
   if (!widgets) return {};
   return Object.fromEntries(
     Object.entries(widgets).map(([widgetId, widget]) => {
+      const nextProps = { ...widget.props };
+      if (widget.type === 'drag-token-pool') {
+        if (typeof nextProps.tokens === 'string') {
+          try {
+            const parsed = JSON.parse(nextProps.tokens);
+            nextProps.tokens = Array.isArray(parsed) ? parsed : [];
+          } catch {
+            nextProps.tokens = [];
+          }
+        } else if (!Array.isArray(nextProps.tokens)) {
+          nextProps.tokens = [];
+        }
+        if (typeof nextProps.disabledIds === 'string') {
+          nextProps.disabledIds = nextProps.disabledIds
+            .split(',')
+            .map((id) => id.trim())
+            .filter(Boolean);
+        } else if (!Array.isArray(nextProps.disabledIds)) {
+          nextProps.disabledIds = [];
+        }
+      }
       const motion = resolveNormalizedMotion(widget);
       return [
         widgetId,
         {
           ...widget,
+          props: nextProps,
           motion: cloneWidgetMotion(motion),
           hoverMotion: resolveNormalizedHoverMotion(widget),
           timeline: {

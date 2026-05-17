@@ -10,7 +10,7 @@ describe('widget inspector layout', () => {
   it('derives fallback tabs from widget capabilities', () => {
     const tabs = resolveInspectorTabs(textDefinition);
     expect(tabs.map((tab) => tab.id)).toEqual(['basics', 'behavior', 'data']);
-    expect(tabs[0]?.panels).toEqual(['position-size', 'text-content', 'timing']);
+    expect(tabs[0]?.panels).toEqual(['position-size', 'text-content', 'shadow', 'timing']);
     expect(tabs[1]?.panels).toContain('keyframes');
     expect(tabs[2]?.panels).toEqual(['data-bindings', 'variants']);
   });

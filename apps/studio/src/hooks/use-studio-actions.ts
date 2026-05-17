@@ -150,8 +150,10 @@ export function useSceneActions() {
       previousScene: () => maybeTransitionToScene(resolvePreviousSceneId(stateRef.current)),
       nextScene: () => maybeTransitionToScene(resolveNextSceneId(stateRef.current, stateRef.current.document.selection.activeSceneId)),
       addScene: () => dispatch({ type: 'ADD_SCENE' }),
+      addSceneFromCurrent: () => dispatch({ type: 'ADD_SCENE_FROM_CURRENT' }),
       duplicateScene: (sceneId: string) => dispatch({ type: 'DUPLICATE_SCENE', sceneId }),
       deleteScene: (sceneId: string) => dispatch({ type: 'DELETE_SCENE', sceneId }),
+      reorderScenes: (fromIndex: number, toIndex: number) => dispatch({ type: 'REORDER_SCENES', fromIndex, toIndex }),
       updateScene: (sceneId: string, patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_SCENE', sceneId, patch }),
     };
   }, [engine, stateRef]);

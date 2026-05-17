@@ -1,14 +1,17 @@
 import type { WidgetNode } from '../../domain/document/types';
 import { escapeHtml, getBaseWidgetStyle, renderGenericExport, resolveExportHorizontalAlign, resolveExportTextAlign, resolveExportVerticalAlign } from './export-helpers';
 import { resolveShapeKind } from '../shape/shape-shared';
+import { readShadowFromStyle, shadowConfigToBoxShadow, shadowConfigToTextShadow } from '../../shared/style/shadow';
 
 export function renderTextExport(node: WidgetNode): string {
-  const base = `${getBaseWidgetStyle(node)};background:transparent;border:none;justify-content:${resolveExportVerticalAlign(node)};align-items:${resolveExportHorizontalAlign(node)};padding:0;text-align:${resolveExportTextAlign(node)};`;
+  const textShadow = escapeHtml(shadowConfigToTextShadow(readShadowFromStyle(node.style)));
+  const base = `${getBaseWidgetStyle(node)};background:transparent;border:none;justify-content:${resolveExportVerticalAlign(node)};align-items:${resolveExportHorizontalAlign(node)};padding:0;text-align:${resolveExportTextAlign(node)};text-shadow:${textShadow};`;
   return `<div class="widget widget-text" data-widget-id="${node.id}" style="${base}">${escapeHtml(node.props.text ?? '')}</div>`;
 }
 
 export function renderCtaExport(node: WidgetNode): string {
-  const base = `${getBaseWidgetStyle(node)};cursor:pointer;justify-content:${resolveExportVerticalAlign(node)};align-items:${resolveExportHorizontalAlign(node)};text-align:${resolveExportTextAlign(node)};border-radius:${Number(node.style.borderRadius ?? 10)}px;`;
+  const boxShadow = escapeHtml(shadowConfigToBoxShadow(readShadowFromStyle(node.style)));
+  const base = `${getBaseWidgetStyle(node)};cursor:pointer;justify-content:${resolveExportVerticalAlign(node)};align-items:${resolveExportHorizontalAlign(node)};text-align:${resolveExportTextAlign(node)};border-radius:${Number(node.style.borderRadius ?? 10)}px;box-shadow:${boxShadow};`;
   return `<button class="widget widget-cta" data-widget-id="${node.id}" style="${base}">${escapeHtml(node.props.text ?? node.name)}</button>`;
 }
 
@@ -19,6 +22,7 @@ export function renderImageExport(node: WidgetNode, kind: 'image' | 'hero-image'
   const src = typeof node.props.src === 'string' ? (assetPathMap[node.props.src] ?? node.props.src) : '';
   const alt = escapeHtml(String(node.props.alt ?? (kind === 'hero-image' ? 'Hero image' : 'Image')));
   const fit = kind === 'hero-image' ? 'cover' : String(node.props.fit ?? node.style.fit ?? 'cover');
+  const boxShadow = escapeHtml(shadowConfigToBoxShadow(readShadowFromStyle(node.style)));
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -31,6 +35,7 @@ export function renderImageExport(node: WidgetNode, kind: 'image' | 'hero-image'
     `box-sizing:border-box`,
     `border-radius:${borderRadius}px`,
     `background:${escapeHtml(String(style.backgroundColor ?? 'transparent'))}`,
+    `box-shadow:${boxShadow}`,
   ].join(';');
   return `<div class="widget widget-${kind}" data-widget-id="${node.id}" style="${base}"><img src="${escapeHtml(src)}" alt="${alt}" style="width:100%;height:100%;display:block;object-fit:${escapeHtml(fit)};" /></div>`;
 }
@@ -51,6 +56,7 @@ export function renderShapeExport(node: WidgetNode): string {
   const maskFit = escapeHtml(String(node.props.maskFit ?? 'cover'));
   const focalX = Number(node.props.maskFocalX ?? 50);
   const focalY = Number(node.props.maskFocalY ?? 50);
+  const boxShadow = escapeHtml(shadowConfigToBoxShadow(readShadowFromStyle(node.style)));
 
   let innerStyle = `width:100%;height:100%;background:${fill};border:1px solid ${border};box-sizing:border-box;`;
   let clipPath = '';
@@ -74,8 +80,8 @@ export function renderShapeExport(node: WidgetNode): string {
     const containerStyle = innerStyle.replace(`background:${fill};`, 'background:transparent;')
       + `overflow:hidden;clip-path:${clipPath};position:relative;border:none;`;
     const imgStyle = `position:absolute;inset:0;width:100%;height:100%;object-fit:${maskFit};object-position:${focalX}% ${focalY}%;display:block;pointer-events:none;`;
-    return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};display:flex;align-items:center;justify-content:center;padding:0;"><div style="${containerStyle}"><img src="${maskSrc}" alt="" style="${imgStyle}" /></div></div>`;
+    return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};display:flex;align-items:center;justify-content:center;padding:0;box-shadow:${boxShadow};"><div style="${containerStyle}"><img src="${maskSrc}" alt="" style="${imgStyle}" /></div></div>`;
   }
 
-  return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};display:flex;align-items:center;justify-content:center;padding:0;"><div style="${innerStyle}"></div></div>`;
+  return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};display:flex;align-items:center;justify-content:center;padding:0;box-shadow:${boxShadow};"><div style="${innerStyle}"></div></div>`;
 }

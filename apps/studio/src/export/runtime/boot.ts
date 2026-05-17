@@ -225,7 +225,7 @@ export function bootSmxRuntime(runtimeModel: ExportRuntimeModel): void {
   });
 
   const widgetMount = mountWidgetMotions(runtimeModel, engine, sceneManager);
-  const scratchMount = mountScratchReveal(engine, runtimeModel);
+  const scratchMount = mountScratchReveal(engine, runtimeModel, sceneManager);
   const interactiveMount = mountInteractiveRuntime({ runtimeModel, performExit, resolveExitUrl, sceneManager });
   const dynamicMapMount = mountDynamicMapRuntime({ performExit });
   mountCountdownWidgets();

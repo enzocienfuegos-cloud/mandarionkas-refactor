@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { baseTextStyle, resolveCssTextAlign, resolveTextHorizontalAlign, resolveTextVerticalAlign, resolveWidgetBackground, resolveWidgetBorder } from '../../canvas/stage/render-helpers';
+import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
 
 function buildCtaWidgetStyle(node: WidgetNode, ctx: RenderContext): CSSProperties {
   return {
@@ -15,6 +16,7 @@ function buildCtaWidgetStyle(node: WidgetNode, ctx: RenderContext): CSSPropertie
     borderRadius: 10,
     background: resolveWidgetBackground(node, '#ffd400', ctx),
     border: `1px solid ${resolveWidgetBorder(node, ctx)}`,
+    boxShadow: shadowConfigToBoxShadow(readShadowFromStyle(node.style)),
   };
 }
 

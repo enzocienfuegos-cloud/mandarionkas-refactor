@@ -89,7 +89,7 @@ function createTemplateWidgetDefaults(type: WidgetType): TemplateWidgetDefaults 
       return {
         name: 'Drag Token Pool',
         frame: { x: 20, y: 20, width: 280, height: 96, rotation: 0 },
-        props: { tokens: '[]', disabledIds: '', dropTargetId: '', tokenSize: 72, gap: 16 },
+        props: { tokens: [], disabledIds: [], dropTargetId: '', tokenSize: 72, gap: 16, tokenShape: 'circle' },
         style: { backgroundColor: 'transparent', accentColor: '#ffffff', color: '#ffffff' },
         timeline: { startMs: 0, endMs: 15000 },
       };
