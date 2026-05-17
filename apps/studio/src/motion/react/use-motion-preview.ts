@@ -15,6 +15,11 @@ function getPreviewDuration(template: MotionTemplate, config: MotionConfig): num
   return delayMs + durationMs;
 }
 
+function getPreviewSampleCount(durationMs: number): number {
+  const targetFrameMs = 1000 / 120;
+  return Math.max(32, Math.min(240, Math.ceil(durationMs / targetFrameMs)));
+}
+
 function buildHoverPreview(template: MotionTemplate, config: MotionConfig, baseOpacity: number): {
   keyframes: Keyframe[];
   options: KeyframeAnimationOptions;
@@ -79,7 +84,7 @@ function buildTemplatePreview(template: MotionTemplate, config: MotionConfig, ba
   const previewFrame = { x: 0, y: 0, width: 72, height: 24, rotation: 0 };
   const timeline = { startMs: 0, endMs: Math.max(previewDurationMs, 1) };
   const generated = template.buildKeyframes(config, previewFrame, timeline);
-  const sampleCount = 16;
+  const sampleCount = getPreviewSampleCount(previewDurationMs);
   const keyframes = Array.from({ length: sampleCount + 1 }, (_, index) => {
     const atMs = (previewDurationMs * index) / sampleCount;
     const x = evaluateTrack('x', generated, atMs, previewFrame.x) - previewFrame.x;
@@ -121,11 +126,13 @@ export function useMotionPreview({
 }: UseMotionPreviewOptions): void {
   const animationRef = useRef<Animation | null>(null);
   const configSignature = JSON.stringify(config ?? null);
+  const scrubActive = typeof scrubTimeMs === 'number';
 
   useLayoutEffect(() => {
     const node = ref.current;
     const currentAnimation = animationRef.current;
-    if (!node || !template || !config || typeof node.animate !== 'function') {
+    const shouldRenderPreview = active || scrubActive;
+    if (!shouldRenderPreview || !node || !template || !config || typeof node.animate !== 'function') {
       currentAnimation?.cancel();
       animationRef.current = null;
       return;
@@ -143,7 +150,7 @@ export function useMotionPreview({
         animationRef.current = null;
       }
     };
-  }, [baseOpacity, configSignature, ref, template]);
+  }, [active, baseOpacity, configSignature, ref, scrubActive, template]);
 
   useLayoutEffect(() => {
     const animation = animationRef.current;

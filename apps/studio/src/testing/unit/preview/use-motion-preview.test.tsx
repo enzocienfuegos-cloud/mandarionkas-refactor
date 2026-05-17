@@ -61,6 +61,17 @@ function Harness({
 }
 
 describe('useMotionPreview', () => {
+  it('does not allocate an animation for idle thumbnail previews', () => {
+    const animation = createFakeAnimation();
+    const element = createFakeElement(animation);
+
+    act(() => {
+      create(<Harness element={element} active={false} scrubTimeMs={null} />);
+    });
+
+    expect((element.animate as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+  });
+
   it('reuses the same animation instance while scrubbing preview playback', () => {
     const animation = createFakeAnimation();
     const element = createFakeElement(animation);

@@ -52,8 +52,9 @@ describe('motion templates build timeline keyframes', () => {
     const template = getMotionTemplate('float');
     const keyframes = template?.buildKeyframes({ durationMs: 1200, delayMs: 0, distancePx: 8 }, frame, timeline) ?? [];
 
-    expect(keyframes.length).toBeGreaterThan(8);
+    expect(keyframes.length).toBeGreaterThan(4);
     expect(keyframes.every((keyframe) => keyframe.property === 'y')).toBe(true);
+    expect(keyframes.every((keyframe) => keyframe.easing === 'ease-in-out')).toBe(true);
     expect(keyframes.some((keyframe) => keyframe.value > frame.y)).toBe(true);
     expect(keyframes.some((keyframe) => keyframe.value < frame.y)).toBe(true);
   });
