@@ -17,19 +17,19 @@ export function ShareHandoffSection(): JSX.Element {
   const preflight = buildExportPreflight(state);
   const previewProjectId = topBarSnapshot.activeProjectId ?? state.document.id;
   const previewToken = buildClientPreviewToken(previewProjectId, state.document.version);
-  const shareLink = state.document.collaboration.shareLink || (
-    typeof window !== 'undefined'
-      ? buildClientPreviewUrl(window.location, previewProjectId, previewToken)
-      : ''
-  );
+  const generatedShareLink = typeof window !== 'undefined'
+    ? buildClientPreviewUrl(window.location, previewProjectId, previewToken)
+    : '';
+  const shareLink = state.document.collaboration.shareLink || generatedShareLink;
   const openComments = state.document.collaboration.comments.filter((item) => item.status === 'open').length;
   const pendingApprovals = state.document.collaboration.approvals.filter((item) => item.status === 'pending').length;
 
   async function handleCopyLink(): Promise<void> {
     try {
+      const nextShareLink = generatedShareLink || shareLink;
       persistClientPreviewSnapshot(previewProjectId, state);
-      setShareLink(shareLink);
-      await navigator.clipboard?.writeText(shareLink);
+      setShareLink(nextShareLink);
+      await navigator.clipboard?.writeText(nextShareLink);
       pushToast({
         title: 'Share link copied',
         description: 'The public client preview link is ready to paste.',

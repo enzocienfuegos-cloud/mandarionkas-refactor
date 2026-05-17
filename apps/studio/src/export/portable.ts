@@ -39,6 +39,7 @@ export type PortableExportWidget = {
   sceneId: string;
   zIndex: number;
   parentId?: string;
+  childIds?: string[];
   hidden: boolean;
   locked: boolean;
   frame: WidgetNode['frame'];
@@ -207,6 +208,7 @@ function compileWidget(widget: WidgetNode, state: StudioState): PortableExportWi
     sceneId: snapshot.sceneId,
     zIndex: snapshot.zIndex,
     parentId: snapshot.parentId,
+    childIds: snapshot.childIds ? [...snapshot.childIds] : undefined,
     hidden: Boolean(snapshot.hidden),
     locked: Boolean(snapshot.locked),
     frame: { ...snapshot.frame },

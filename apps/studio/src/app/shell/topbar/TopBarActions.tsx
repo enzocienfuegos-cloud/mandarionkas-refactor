@@ -127,11 +127,9 @@ export function TopBarActions({
   }
 
   async function handleCopyPreviewLink(): Promise<void> {
-    const shareLink = state.document.collaboration.shareLink || (
-      typeof window !== 'undefined'
-        ? buildClientPreviewUrl(window.location, previewProjectId, previewToken)
-        : ''
-    );
+    const shareLink = typeof window !== 'undefined'
+      ? buildClientPreviewUrl(window.location, previewProjectId, previewToken)
+      : '';
     try {
       persistClientPreviewSnapshot(previewProjectId, state);
       setShareLink(shareLink);

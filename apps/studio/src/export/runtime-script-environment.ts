@@ -247,6 +247,14 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
     });
   }
 
+  function playInheritedGroupCompositorMotion(sceneRuntime, groupWidget) {
+    if (!sceneRuntime || !groupWidget || groupWidget.type !== 'group' || !groupWidget.childIds || !groupWidget.childIds.length || !groupWidget.compositorMotion) return;
+    getCompositorRuntimeDescendantWidgets(sceneRuntime, groupWidget.id).forEach(function(descendant) {
+      if (!descendant || descendant.compositorMotion) return;
+      playCompositorMotion(groupWidget, findCompositorLayerNode(descendant.id));
+    });
+  }
+
   function playScratchRevealTargetCompositorMotions(scratchWidgetId) {
     var sceneRuntime = findRuntimeSceneByWidgetId(scratchWidgetId);
     var scratchWidget = findRuntimeWidgetById(scratchWidgetId);
@@ -254,6 +262,7 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
     sceneRuntime.widgets.forEach(function(widget) {
       if (!widget || !isCompositorWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, widget)) return;
       playCompositorMotion(widget, findCompositorMotionNode(widget.id));
+      playInheritedGroupCompositorMotion(sceneRuntime, widget);
       if (widget.type !== 'group' || !widget.childIds || !widget.childIds.length) return;
       getCompositorRuntimeDescendantWidgets(sceneRuntime, widget.id).forEach(function(descendant) {
         if (!descendant || !descendant.compositorMotion) return;
@@ -271,6 +280,7 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
         if (!node || node.getAttribute('data-scratch-cover-motion-id')) return;
         if (isCompositorWidgetWaitingForScratchReveal(scene, widget)) return;
         playCompositorMotion(widget, node);
+        playInheritedGroupCompositorMotion(scene, widget);
       });
     });
   }
