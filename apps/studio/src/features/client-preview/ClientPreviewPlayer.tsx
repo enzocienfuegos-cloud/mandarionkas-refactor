@@ -84,8 +84,10 @@ export function ClientPreviewPlayer({
 
   useEffect(() => {
     if (!isPlaying) return undefined;
+    const reactSyncIntervalMs = 250;
     let frame = 0;
     let lastTime: number | null = null;
+    let lastSyncedMs = playheadRef.current;
     const tick = (now: number) => {
       if (lastTime === null) {
         lastTime = now;
@@ -95,7 +97,10 @@ export function ClientPreviewPlayer({
       const next = Math.min(scene.durationMs, playheadRef.current + (now - lastTime));
       lastTime = now;
       playheadRef.current = next;
-      setPlayheadMs(next);
+      if (next - lastSyncedMs >= reactSyncIntervalMs || next >= scene.durationMs) {
+        lastSyncedMs = next;
+        setPlayheadMs(next);
+      }
       if (next >= scene.durationMs) {
         setIsPlaying(false);
         return;

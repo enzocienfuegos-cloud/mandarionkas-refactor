@@ -112,6 +112,7 @@ export const StageWidget = memo(function StageWidget({
           node,
           {
             previewMode,
+            isReproducing,
             playheadMs,
             sceneDurationMs,
             hovered,

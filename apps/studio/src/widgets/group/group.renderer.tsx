@@ -5,7 +5,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
 import { renderWidgetContents } from '../../canvas/stage/render-widget';
-import { useCompositorMotion } from '../../motion/react/use-compositor-motion';
+import { MotionLayer } from '../../motion/react/MotionLayer';
 import { isScratchGroupActive } from './group-scratch-activation';
 
 const groupBaseStyle: CSSProperties = {
@@ -230,6 +230,15 @@ function resolveScratchCoverOpacity({
   return Math.max(0, Math.min(1, opacity));
 }
 
+function resolveScratchCoverBaseFrame(node: WidgetNode): WidgetNode['frame'] {
+  return node.frame;
+}
+
+function resolveScratchCoverBaseOpacity(node: WidgetNode): number {
+  const opacity = Number(node.style.opacity ?? 1);
+  return Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 1;
+}
+
 function renderScratchCoverNode(
   node: WidgetNode,
   rootFrame: WidgetNode['frame'],
@@ -277,10 +286,13 @@ function ScratchCoverWidget({
   ctx: RenderContext;
   revealCompletedAtMs?: number;
 }): JSX.Element {
-  const compositorMotionRef = useRef<HTMLDivElement | null>(null);
-  useCompositorMotion({ ref: compositorMotionRef, motion: node.motion, active: ctx.previewMode });
-  const liveFrame = resolveScratchCoverLiveFrame({ node, rootGroupId, ctx, revealCompletedAtMs });
-  const liveOpacity = resolveScratchCoverOpacity({ node, rootGroupId, ctx, revealCompletedAtMs });
+  const shouldReproduceMotion = Boolean(ctx.previewMode && ctx.isReproducing && revealCompletedAtMs !== undefined);
+  const liveFrame = shouldReproduceMotion
+    ? resolveScratchCoverBaseFrame(node)
+    : resolveScratchCoverLiveFrame({ node, rootGroupId, ctx, revealCompletedAtMs });
+  const liveOpacity = shouldReproduceMotion
+    ? resolveScratchCoverBaseOpacity(node)
+    : resolveScratchCoverOpacity({ node, rootGroupId, ctx, revealCompletedAtMs });
   const contentNode: WidgetNode = {
     ...node,
     frame: {
@@ -296,7 +308,11 @@ function ScratchCoverWidget({
   };
 
   return (
-    <div
+    <MotionLayer
+      widget={node}
+      playheadMs={ctx.playheadMs}
+      isReproducing={shouldReproduceMotion}
+      startedAtMs={revealCompletedAtMs}
       style={{
         position: 'absolute',
         left: liveFrame.x - rootFrame.x,
@@ -310,17 +326,15 @@ function ScratchCoverWidget({
         pointerEvents: 'none',
       }}
     >
-      <div ref={compositorMotionRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
-        {renderWidgetContents(
-          contentNode,
-          {
-            ...ctx,
-            hovered: false,
-            active: false,
-          },
-        )}
-      </div>
-    </div>
+      {renderWidgetContents(
+        contentNode,
+        {
+          ...ctx,
+          hovered: false,
+          active: false,
+        },
+      )}
+    </MotionLayer>
   );
 }
 

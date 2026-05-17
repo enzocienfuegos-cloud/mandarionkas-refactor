@@ -2,6 +2,7 @@ import type { ActionNode, StudioState, WidgetNode } from '../../domain/document/
 
 export type RenderContext = {
   previewMode: boolean;
+  isReproducing?: boolean;
   playheadMs: number;
   sceneDurationMs: number;
   hovered: boolean;
