@@ -131,6 +131,10 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
     return document.querySelector('[data-scratch-cover-motion-id="' + widgetId + '"]') || document.querySelector('[data-widget-layer-id="' + widgetId + '"]') || document.querySelector('[data-widget-id="' + widgetId + '"]');
   }
 
+  function findCompositorLayerNode(widgetId) {
+    return document.querySelector('[data-widget-layer-id="' + widgetId + '"]') || document.querySelector('[data-widget-id="' + widgetId + '"]');
+  }
+
   function findRuntimeWidgetById(widgetId) {
     if (!runtime || !Array.isArray(runtime.scenes)) return null;
     for (var sceneIndex = 0; sceneIndex < runtime.scenes.length; sceneIndex += 1) {
@@ -178,6 +182,13 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
       currentParentId = widgetsById[currentParentId] ? widgetsById[currentParentId].parentId : undefined;
     }
     return false;
+  }
+
+  function getCompositorRuntimeDescendantWidgets(sceneRuntime, ancestorWidgetId) {
+    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !ancestorWidgetId) return [];
+    return sceneRuntime.widgets.filter(function(widget) {
+      return widget && widget.id !== ancestorWidgetId && isCompositorRuntimeWidgetDescendantOf(sceneRuntime, widget, ancestorWidgetId);
+    });
   }
 
   function compositorRectsOverlap(left, right) {
@@ -241,6 +252,11 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
     sceneRuntime.widgets.forEach(function(widget) {
       if (!widget || !isCompositorWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, widget)) return;
       playCompositorMotion(widget, findCompositorMotionNode(widget.id));
+      if (widget.type !== 'group' || !widget.compositorMotion) return;
+      getCompositorRuntimeDescendantWidgets(sceneRuntime, widget.id).forEach(function(descendant) {
+        if (!descendant || descendant.compositorMotion || !isCompositorWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, descendant)) return;
+        playCompositorMotion(widget, findCompositorLayerNode(descendant.id));
+      });
     });
   }
 

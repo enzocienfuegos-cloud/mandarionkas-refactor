@@ -28,8 +28,45 @@ describe('client preview player', () => {
 
     expect(html).toContain('initCompositorMotion');
     expect(html).toContain('node.animate(spec.keyframes');
-    expect(html).toContain('&quot;compositorMotion&quot;');
+    expect(html).toContain('"compositorMotion"');
     expect(html).toContain('Smooth motion');
+  });
+
+  it('serializes public preview runtime JSON as parseable script text', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.widgets.text_1 = {
+      id: 'text_1',
+      type: 'text',
+      name: 'JSON check',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 24, y: 40, width: 180, height: 44, rotation: 0 },
+      style: { color: '#ffffff', fontSize: 24, fontWeight: 800 },
+      props: { text: 'JSON <safe> & parseable' },
+      timeline: { startMs: 0, endMs: 1000 },
+    } as any;
+    state.document.scenes[0].widgetIds.push('text_1');
+
+    const html = buildClientPreviewSceneHtml(state, 0);
+    const extractJsonScript = (id: string) => {
+      const marker = `id="${id}">`;
+      const start = html.indexOf(marker);
+      if (start < 0) return undefined;
+      const contentStart = start + marker.length;
+      const end = html.indexOf('</script>', contentStart);
+      return end >= 0 ? html.slice(contentStart, end) : undefined;
+    };
+    const runtimeJson = extractJsonScript('smx-runtime-model');
+    const exitJson = extractJsonScript('smx-exit-config');
+
+    expect(runtimeJson).toBeTruthy();
+    expect(exitJson).toBeTruthy();
+    expect(runtimeJson).not.toContain('&quot;');
+    expect(exitJson).not.toContain('&quot;');
+    expect(() => JSON.parse(runtimeJson ?? '')).not.toThrow();
+    expect(() => JSON.parse(exitJson ?? '')).not.toThrow();
+    expect(html).toContain('parseRuntimeJson');
   });
 
   it('isolates the selected scene for public preview playback', () => {

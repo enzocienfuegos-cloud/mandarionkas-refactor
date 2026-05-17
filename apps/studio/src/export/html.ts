@@ -34,6 +34,15 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;');
 }
 
+function serializeJsonScript(value: unknown, space?: number): string {
+  return JSON.stringify(value, null, space)
+    .replace(/</g, '\\u003C')
+    .replace(/>/g, '\\u003E')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
 function widgetHtml(node: PortableExportWidget, state: StudioState, assetPathMap: Record<string, string>): string {
   return renderWidgetExport({
     node,
@@ -175,7 +184,7 @@ export function buildStandaloneHtml(state: StudioState): string {
       ${orderedScenes.map((scene, index) => `<div class="scene-card"><div class="scene-title">${escapeHtml(scene.name)}</div>${sceneHtml(scene, portableProject.canvas, state, assetPathMap, index === 0)}</div>`).join('\n')}
     </div>
   </div>
-  <script type="application/json" id="smx-export-manifest">${escapeHtml(JSON.stringify(manifest, null, 2))}</script>
+  <script type="application/json" id="smx-export-manifest">${serializeJsonScript(manifest, 2)}</script>
 </body>
 </html>`;
 }
@@ -404,8 +413,8 @@ export function buildPlayableSingleFileHtml(
   (function() {${exitBootstrap}
   })();
   </script>
-  <script type="application/json" id="smx-runtime-model">${escapeHtml(JSON.stringify(runtimeModel))}</script>
-  <script type="application/json" id="smx-exit-config">${escapeHtml(JSON.stringify(exitConfig))}</script>
+  <script type="application/json" id="smx-runtime-model">${serializeJsonScript(runtimeModel)}</script>
+  <script type="application/json" id="smx-exit-config">${serializeJsonScript(exitConfig)}</script>
   <script>${runtimeScript}</script>
 </body>
 </html>`;
@@ -451,9 +460,9 @@ export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter)
   (function() {${exitBootstrap}
   })();
   </script>
-  <script type="application/json" id="smx-export-manifest">${escapeHtml(JSON.stringify(manifest, null, 2))}</script>
-  <script type="application/json" id="smx-runtime-model">${escapeHtml(JSON.stringify(runtimeModel, null, 2))}</script>
-  <script type="application/json" id="smx-exit-config">${escapeHtml(JSON.stringify(exitConfig, null, 2))}</script>
+  <script type="application/json" id="smx-export-manifest">${serializeJsonScript(manifest, 2)}</script>
+  <script type="application/json" id="smx-runtime-model">${serializeJsonScript(runtimeModel, 2)}</script>
+  <script type="application/json" id="smx-exit-config">${serializeJsonScript(exitConfig, 2)}</script>
   <script src="./runtime.js"></script>
 </body>
 </html>`;

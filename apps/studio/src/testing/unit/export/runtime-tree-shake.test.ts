@@ -165,6 +165,66 @@ describe('runtime tree shake', () => {
     expect(script).toContain('window.__smxScratchCompletionMsByWidgetId?.[candidate.id]');
   });
 
+  it('replays selected scratch target group motion on descendant layers after reveal', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    state.document.widgets.target_group = {
+      id: 'target_group',
+      type: 'group',
+      name: 'Target group',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 220, height: 160, rotation: 0 },
+      style: {},
+      props: { title: 'Target group' },
+      motion: {
+        templateId: 'slide-in-left',
+        config: { durationMs: 700, delayMs: 0, distancePx: 90 },
+      },
+      timeline: { startMs: 0, endMs: 1000, keyframes: [] },
+      childIds: ['image_1'],
+    } as any;
+    state.document.widgets.image_1 = {
+      id: 'image_1',
+      type: 'image',
+      name: 'Grouped child',
+      sceneId,
+      parentId: 'target_group',
+      zIndex: 2,
+      frame: { x: 24, y: 24, width: 120, height: 90, rotation: 0 },
+      style: { opacity: 1 },
+      props: { src: 'https://cdn.example.com/grouped.png', alt: 'Grouped child' },
+      timeline: { startMs: 0, endMs: 1000, keyframes: [] },
+    } as any;
+    state.document.widgets.group_1 = {
+      id: 'group_1',
+      type: 'group',
+      name: 'Scratch group',
+      sceneId,
+      zIndex: 4,
+      frame: { x: 0, y: 0, width: 220, height: 160, rotation: 0 },
+      style: {},
+      props: {
+        title: 'Scratch group',
+        scratchEnabled: true,
+        revealTargetMode: 'widget',
+        revealTargetId: 'target_group',
+        beforeImage: 'https://cdn.example.com/cover.png',
+      },
+      timeline: { startMs: 0, endMs: 1000 },
+      childIds: [],
+    } as any;
+    state.document.scenes[0].widgetIds.push('target_group', 'image_1', 'group_1');
+
+    const adapter = buildGamHtml5Adapter(state);
+    const script = compileRuntime(adapter.portableProject, adapter);
+
+    expect(script).toContain('getCompositorRuntimeDescendantWidgets');
+    expect(script).toContain('findCompositorLayerNode(descendant.id)');
+    expect(script).toContain('playCompositorMotion(widget, findCompositorLayerNode(descendant.id))');
+  });
+
   it('restarts timeline-keyframed targets behind a scratch group from reveal time', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
