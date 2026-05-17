@@ -81,6 +81,8 @@ export function StageSurface({
   const transitionDuration = Math.max(120, sceneTransitionDurationMs);
   const [scratchCompletionMsByWidgetId, setScratchCompletionMsByWidgetId] = useState<Record<string, number>>({});
   const previousPlayheadRef = useRef(playheadMs);
+  const completionMsCache = new Map<string, number | undefined>();
+  const resolvingCompletionIds = new Set<string>();
 
   useEffect(() => {
     if (!previewMode) {
@@ -129,7 +131,7 @@ export function StageSurface({
       .filter((child): child is WidgetNode => Boolean(child) && isWidgetVisibleAtBaseTime(child))
       .map((child) => {
         if (child.childIds?.length) return resolveScratchGroupFrame(child, visited);
-        return liveFrameById[child.id] ?? getEffectiveLiveFrame(child);
+        return liveFrameById[child.id] ?? getLiveWidgetFrame(child, playheadMs);
       });
 
     if (!childFrames.length) return baseFrame;
@@ -150,24 +152,33 @@ export function StageSurface({
 
   function findScratchRevealCompletionMs(widget: WidgetNode): number | undefined {
     if (!previewMode) return undefined;
-    const widgetFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
-    let topCoverId: string | null = null;
-    let topCoverZIndex = Number.NEGATIVE_INFINITY;
+    if (completionMsCache.has(widget.id)) return completionMsCache.get(widget.id);
+    if (resolvingCompletionIds.has(widget.id)) return undefined;
+    resolvingCompletionIds.add(widget.id);
 
-    widgets.forEach((candidate) => {
-      if (candidate.id === widget.id) return;
-      if (candidate.type !== 'group' || !candidate.props.scratchEnabled) return;
-      if (candidate.zIndex <= widget.zIndex) return;
-      const candidateFrame = resolveScratchGroupFrame(candidate);
-      if (!rectsOverlap(candidateFrame, widgetFrame)) return;
-      if (candidate.zIndex > topCoverZIndex) {
-        topCoverId = candidate.id;
-        topCoverZIndex = candidate.zIndex;
-      }
-    });
+    try {
+      const widgetFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
+      let topCoverId: string | null = null;
+      let topCoverZIndex = Number.NEGATIVE_INFINITY;
 
-    if (!topCoverId) return undefined;
-    return scratchCompletionMsByWidgetId[topCoverId];
+      widgets.forEach((candidate) => {
+        if (candidate.id === widget.id) return;
+        if (candidate.type !== 'group' || !candidate.props.scratchEnabled) return;
+        if (candidate.zIndex <= widget.zIndex) return;
+        const candidateFrame = resolveScratchGroupFrame(candidate);
+        if (!rectsOverlap(candidateFrame, widgetFrame)) return;
+        if (candidate.zIndex > topCoverZIndex) {
+          topCoverId = candidate.id;
+          topCoverZIndex = candidate.zIndex;
+        }
+      });
+
+      const result = topCoverId ? scratchCompletionMsByWidgetId[topCoverId] : undefined;
+      completionMsCache.set(widget.id, result);
+      return result;
+    } finally {
+      resolvingCompletionIds.delete(widget.id);
+    }
   }
 
   function getEffectiveWidgetPlayheadMs(widget: WidgetNode): number {
