@@ -45,6 +45,13 @@ const scratchCanvasStyle: CSSProperties = {
   pointerEvents: 'none',
 };
 
+const scratchRevealedContentStyle: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  zIndex: 1,
+  pointerEvents: 'none',
+};
+
 function createScratchProgressCanvas(width: number, height: number): HTMLCanvasElement | null {
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
@@ -150,13 +157,24 @@ function renderDefaultGroup(node: WidgetNode, ctx: RenderContext): JSX.Element {
   );
 }
 
+function getScratchCoverEffectivePlayheadMs(
+  node: WidgetNode,
+  playheadMs: number,
+  revealCompletedAtMs: number | undefined,
+): number {
+  if (revealCompletedAtMs === undefined) return playheadMs;
+  return node.timeline.startMs + Math.max(0, playheadMs - revealCompletedAtMs);
+}
+
 function renderScratchCoverNode(
   node: WidgetNode,
   rootFrame: WidgetNode['frame'],
   ctx: RenderContext,
+  revealCompletedAtMs: number | undefined,
   visited = new Set<string>(),
 ): JSX.Element[] {
-  if (visited.has(node.id) || !isWidgetVisibleAt(node, ctx.playheadMs)) return [];
+  const effectivePlayheadMs = getScratchCoverEffectivePlayheadMs(node, ctx.playheadMs, revealCompletedAtMs);
+  if (visited.has(node.id) || !isWidgetVisibleAt(node, effectivePlayheadMs)) return [];
   visited.add(node.id);
 
   if (node.type === 'group' && node.childIds?.length) {
@@ -164,7 +182,7 @@ function renderScratchCoverNode(
       .map((childId) => ctx.widgetsById[childId])
       .filter((child): child is WidgetNode => Boolean(child))
       .sort((left, right) => left.zIndex - right.zIndex)
-      .flatMap((child) => renderScratchCoverNode(child, rootFrame, ctx, visited));
+      .flatMap((child) => renderScratchCoverNode(child, rootFrame, ctx, revealCompletedAtMs, visited));
   }
 
   return [
@@ -174,6 +192,7 @@ function renderScratchCoverNode(
         node={node}
         rootFrame={rootFrame}
         ctx={ctx}
+        revealCompletedAtMs={revealCompletedAtMs}
       />
     ),
   ];
@@ -183,15 +202,18 @@ function ScratchCoverWidget({
   node,
   rootFrame,
   ctx,
+  revealCompletedAtMs,
 }: {
   node: WidgetNode;
   rootFrame: WidgetNode['frame'];
   ctx: RenderContext;
+  revealCompletedAtMs?: number;
 }): JSX.Element {
   const compositorMotionRef = useRef<HTMLDivElement | null>(null);
   useCompositorMotion({ ref: compositorMotionRef, motion: node.motion, active: ctx.previewMode });
-  const liveFrame = getLiveWidgetFrame(node, ctx.playheadMs);
-  const liveOpacity = getLiveWidgetOpacity(node, ctx.playheadMs);
+  const effectivePlayheadMs = getScratchCoverEffectivePlayheadMs(node, ctx.playheadMs, revealCompletedAtMs);
+  const liveFrame = getLiveWidgetFrame(node, effectivePlayheadMs);
+  const liveOpacity = getLiveWidgetOpacity(node, effectivePlayheadMs);
   const contentNode: WidgetNode = {
     ...node,
     frame: {
@@ -235,13 +257,21 @@ function ScratchCoverWidget({
   );
 }
 
-function GroupScratchCoverChildren({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element | null {
+function GroupScratchCoverChildren({
+  node,
+  ctx,
+  revealCompletedAtMs,
+}: {
+  node: WidgetNode;
+  ctx: RenderContext;
+  revealCompletedAtMs?: number;
+}): JSX.Element | null {
   const childWidgets = (node.childIds ?? [])
     .map((childId) => ctx.widgetsById[childId])
     .filter((child): child is WidgetNode => Boolean(child))
     .sort((left, right) => left.zIndex - right.zIndex);
 
-  const scratchNodes = childWidgets.flatMap((child) => renderScratchCoverNode(child, node.frame, ctx));
+  const scratchNodes = childWidgets.flatMap((child) => renderScratchCoverNode(child, node.frame, ctx, revealCompletedAtMs));
   if (!scratchNodes.length) return null;
 
   return <>{scratchNodes}</>;
@@ -256,6 +286,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const previousPlayheadRef = useRef(ctx.playheadMs);
   const [maskUrl, setMaskUrl] = useState('');
   const [scratchCompleted, setScratchCompleted] = useState(false);
+  const [scratchCompletedAtMs, setScratchCompletedAtMs] = useState<number | undefined>(undefined);
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
   const autoRevealThresholdPercent = Math.max(0, Math.min(100, Number(node.props.autoRevealThresholdPercent ?? 10)));
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
@@ -277,6 +308,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     initializeScratchMask(canvas);
     progressCanvasRef.current = createScratchProgressCanvas(width, height);
     setScratchCompleted(false);
+    setScratchCompletedAtMs(undefined);
     syncMaskPreview();
   };
 
@@ -313,20 +345,27 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     if (!progressCanvas || autoRevealThresholdPercent <= 0) return;
     const clearedPercent = eraseScratchProgress(progressCanvas, x, y, scratchRadius, canvas.width, canvas.height);
     if (clearedPercent < autoRevealThresholdPercent) return;
+    const completedAtMs = ctx.playheadMs;
     setScratchCompleted(true);
+    setScratchCompletedAtMs(completedAtMs);
     ctx.triggerWidgetAction('scratch-complete', {
       clearedPercent,
       thresholdPercent: autoRevealThresholdPercent,
-      completedAtMs: ctx.playheadMs,
+      completedAtMs,
     });
   };
+
+  const scratchContent =
+    maskUrl || scratchCompleted ? (
+      <GroupScratchCoverChildren node={node} ctx={ctx} revealCompletedAtMs={scratchCompletedAtMs} />
+    ) : null;
 
   return (
     <div ref={shellRef} style={scratchShellStyle}>
       <canvas ref={maskCanvasRef} style={scratchCanvasStyle} aria-hidden="true" />
-      {!scratchCompleted && maskUrl ? (
-        <div style={buildScratchMaskStyle(maskUrl, coverBlur)}>
-          <GroupScratchCoverChildren node={node} ctx={ctx} />
+      {scratchContent ? (
+        <div style={!scratchCompleted && maskUrl ? buildScratchMaskStyle(maskUrl, coverBlur) : scratchRevealedContentStyle}>
+          {scratchContent}
         </div>
       ) : null}
       {!scratchCompleted ? (
