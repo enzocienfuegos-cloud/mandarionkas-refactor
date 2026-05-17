@@ -100,6 +100,21 @@ export function getPlacedFrameForPoint(frame: WidgetFrame, point: { x: number; y
   };
 }
 
+function collectActionTargetTreeIds(
+  widgetId: string,
+  widgets: StudioState['document']['widgets'],
+  visited = new Set<string>(),
+): string[] {
+  if (visited.has(widgetId)) return [];
+  const widget = widgets[widgetId];
+  if (!widget) return [];
+  visited.add(widgetId);
+  return [
+    widgetId,
+    ...(widget.childIds ?? []).flatMap((childId) => collectActionTargetTreeIds(childId, widgets, visited)),
+  ];
+}
+
 export function reduceExecutedAction(state: StudioState, action: ActionNode): StudioState {
   let next = state;
   switch (action.type) {
@@ -111,15 +126,19 @@ export function reduceExecutedAction(state: StudioState, action: ActionNode): St
     case 'toggle-widget': {
       if (action.targetWidgetId && next.document.widgets[action.targetWidgetId]) {
         const target = next.document.widgets[action.targetWidgetId];
+        const targetIds = collectActionTargetTreeIds(target.id, next.document.widgets);
         const hidden = action.type === 'show-widget' ? false : action.type === 'hide-widget' ? true : !target.hidden;
+        const widgets = { ...next.document.widgets };
+        targetIds.forEach((targetId) => {
+          const item = widgets[targetId];
+          if (!item) return;
+          widgets[targetId] = { ...item, hidden };
+        });
         next = withDirty({
           ...next,
           document: {
             ...next.document,
-            widgets: {
-              ...next.document.widgets,
-              [target.id]: { ...target, hidden },
-            },
+            widgets,
           },
         });
       }

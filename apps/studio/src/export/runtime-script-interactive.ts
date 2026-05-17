@@ -8,11 +8,45 @@ export const EXPORT_RUNTIME_INTERACTIVE_SECTION = `
     return document.querySelector('[data-widget-id="' + widgetId + '"]');
   }
 
+  function getRuntimeChildWidgetIds(widgetId) {
+    if (!runtime || !Array.isArray(runtime.scenes)) return [];
+    var childIds = [];
+    runtime.scenes.forEach(function(scene) {
+      if (!scene || !Array.isArray(scene.widgets)) return;
+      scene.widgets.forEach(function(widget) {
+        if (widget && widget.parentId === widgetId) childIds.push(widget.id);
+      });
+    });
+    return childIds;
+  }
+
+  function collectRuntimeWidgetTreeIds(widgetId, visited) {
+    visited = visited || {};
+    if (!widgetId || visited[widgetId]) return [];
+    visited[widgetId] = true;
+    var ids = [widgetId];
+    getRuntimeChildWidgetIds(widgetId).forEach(function(childId) {
+      ids = ids.concat(collectRuntimeWidgetTreeIds(childId, visited));
+    });
+    return ids;
+  }
+
   function applyRuntimeWidgetVisibility(widgetId, hidden) {
-    const target = getRuntimeWidgetNode(widgetId);
-    if (!target) return;
-    target.style.display = hidden ? 'none' : '';
-    target.setAttribute('data-smx-hidden', hidden ? 'true' : 'false');
+    collectRuntimeWidgetTreeIds(widgetId).forEach(function(targetWidgetId) {
+      const target = getRuntimeWidgetNode(targetWidgetId);
+      if (!target) return;
+      target.style.display = hidden ? 'none' : '';
+      target.setAttribute('data-smx-hidden', hidden ? 'true' : 'false');
+    });
+  }
+
+  function isRuntimeWidgetTreeHidden(widgetId) {
+    const treeIds = collectRuntimeWidgetTreeIds(widgetId);
+    if (!treeIds.length) return false;
+    return treeIds.some(function(targetWidgetId) {
+      const target = getRuntimeWidgetNode(targetWidgetId);
+      return target?.getAttribute('data-smx-hidden') === 'true' || target?.style.display === 'none';
+    });
   }
 
   function executeRuntimeInteraction(interaction) {
@@ -26,8 +60,7 @@ export const EXPORT_RUNTIME_INTERACTIVE_SECTION = `
       return;
     }
     if (interaction.actionType === 'toggle-widget' && interaction.targetWidgetId) {
-      const target = getRuntimeWidgetNode(interaction.targetWidgetId);
-      const hidden = target?.getAttribute('data-smx-hidden') === 'true' || target?.style.display === 'none';
+      const hidden = isRuntimeWidgetTreeHidden(interaction.targetWidgetId);
       applyRuntimeWidgetVisibility(interaction.targetWidgetId, !hidden);
       return;
     }

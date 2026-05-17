@@ -6,6 +6,7 @@ import {
   getTimelineExitActions,
   getWidgetActions,
 } from '../../../actions/runtime';
+import { reduceExecutedAction } from '../../../core/store/store-utils';
 
 function makeState(actions: ActionNode[], widgets: Record<string, { timeline: { startMs: number; endMs?: number } }>) {
   return {
@@ -82,5 +83,30 @@ describe('timeline action runtime helpers', () => {
 
     const result = getWidgetActions(state, 'w1', 'scratch-complete');
     expect(result.map((action) => action.id)).toEqual(['scratch-1']);
+  });
+
+  it('applies show-widget actions to grouped target children', () => {
+    const state = {
+      document: {
+        canvas: { width: 300, height: 250 },
+        actions: {},
+        widgets: {
+          scratch: { id: 'scratch', type: 'group', hidden: false, childIds: [], timeline: { startMs: 0, endMs: 3000 } },
+          target_group: { id: 'target_group', type: 'group', hidden: true, childIds: ['child_1'], timeline: { startMs: 0, endMs: 3000 } },
+          child_1: { id: 'child_1', type: 'text', parentId: 'target_group', hidden: true, childIds: [], timeline: { startMs: 0, endMs: 3000 } },
+        },
+      },
+    } as any;
+
+    const next = reduceExecutedAction(state, makeAction({
+      id: 'scratch-show-group',
+      widgetId: 'scratch',
+      trigger: 'scratch-complete',
+      type: 'show-widget',
+      targetWidgetId: 'target_group',
+    }));
+
+    expect(next.document.widgets.target_group.hidden).toBe(false);
+    expect(next.document.widgets.child_1.hidden).toBe(false);
   });
 });
