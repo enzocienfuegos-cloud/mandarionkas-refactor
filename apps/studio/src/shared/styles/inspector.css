@@ -317,6 +317,9 @@
 .motion-gallery-tile:hover {
   border-color: var(--border-strong);
 }
+.motion-gallery-tile.is-previewing {
+  border-color: var(--border-strong);
+}
 .motion-gallery-tile.is-selected {
   border-color: var(--accent-a-55);
   box-shadow: 0 0 0 1px var(--accent-a-35) inset;
@@ -385,16 +388,54 @@
 .motion-config-grid {
   gap: var(--space-2);
 }
+.motion-config-field {
+  display: grid;
+  gap: var(--space-2);
+}
+.motion-config-field__header,
 .motion-config-field label {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
 }
-.motion-config-field__unit {
-  opacity: 0.55;
+.motion-config-field__value {
+  padding: 2px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--bg-overlay-low);
+  color: var(--text-primary);
   font-size: var(--font-size-2xs);
-  text-transform: uppercase;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.motion-config-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.motion-config-field__presets {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xs);
+}
+.motion-config-field__presets span:last-child {
+  text-align: right;
+}
+.motion-config-field__presets button {
+  padding: 3px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--bg-overlay-low);
+  color: var(--text-secondary);
+  font-size: var(--font-size-2xs);
+  cursor: pointer;
+}
+.motion-config-field__presets button:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 .motion-panel-card {
   display: grid;

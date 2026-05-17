@@ -24,17 +24,35 @@ const floatTemplate: MotionTemplate = {
     const startMs = widgetTimeline.startMs + delayMs;
     const baseY = widgetFrame.y;
     const keyframes = [];
+    const sampleIntervalMs = 1000 / 120;
+    const samplesPerCycle = Math.max(64, Math.min(240, Math.ceil(durationMs / sampleIntervalMs)));
     for (let cycleStartMs = startMs; cycleStartMs <= widgetTimeline.endMs; cycleStartMs += durationMs) {
-      for (let step = 0; step <= 8; step += 1) {
-        const progress = step / 8;
-        const atMs = Math.min(widgetTimeline.endMs, cycleStartMs + durationMs * progress);
+      let lastAtMs = cycleStartMs;
+      for (let step = 0; step <= samplesPerCycle; step += 1) {
+        const progress = step / samplesPerCycle;
+        const atMs = cycleStartMs + durationMs * progress;
+        if (atMs > widgetTimeline.endMs) break;
         const wave = Math.sin(progress * 2 * Math.PI);
+        lastAtMs = atMs;
         keyframes.push(
           motionKeyframe(
             `float:y:${cycleStartMs}:${step}`,
             'y',
             atMs,
             baseY + wave * distancePx,
+            'linear',
+          ),
+        );
+      }
+      if (lastAtMs < widgetTimeline.endMs && cycleStartMs < widgetTimeline.endMs) {
+        const endProgress = (widgetTimeline.endMs - cycleStartMs) / durationMs;
+        const endWave = Math.sin(endProgress * 2 * Math.PI);
+        keyframes.push(
+          motionKeyframe(
+            `float:y:${cycleStartMs}:end`,
+            'y',
+            widgetTimeline.endMs,
+            baseY + endWave * distancePx,
             'linear',
           ),
         );

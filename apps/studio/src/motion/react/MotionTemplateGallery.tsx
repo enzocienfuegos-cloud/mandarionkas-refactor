@@ -1,4 +1,4 @@
-import { useMemo, useRef, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type FocusEvent, type ReactNode } from 'react';
 import type { MotionConfig, MotionTemplate } from '../motion-template-contract';
 import { useMotionPreview } from './use-motion-preview';
 
@@ -25,16 +25,29 @@ function MotionGalleryTile({
   children?: ReactNode;
 }): JSX.Element {
   const ref = useRef<HTMLButtonElement | null>(null);
+  const [previewActive, setPreviewActive] = useState(false);
   useMotionPreview({
     ref,
     template,
     config,
     baseOpacity: 1,
-    active: true,
+    active: previewActive,
   });
 
+  const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setPreviewActive(false);
+    }
+  };
+
   return (
-    <div className={`motion-gallery-tile ${selected ? 'is-selected' : ''}`}>
+    <div
+      className={`motion-gallery-tile ${selected ? 'is-selected' : ''} ${previewActive ? 'is-previewing' : ''}`}
+      onPointerEnter={() => setPreviewActive(true)}
+      onPointerLeave={() => setPreviewActive(false)}
+      onFocusCapture={() => setPreviewActive(true)}
+      onBlurCapture={handleBlur}
+    >
       <button
         type="button"
         ref={ref}
