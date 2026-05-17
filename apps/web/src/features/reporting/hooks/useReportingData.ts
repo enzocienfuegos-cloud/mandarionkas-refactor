@@ -119,6 +119,8 @@ type AppBreakdownRow = {
   app_name: string;
   app_bundle?: string | null;
   app_id?: string | null;
+  app_store_name?: string | null;
+  inventory_type?: string | null;
   impressions: number;
   clicks?: number;
   ctr?: number;
@@ -764,7 +766,8 @@ function buildInventorySourceRows({
   totalImpressions: number;
 }): InventorySourceRow[] {
   const appRows = apps.map<InventorySourceRow>((row) => {
-    const detail = [row.app_bundle, row.app_id]
+    const inventoryLabel = row.inventory_type === 'ctv_app' ? 'CTV app' : 'Mobile app';
+    const detail = [inventoryLabel, row.app_store_name, row.app_bundle, row.app_id]
       .map((value) => String(value ?? '').trim())
       .filter(Boolean)
       .filter((value, index, values) => values.indexOf(value) === index)

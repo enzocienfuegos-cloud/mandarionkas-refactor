@@ -543,25 +543,26 @@ export function createTrackerRoutes(buffer = null) {
           const appId = normalizeResolvedTrackingValue(
             p.get('appid') || p.get('appId') || p.get('app_id') || p.get('app') || '',
           ) || null;
-          const appBundle = normalizeResolvedTrackingValue(
+          const explicitAppBundle = normalizeResolvedTrackingValue(
             p.get('appb') || p.get('appBundle') || p.get('app_bundle') || p.get('bundle') || p.get('bundleid') || '',
           ) || null;
-          const appName = decodeStringSafe(
+          const appBundle = explicitAppBundle || (/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/i.test(appId || '') ? appId : null);
+          const appName = normalizeResolvedTrackingValue(
             p.get('appn') || p.get('appne') || p.get('appName') || p.get('app_name') || '',
           ) || null;
           const exchangeId = normalizeResolvedTrackingValue(p.get('excid') || '') || null;
           const exchangePublisherId = normalizeResolvedTrackingValue(p.get('excpubid') || '') || null;
           const exchangeSiteIdOrDomain = normalizeResolvedTrackingValue(p.get('excsiddmn') || '') || null;
           const sourcePublisherId = normalizeResolvedTrackingValue(p.get('srcpubid') || '') || null;
-          const networkId = normalizeResolvedTrackingValue(p.get('nid') || '') || null;
-          const siteId = normalizeResolvedTrackingValue(p.get('siteid') || '') || null;
+          const networkId = normalizeResolvedTrackingValue(p.get('netid') || p.get('nid') || '') || null;
+          const siteId = normalizeResolvedTrackingValue(p.get('source_site_id') || p.get('sourceSiteId') || p.get('sid') || p.get('siteid') || '') || null;
           const pagePosition = normalizeResolvedTrackingValue(p.get('ppos') || p.get('pos') || p.get('position') || '') || null;
-          const contentLanguage = trimText(p.get('lang') || p.get('contentlang') || '') || null;
-          const contentTitle = decodeStringSafe(p.get('title') || p.get('contenttitle') || '') || null;
-          const contentSeries = decodeStringSafe(p.get('series') || p.get('contentseries') || '') || null;
-          const carrier = normalizeResolvedTrackingValue(p.get('carrier') || p.get('isp') || '') || null;
-          const appStoreName = normalizeResolvedTrackingValue(p.get('appstore') || p.get('store') || '') || null;
-          const contentGenre = decodeStringSafe(p.get('genre') || p.get('contentgenre') || '') || null;
+          const contentLanguage = normalizeResolvedTrackingValue(p.get('cntlang') || p.get('lang') || p.get('contentlang') || '') || null;
+          const contentTitle = normalizeResolvedTrackingValue(p.get('cnttitle') || p.get('title') || p.get('contenttitle') || '') || null;
+          const contentSeries = normalizeResolvedTrackingValue(p.get('cntseries') || p.get('series') || p.get('contentseries') || '') || null;
+          const carrier = normalizeResolvedTrackingValue(p.get('carr') || p.get('carrier') || p.get('isp') || '') || null;
+          const appStoreName = normalizeResolvedTrackingValue(p.get('appstnm') || p.get('appstore') || p.get('store') || '') || null;
+          const contentGenre = normalizeResolvedTrackingValue(p.get('cngen') || p.get('genre') || p.get('contentgenre') || '') || null;
           const creativeId = trimText(p.get('smx_creative_id') || p.get('creative_id') || '') || null;
           const creativeSizeVariantId = trimText(p.get('smx_variant_id') || p.get('variant_id') || '') || null;
           const contextualIds = trimText(
@@ -707,9 +708,10 @@ export function createTrackerRoutes(buffer = null) {
         const appId = normalizeResolvedTrackingValue(
           url.searchParams.get('appid') || url.searchParams.get('appId') || url.searchParams.get('app_id') || url.searchParams.get('app') || '',
         ) || null;
-        const appBundle = normalizeResolvedTrackingValue(
+        const explicitAppBundle = normalizeResolvedTrackingValue(
           url.searchParams.get('appb') || url.searchParams.get('appBundle') || url.searchParams.get('app_bundle') || url.searchParams.get('bundle') || url.searchParams.get('bundleid') || '',
         ) || null;
+        const appBundle = explicitAppBundle || (/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/i.test(appId || '') ? appId : null);
         const appName = normalizeResolvedTrackingValue(
           url.searchParams.get('appn') || url.searchParams.get('appne') || url.searchParams.get('appName') || url.searchParams.get('app_name') || '',
         ) || null;
@@ -778,9 +780,10 @@ export function createTrackerRoutes(buffer = null) {
         const appId = normalizeResolvedTrackingValue(
           url.searchParams.get('appid') || url.searchParams.get('appId') || url.searchParams.get('app_id') || url.searchParams.get('app') || '',
         ) || null;
-        const appBundle = normalizeResolvedTrackingValue(
+        const explicitAppBundle = normalizeResolvedTrackingValue(
           url.searchParams.get('appb') || url.searchParams.get('appBundle') || url.searchParams.get('app_bundle') || url.searchParams.get('bundle') || url.searchParams.get('bundleid') || '',
         ) || null;
+        const appBundle = explicitAppBundle || (/^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/i.test(appId || '') ? appId : null);
         const appName = normalizeResolvedTrackingValue(
           url.searchParams.get('appn') || url.searchParams.get('appne') || url.searchParams.get('appName') || url.searchParams.get('app_name') || '',
         ) || null;

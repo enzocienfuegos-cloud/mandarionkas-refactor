@@ -217,8 +217,162 @@ function buildTrackingEventUrls(engagementUrl) {
   ];
   return events.map((event) => ({
     event,
-    url: `${safeUrl}?event=${encodeURIComponent(event)}`,
+    url: appendQueryParam(safeUrl, 'event', event),
   }));
+}
+
+function appendQueryParam(rawUrl, key, value) {
+  const safeUrl = trimText(rawUrl);
+  if (!safeUrl) return '';
+  const separator = safeUrl.includes('?') ? '&' : '?';
+  return `${safeUrl}${separator}${encodeURIComponent(key)}=${encodeURIComponent(trimText(value))}`;
+}
+
+const VAST_TRACKER_PASSTHROUGH_KEYS = new Set([
+  'dsp',
+  'smx_dsp',
+  'dom',
+  'domain',
+  'sd',
+  'sdmn',
+  'purl',
+  'pu',
+  'auction_id',
+  'auctionId',
+  'auctionid',
+  'postbackId',
+  'ts',
+  'cb',
+  'tmp',
+  'click_invalid',
+  'clickInvalid',
+  'cmpid',
+  'campaignId',
+  'basis_campaign_id',
+  'ad_id',
+  'adid',
+  'adId',
+  'source_site_id',
+  'sourceSiteId',
+  'sid',
+  'siteid',
+  'trftype',
+  'traffic_type',
+  'creative_type',
+  'dimensions',
+  'ifa',
+  'idfa',
+  'gadvid',
+  'googleAdvertisingId',
+  'iuid',
+  'appid',
+  'appId',
+  'app_id',
+  'app',
+  'appb',
+  'appBundle',
+  'app_bundle',
+  'bundle',
+  'bundleid',
+  'appn',
+  'appne',
+  'appName',
+  'app_name',
+  'appstore',
+  'appstnm',
+  'store',
+  'ppos',
+  'pos',
+  'position',
+  'netid',
+  'nid',
+  'srcpubid',
+  'cntlang',
+  'contentlang',
+  'cnttitle',
+  'contenttitle',
+  'cntseries',
+  'contentseries',
+  'carr',
+  'carrier',
+  'isp',
+  'ctxid',
+  'ctxids',
+  'cngen',
+  'genre',
+  'contentgenre',
+  'excid',
+  'excpubid',
+  'excsiddmn',
+  'gdpr',
+  'gdpr_consent',
+  'us_privacy',
+]);
+
+const VAST_TRACKER_INVENTORY_KEYS = new Set([
+  'dom',
+  'domain',
+  'sd',
+  'sdmn',
+  'purl',
+  'pu',
+  'appid',
+  'appId',
+  'app_id',
+  'app',
+  'appb',
+  'appBundle',
+  'app_bundle',
+  'bundle',
+  'bundleid',
+  'appn',
+  'appne',
+  'appName',
+  'app_name',
+  'appstore',
+  'appstnm',
+  'store',
+]);
+
+function isResolvedTrackerValue(value = '') {
+  const text = trimText(value);
+  if (!text) return false;
+  return !(/[{}]/.test(text) || /\$\{/.test(text) || /%%/.test(text) || /^\[[^\]]+\]$/.test(text));
+}
+
+function collectVastTrackerPassthroughParams(queryParams) {
+  if (!queryParams) return [];
+  const entries = typeof queryParams.entries === 'function'
+    ? Array.from(queryParams.entries())
+    : Object.entries(queryParams);
+  const params = [];
+  for (const [key, value] of entries) {
+    if (!VAST_TRACKER_PASSTHROUGH_KEYS.has(key)) continue;
+    const text = trimText(value);
+    if (!isResolvedTrackerValue(text)) continue;
+    params.push([key, text]);
+  }
+  return params;
+}
+
+function hasResolvedInventoryPassthrough(params = []) {
+  return params.some(([key]) => VAST_TRACKER_INVENTORY_KEYS.has(key));
+}
+
+function appendQueryParams(rawUrl, params = []) {
+  const safeUrl = trimText(rawUrl);
+  if (!safeUrl || !params.length) return safeUrl;
+  try {
+    const parsed = new URL(safeUrl);
+    for (const [key, value] of params) parsed.searchParams.set(key, value);
+    return parsed.toString();
+  } catch {
+    let nextUrl = safeUrl;
+    for (const [key, value] of params) {
+      nextUrl = appendQueryParam(nextUrl, key, value);
+    }
+    return nextUrl;
+  }
 }
 
 function estimateBitrateKbps(width, height) {
@@ -748,20 +902,29 @@ function resolveSourceFallback(selectedBinding = {}, renditions = []) {
   };
 }
 
-function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl }) {
+function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl, queryParams = null }) {
   const normalizedProfile = normalizeProfile(profile, 'default');
   const configuredVersion = trimText(ctx.tag.vast_version);
   const campaignDsp = readCampaignDsp(ctx.tag.campaign_metadata);
   const xmlVersion = getProfileVersion(normalizedProfile, configuredVersion);
   const liveBaseUrl = trimText(baseUrl).replace(/\/+$/, '');
-  const trackers = buildTrackerUrls({ baseUrl: liveBaseUrl, tagId: ctx.tag.id, dsp: '' });
+  const trackerPassthroughParams = collectVastTrackerPassthroughParams(queryParams);
+  const trackerDsp = hasResolvedInventoryPassthrough(trackerPassthroughParams)
+    ? ''
+    : deriveProfileDsp(normalizedProfile, campaignDsp);
+  const rawTrackers = buildTrackerUrls({ baseUrl: liveBaseUrl, tagId: ctx.tag.id, dsp: trackerDsp });
+  const trackers = {
+    impression: appendQueryParams(rawTrackers.impression, trackerPassthroughParams),
+    click: appendQueryParams(rawTrackers.click, trackerPassthroughParams),
+    engagement: appendQueryParams(rawTrackers.engagement, trackerPassthroughParams),
+  };
   const impressionUrls = [trackers.impression, ...buildSupplementalTrackerUrls(ctx, 'impression')];
   const clickTrackingUrls = [trackers.click, ...buildSupplementalTrackerUrls(ctx, 'click')];
   const clickThroughUrl = resolveClickThroughUrl(ctx, liveBaseUrl);
   const adTitle = `${trimText(ctx.tag.name) || 'SMX Studio Tag'} · ${normalizedProfile.toUpperCase()}`;
   const source = resolveSourceFallback(ctx.selectedBinding || {}, ctx.renditions || []);
   const trackingEvents = buildTrackingEventUrls(trackers.engagement);
-  const errorUrl = `${trackers.engagement}?event=error`;
+  const errorUrl = appendQueryParam(trackers.engagement, 'event', 'error');
 
   if (ctx.tag.vast_wrapper && trimText(ctx.tag.vast_url)) {
     return buildWrapperXml({
@@ -992,10 +1155,10 @@ export async function getStaticVastXml(pool, { tagId, profile = 'default', baseU
   return { xml, contentType: 'application/xml; charset=utf-8', etag: hashEtag(xml) };
 }
 
-export async function getLiveVastXml(pool, { tagId, profile = 'default', baseUrl }) {
+export async function getLiveVastXml(pool, { tagId, profile = 'default', baseUrl, queryParams = null }) {
   const ctx = await getTagContext(pool, tagId, { rotate: true });
   if (!ctx) return null;
-  return buildLiveXmlForTagContext(ctx, { profile, baseUrl });
+  return buildLiveXmlForTagContext(ctx, { profile, baseUrl, queryParams });
 }
 
 export async function getTagClickDestination(pool, tagId) {

@@ -192,7 +192,7 @@ export async function handleVastRoutes(ctx) {
       return sendXml(res, buildNoAdVast(tagId), { 'Cache-Control': 'private, no-store' });
     }
 
-    const xml = await getLiveVastXml(pool, { tagId, profile: 'default', baseUrl });
+    const xml = await getLiveVastXml(pool, { tagId, profile: 'default', baseUrl, queryParams: url.searchParams });
     if (!xml) return badRequest(res, requestId, 'Tag not found.');
     applyPublicCors(ctx.req, res);
     return sendXml(res, xml, { 'Cache-Control': 'private, no-store' });
@@ -211,7 +211,7 @@ export async function handleVastRoutes(ctx) {
       return sendXml(res, buildNoAdVast(tagId), { 'Cache-Control': 'private, no-store' });
     }
 
-    const xml = await getLiveVastXml(pool, { tagId, profile, baseUrl });
+    const xml = await getLiveVastXml(pool, { tagId, profile, baseUrl, queryParams: url.searchParams });
     if (!xml) return badRequest(res, requestId, 'Tag not found.');
     applyPublicCors(ctx.req, res);
     return sendXml(res, xml, { 'Cache-Control': 'private, no-store' });

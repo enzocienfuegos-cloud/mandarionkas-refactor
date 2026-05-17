@@ -1399,6 +1399,11 @@ export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
   addTagChannelFilter(impressionConditions, 't', channel);
   addTimestampFilters(params, impressionConditions, 'ie', dateFrom, dateTo, opts.timezone);
   addCreativeEventFilters(params, impressionConditions, 'ie', creativeId, variantId);
+  impressionConditions.push(`(
+    COALESCE(ie.app_name, '') = ''
+    AND COALESCE(ie.app_bundle, '') = ''
+    AND COALESCE(ie.app_id, '') = ''
+  )`);
 
   params.push(workspaceId);
   const clickConditions = [`ce.workspace_id = $${params.length}`];
@@ -1406,6 +1411,21 @@ export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
   addTagChannelFilter(clickConditions, 't_click', channel);
   addTimestampFilters(params, clickConditions, 'ce', dateFrom, dateTo, opts.timezone);
   addCreativeEventFilters(params, clickConditions, 'ce', creativeId, variantId);
+  const clickColumnResult = await pool.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'click_events'
+       AND column_name IN ('app_id', 'app_bundle', 'app_name')`,
+  );
+  const clickColumns = new Set(clickColumnResult.rows.map((row) => row.column_name));
+  if (['app_id', 'app_bundle', 'app_name'].every((column) => clickColumns.has(column))) {
+    clickConditions.push(`(
+      COALESCE(ce.app_name, '') = ''
+      AND COALESCE(ce.app_bundle, '') = ''
+      AND COALESCE(ce.app_id, '') = ''
+    )`);
+  }
 
   params.push(normalizeLimit(limit));
   const { rows } = await pool.query(
@@ -1493,6 +1513,14 @@ export async function getWorkspaceAppBreakdown(pool, workspaceId, opts = {}) {
          COALESCE(NULLIF(ie.app_name, ''), NULLIF(ie.app_bundle, ''), NULLIF(ie.app_id, ''), 'Unknown app') AS app_name,
          MAX(NULLIF(ie.app_bundle, '')) AS app_bundle,
          MAX(NULLIF(ie.app_id, '')) AS app_id,
+         MAX(NULLIF(ie.app_store_name, '')) AS app_store_name,
+         CASE
+           WHEN BOOL_OR(
+             LOWER(COALESCE(ie.device_type, '')) IN ('tv', 'ctv', 'connected_tv')
+             OR LOWER(COALESCE(ie.app_store_name, '')) IN ('roku', 'samsung', 'amazon', 'fire tv', 'firetv', 'lg')
+           ) THEN 'ctv_app'
+           ELSE 'mobile_app'
+         END AS inventory_type,
          COUNT(*)::bigint AS impressions,
          COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
          COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps,
@@ -1508,6 +1536,8 @@ export async function getWorkspaceAppBreakdown(pool, workspaceId, opts = {}) {
          MAX(app_name) AS app_name,
          MAX(app_bundle) AS app_bundle,
          MAX(app_id) AS app_id,
+         MAX(app_store_name) AS app_store_name,
+         MAX(inventory_type) AS inventory_type,
          COUNT(*)::bigint AS clicks
        FROM (
          SELECT
@@ -1530,11 +1560,23 @@ export async function getWorkspaceAppBreakdown(pool, workspaceId, opts = {}) {
              'Unknown app'
            ) AS app_name,
            COALESCE(NULLIF(${clickAppBundleExpression}, ''), NULLIF(latest_impression.app_bundle, '')) AS app_bundle,
-           COALESCE(NULLIF(${clickAppIdExpression}, ''), NULLIF(latest_impression.app_id, '')) AS app_id
+           COALESCE(NULLIF(${clickAppIdExpression}, ''), NULLIF(latest_impression.app_id, '')) AS app_id,
+           latest_impression.app_store_name AS app_store_name,
+           latest_impression.inventory_type AS inventory_type
          FROM click_events ce
          JOIN ad_tags t_click ON t_click.id = ce.tag_id
          LEFT JOIN LATERAL (
-           SELECT ie_match.app_id, ie_match.app_bundle, ie_match.app_name
+           SELECT
+             ie_match.app_id,
+             ie_match.app_bundle,
+             ie_match.app_name,
+             ie_match.app_store_name,
+             CASE
+               WHEN LOWER(COALESCE(ie_match.device_type, '')) IN ('tv', 'ctv', 'connected_tv')
+                 OR LOWER(COALESCE(ie_match.app_store_name, '')) IN ('roku', 'samsung', 'amazon', 'fire tv', 'firetv', 'lg')
+               THEN 'ctv_app'
+               ELSE 'mobile_app'
+             END AS inventory_type
            FROM impression_events ie_match
            WHERE ie_match.workspace_id = ce.workspace_id
              AND ie_match.tag_id = ce.tag_id
@@ -1565,6 +1607,8 @@ export async function getWorkspaceAppBreakdown(pool, workspaceId, opts = {}) {
        COALESCE(i.app_name, c.app_name, 'Unknown app') AS app_name,
        COALESCE(i.app_bundle, c.app_bundle) AS app_bundle,
        COALESCE(i.app_id, c.app_id) AS app_id,
+       COALESCE(i.app_store_name, c.app_store_name) AS app_store_name,
+       COALESCE(i.inventory_type, c.inventory_type, 'app') AS inventory_type,
        COALESCE(i.impressions, 0)::bigint AS impressions,
        COALESCE(c.clicks, 0)::bigint AS clicks,
        COALESCE(i.viewable_imps, 0)::bigint AS viewable_imps,
