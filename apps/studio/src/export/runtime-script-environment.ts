@@ -144,6 +144,36 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     return Number(before.value ?? fallback) + (Number(after.value ?? fallback) - Number(before.value ?? fallback)) * eased;
   }
 
+  function rectsOverlap(left, right) {
+    if (!left || !right) return false;
+    return Number(left.x || 0) < Number(right.x || 0) + Number(right.width || 0)
+      && Number(left.x || 0) + Number(left.width || 0) > Number(right.x || 0)
+      && Number(left.y || 0) < Number(right.y || 0) + Number(right.height || 0)
+      && Number(left.y || 0) + Number(left.height || 0) > Number(right.y || 0);
+  }
+
+  function getScratchRevealCompletionMs(sceneRuntime, widget) {
+    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !widget) return undefined;
+    var topCover = null;
+    sceneRuntime.widgets.forEach(function(candidate){
+      if (!candidate || candidate.id === widget.id) return;
+      if (candidate.type !== 'group' || !candidate.props || !candidate.props.scratchEnabled) return;
+      if (Number(candidate.zIndex || 0) <= Number(widget.zIndex || 0)) return;
+      if (!rectsOverlap(candidate.frame, widget.frame)) return;
+      if (!topCover || Number(candidate.zIndex || 0) > Number(topCover.zIndex || 0)) topCover = candidate;
+    });
+    if (!topCover || !window.__smxScratchCompletionMsByWidgetId) return undefined;
+    var completedAtMs = Number(window.__smxScratchCompletionMsByWidgetId[topCover.id]);
+    return Number.isFinite(completedAtMs) ? completedAtMs : undefined;
+  }
+
+  function getEffectiveWidgetElapsedMs(sceneRuntime, widget, elapsedMs) {
+    var completedAtMs = getScratchRevealCompletionMs(sceneRuntime, widget);
+    if (!Number.isFinite(completedAtMs)) return elapsedMs;
+    var startMs = Number((widget && widget.timeline && widget.timeline.startMs) || 0);
+    return startMs + Math.max(0, elapsedMs - completedAtMs);
+  }
+
   function syncTimelineAnimatedWidgets(sceneRuntime, elapsedMs) {
     if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets)) return;
     sceneRuntime.widgets.forEach((widget) => {
@@ -152,16 +182,17 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
       if (!hasKeyframes) return;
       const node = document.querySelector('[data-widget-id="' + widget.id + '"]');
       if (!node) return;
+      const effectiveElapsedMs = getEffectiveWidgetElapsedMs(sceneRuntime, widget, elapsedMs);
       const frame = widget.frame || {};
       const style = node.style;
       if (!node.getAttribute('data-smx-base-opacity')) {
         node.setAttribute('data-smx-base-opacity', style.opacity || '1');
       }
-      style.left = String(getWidgetTrackValue(widget, 'x', elapsedMs, Number(frame.x || 0))) + 'px';
-      style.top = String(getWidgetTrackValue(widget, 'y', elapsedMs, Number(frame.y || 0))) + 'px';
-      style.width = String(getWidgetTrackValue(widget, 'width', elapsedMs, Number(frame.width || 0))) + 'px';
-      style.height = String(getWidgetTrackValue(widget, 'height', elapsedMs, Number(frame.height || 0))) + 'px';
-      style.opacity = String(getWidgetTrackValue(widget, 'opacity', elapsedMs, Number(node.getAttribute('data-smx-base-opacity') || widget.style?.opacity || 1)));
+      style.left = String(getWidgetTrackValue(widget, 'x', effectiveElapsedMs, Number(frame.x || 0))) + 'px';
+      style.top = String(getWidgetTrackValue(widget, 'y', effectiveElapsedMs, Number(frame.y || 0))) + 'px';
+      style.width = String(getWidgetTrackValue(widget, 'width', effectiveElapsedMs, Number(frame.width || 0))) + 'px';
+      style.height = String(getWidgetTrackValue(widget, 'height', effectiveElapsedMs, Number(frame.height || 0))) + 'px';
+      style.opacity = String(getWidgetTrackValue(widget, 'opacity', effectiveElapsedMs, Number(node.getAttribute('data-smx-base-opacity') || widget.style?.opacity || 1)));
     });
   }
 
@@ -501,11 +532,13 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
 
     let completed = false;
     let pointerActive = false;
+    window.__smxScratchCompletionMsByWidgetId = window.__smxScratchCompletionMsByWidgetId || {};
 
     function completeScratch() {
       if (completed) return;
       completed = true;
       shell.classList.add('is-scratch-complete');
+      window.__smxScratchCompletionMsByWidgetId[root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || ''] = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() - startedAt : 0;
       maskTarget.style.webkitMaskImage = 'none';
       maskTarget.style.maskImage = 'none';
       if (revealContent) playScratchRevealRevealAnimation(revealContent, revealMotionPreset, revealMotionDurationMs, revealMotionDelayMs);
@@ -513,6 +546,8 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
         // hook left intentionally simple; actions runtime owns more complex routing
       }
     }
+
+    var startedAt = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
 
     function scratchAt(clientX, clientY) {
       const rect = shell.getBoundingClientRect();

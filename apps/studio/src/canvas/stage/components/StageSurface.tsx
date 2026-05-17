@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import type { CSSProperties } from 'react';
-import { getLiveWidgetFrame, getLiveWidgetOpacity } from '../../../domain/document/timeline';
+import { getLiveWidgetFrame, getLiveWidgetOpacity, isWidgetVisibleAt } from '../../../domain/document/timeline';
 import type { WidgetFrame, WidgetNode } from '../../../domain/document/types';
 import type { ResizeHandle } from '../use-stage-controller';
 import { StageWidget } from './StageWidget';
@@ -121,10 +121,10 @@ export function StageSurface({
     const baseFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
     const childFrames = (widget.childIds ?? [])
       .map((childId) => widgetsById[childId])
-      .filter((child): child is WidgetNode => Boolean(child) && isWidgetVisible(child.id))
+      .filter((child): child is WidgetNode => Boolean(child) && isWidgetVisibleAtEffectiveTime(child))
       .map((child) => {
         if (child.childIds?.length) return resolveScratchGroupFrame(child, visited);
-        return liveFrameById[child.id] ?? getLiveWidgetFrame(child, playheadMs);
+        return liveFrameById[child.id] ?? getEffectiveLiveFrame(child);
       });
 
     if (!childFrames.length) return baseFrame;
@@ -179,6 +179,11 @@ export function StageSurface({
     return getLiveWidgetOpacity(widget, getEffectiveWidgetPlayheadMs(widget));
   }
 
+  function isWidgetVisibleAtEffectiveTime(widget: WidgetNode): boolean {
+    if (widget.hidden) return false;
+    return isWidgetVisibleAt(widget, getEffectiveWidgetPlayheadMs(widget));
+  }
+
   function buildStageSurfaceStyle(): CSSProperties {
     return {
       width: canvas.width,
@@ -215,7 +220,14 @@ export function StageSurface({
       style={buildStageSurfaceStyle()}
     >
       {widgets.map((widget) => {
-        if (!isWidgetVisible(widget.id) || !isVisibleWithinParentTimeline({ widget, widgetsById, isWidgetVisible })) return null;
+        if (!isWidgetVisibleAtEffectiveTime(widget) || !isVisibleWithinParentTimeline({
+          widget,
+          widgetsById,
+          isWidgetVisible: (widgetId) => {
+            const target = widgetsById[widgetId];
+            return target ? isWidgetVisibleAtEffectiveTime(target) : false;
+          },
+        })) return null;
         if (isCoveredByScratchGroup(widget)) return null;
         const scratchGroupActive = widget.type === 'group' && isScratchGroupActive({ group: widget, widgetsById, playheadMs });
         const isPassThroughGroup = widget.type === 'group'

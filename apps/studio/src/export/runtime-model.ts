@@ -29,7 +29,9 @@ export type ExportRuntimeWidget = {
   id: string;
   type: PortableExportWidget['type'];
   sceneId: string;
+  zIndex: number;
   frame: PortableExportWidget['frame'];
+  props: PortableExportWidget['props'];
   style: PortableExportWidget['style'];
   motion?: PortableExportWidget['motion'];
   hoverMotion?: PortableExportWidget['hoverMotion'];
@@ -132,7 +134,9 @@ function buildRuntimeWidget(widget: PortableExportWidget): ExportRuntimeWidget {
     id: widget.id,
     type: widget.type,
     sceneId: widget.sceneId,
+    zIndex: widget.zIndex,
     frame: widget.frame,
+    props: widget.props,
     style: widget.style,
     motion: widget.motion ? { ...widget.motion, config: { ...widget.motion.config } } : undefined,
     hoverMotion: widget.hoverMotion ? { ...widget.hoverMotion, config: { ...widget.hoverMotion.config } } : undefined,
