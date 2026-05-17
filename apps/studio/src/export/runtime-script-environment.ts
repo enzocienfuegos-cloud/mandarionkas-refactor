@@ -380,6 +380,19 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     return Number.isFinite(completedAtMs) ? completedAtMs : undefined;
   }
 
+  function getScratchRevealCompletionPerfMs(sceneRuntime, widget) {
+    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !widget) return undefined;
+    var topCover = null;
+    sceneRuntime.widgets.forEach(function(candidate){
+      if (!candidate || candidate.type !== 'group' || !candidate.props || !candidate.props.scratchEnabled) return;
+      if (!isWidgetCoveredByScratchGroup(sceneRuntime, candidate, widget)) return;
+      if (!topCover || Number(candidate.zIndex || 0) > Number(topCover.zIndex || 0)) topCover = candidate;
+    });
+    if (!topCover || !window.__smxScratchCompletionPerfMsByWidgetId) return undefined;
+    var completedAtPerfMs = Number(window.__smxScratchCompletionPerfMsByWidgetId[topCover.id]);
+    return Number.isFinite(completedAtPerfMs) ? completedAtPerfMs : undefined;
+  }
+
   function findTimelineRuntimeSceneByWidgetId(widgetId) {
     if (!runtime || !Array.isArray(runtime.scenes)) return null;
     for (var sceneIndex = 0; sceneIndex < runtime.scenes.length; sceneIndex += 1) {
@@ -410,9 +423,14 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
   }
 
   function getEffectiveWidgetElapsedMs(sceneRuntime, widget, elapsedMs) {
+    var completedAtPerfMs = getScratchRevealCompletionPerfMs(sceneRuntime, widget);
     var completedAtMs = getScratchRevealCompletionMs(sceneRuntime, widget);
     var startMs = Number((widget && widget.timeline && widget.timeline.startMs) || 0);
     if (isWidgetWaitingForScratchReveal(sceneRuntime, widget)) return startMs;
+    if (Number.isFinite(completedAtPerfMs)) {
+      var currentPerfMs = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+      return startMs + Math.max(0, currentPerfMs - completedAtPerfMs);
+    }
     if (!Number.isFinite(completedAtMs)) return elapsedMs;
     return startMs + Math.max(0, elapsedMs - completedAtMs);
   }
@@ -901,12 +919,16 @@ export const EXPORT_RUNTIME_SCRATCH_SECTION = `
       shell.setAttribute('data-scratch-ready', 'true');
     }
     window.__smxScratchCompletionMsByWidgetId = window.__smxScratchCompletionMsByWidgetId || {};
+    window.__smxScratchCompletionPerfMsByWidgetId = window.__smxScratchCompletionPerfMsByWidgetId || {};
 
     function completeScratch() {
       if (completed) return;
       completed = true;
       shell.classList.add('is-scratch-complete');
-      window.__smxScratchCompletionMsByWidgetId[root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || ''] = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() - startedAt : 0;
+      var scratchWidgetId = root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || '';
+      var completionPerfMs = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+      window.__smxScratchCompletionMsByWidgetId[scratchWidgetId] = completionPerfMs - startedAt;
+      window.__smxScratchCompletionPerfMsByWidgetId[scratchWidgetId] = completionPerfMs;
       if (maskTarget) {
         maskTarget.style.display = 'none';
         maskTarget.style.webkitMaskImage = 'none';
