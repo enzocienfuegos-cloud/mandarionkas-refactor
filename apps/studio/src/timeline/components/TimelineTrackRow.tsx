@@ -93,7 +93,6 @@ function TimelineTrackRowComponent({
         keyframes.length ? 'has-keyframes' : '',
         widget.hidden ? 'is-hidden' : '',
         widget.locked ? 'is-locked' : '',
-        widget.timeline.excluded ? 'is-excluded' : '',
         depth ? 'is-nested' : '',
         isGroup ? 'is-group-row' : '',
       ].filter(Boolean).join(' ')}
@@ -177,7 +176,6 @@ function TimelineTrackRowComponent({
               <span className="timeline-row-badge">Start {formatTime(timing.startMs)}</span>
               <span className="timeline-row-badge">Length {formatTime(durationMs)}</span>
               {keyframes.length ? <span className="timeline-row-badge">Keys {keyframes.length}</span> : null}
-              {widget.timeline.excluded ? <span className="timeline-row-badge">Excluded</span> : null}
             </div>
             <div className="timeline-row-keyframes">
               {keyframes.length ? (
@@ -244,9 +242,8 @@ function TimelineTrackRowComponent({
       </div>
 
       <div
-        className={`timeline-track${widget.timeline.excluded ? ' is-excluded' : ''}`.trim()}
+        className="timeline-track"
         onPointerDown={(event) => {
-          if (widget.timeline.excluded) return;
           if (event.target !== event.currentTarget) return;
           event.preventDefault();
           event.stopPropagation();
@@ -254,10 +251,6 @@ function TimelineTrackRowComponent({
           scrubFromTrack(event.currentTarget, event.clientX);
         }}
       >
-        {widget.timeline.excluded ? (
-          <div className="timeline-track-excluded-label">Excluded from timeline track</div>
-        ) : (
-          <>
         <button
           type="button"
           className="timeline-row-playhead"
@@ -370,8 +363,6 @@ function TimelineTrackRowComponent({
             +{childCount}
           </div>
         ) : null}
-          </>
-        )}
       </div>
     </div>
   );

@@ -30,7 +30,6 @@ function interpolateValue(left: KeyframeNode, right: KeyframeNode, playheadMs: n
 }
 
 export function getLiveWidgetFrame(widget: WidgetNode, playheadMs: number): WidgetNode['frame'] {
-  if (widget.timeline.excluded) return { ...widget.frame };
   const keyframes = widget.timeline.keyframes ?? [];
   const nextFrame = { ...widget.frame };
 
@@ -47,7 +46,6 @@ export function getLiveWidgetFrame(widget: WidgetNode, playheadMs: number): Widg
 
 export function getLiveWidgetOpacity(widget: WidgetNode, playheadMs: number): number {
   const baseOpacity = Number(widget.style.opacity ?? 1);
-  if (widget.timeline.excluded) return baseOpacity;
   const keyframes = sortKeyframes((widget.timeline.keyframes ?? []).filter((item) => item.property === 'opacity'));
   if (!keyframes.length) return baseOpacity;
   const before = [...keyframes].reverse().find((item) => item.atMs <= playheadMs) ?? keyframes[0];
@@ -57,6 +55,5 @@ export function getLiveWidgetOpacity(widget: WidgetNode, playheadMs: number): nu
 
 export function isWidgetVisibleAt(widget: WidgetNode, playheadMs: number): boolean {
   if (widget.hidden) return false;
-  if (widget.timeline.excluded) return true;
   return playheadMs >= widget.timeline.startMs && playheadMs <= widget.timeline.endMs;
 }

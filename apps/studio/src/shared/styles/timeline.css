@@ -191,30 +191,6 @@
   border-left: 1px solid var(--white-a-04);
   contain: layout paint;
 }
-
-.timeline-track.is-excluded {
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  background:
-    linear-gradient(180deg, var(--white-a-02), var(--white-a-01)),
-    repeating-linear-gradient(90deg, var(--white-a-02) 0, var(--white-a-02) 1px, transparent 1px, transparent 32px);
-}
-
-.timeline-track-excluded-label {
-  display: inline-flex;
-  align-items: center;
-  min-height: 20px;
-  padding: 0 10px;
-  border-radius: var(--radius-pill);
-  border: 1px dashed var(--white-a-12);
-  background: var(--white-a-04);
-  color: var(--text-muted-soft);
-  font-size: var(--font-size-3xs);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
 .timeline-row-playhead {
   position: absolute;
   top: 0;

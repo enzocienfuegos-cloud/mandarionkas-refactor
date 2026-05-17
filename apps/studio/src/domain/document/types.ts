@@ -44,7 +44,7 @@ export type WidgetFrame = { x: number; y: number; width: number; height: number;
 export type KeyframeProperty = 'x' | 'y' | 'width' | 'height' | 'opacity';
 export type KeyframeEasing = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
 export type KeyframeNode = { id: string; atMs: number; property: KeyframeProperty; value: number; easing?: KeyframeEasing; managedBy?: string; };
-export type WidgetTimeline = { startMs: number; endMs: number; excluded?: boolean; keyframes?: KeyframeNode[]; };
+export type WidgetTimeline = { startMs: number; endMs: number; keyframes?: KeyframeNode[]; };
 export type MotionConfigValue = Record<string, number | string>;
 export type WidgetMotion = {
   templateId: string | null;

@@ -133,4 +133,29 @@ describe('normalizeStudioState', () => {
     });
     expect((group?.timeline.keyframes ?? []).filter((keyframe) => keyframe.managedBy?.startsWith('motion:'))).toHaveLength(4);
   });
+
+  it('migrates legacy excluded widgets to a full-scene timeline', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0]?.id ?? 'scene_1';
+    state.document.scenes[0].durationMs = 10000;
+
+    state.document.widgets.reveal = {
+      id: 'reveal',
+      type: 'text',
+      name: 'Reveal',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 24, y: 32, width: 240, height: 40, rotation: 0 },
+      props: { text: 'Reveal' },
+      style: { opacity: 0 },
+      timeline: { startMs: 0, endMs: 5000, excluded: true as never },
+    } as any;
+
+    const normalized = normalizeStudioState(state);
+    expect(normalized.document.widgets.reveal.timeline).toEqual({
+      startMs: 0,
+      endMs: 10000,
+      keyframes: [],
+    });
+  });
 });

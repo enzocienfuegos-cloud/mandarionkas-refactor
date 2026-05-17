@@ -57,7 +57,6 @@ export function TimelineOverview({
         }}
       >
         {displayedWidgets.map(({ widget, timing }) => {
-          if (widget.timeline.excluded) return null;
           const left = (timing.startMs / Math.max(1, sceneDurationMs)) * 100;
           const width = ((timing.endMs - timing.startMs) / Math.max(1, sceneDurationMs)) * 100;
           return (

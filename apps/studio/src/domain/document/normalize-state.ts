@@ -5,6 +5,31 @@ import { buildWidgetHoverMotion, buildWidgetMotion } from '../../motion/motion-m
 import { widgetSupportsMotion } from '../../motion/motion-widget-compatibility';
 import { rebuildWidgetMotionKeyframes } from '../../motion/motion-template-keyframes';
 
+function migrateLegacyExcludedFlag(
+  widgets: Record<string, WidgetNode> | undefined,
+  sceneDurationByIdMap: Map<string, number>,
+): Record<string, WidgetNode> {
+  if (!widgets) return {};
+  return Object.fromEntries(
+    Object.entries(widgets).map(([widgetId, widget]) => {
+      const legacyTimeline = widget.timeline as WidgetNode['timeline'] & { excluded?: boolean };
+      if (!legacyTimeline.excluded) return [widgetId, widget];
+      const sceneDurationMs = sceneDurationByIdMap.get(widget.sceneId) ?? widget.timeline.endMs;
+      return [
+        widgetId,
+        {
+          ...widget,
+          timeline: {
+            startMs: 0,
+            endMs: Math.max(widget.timeline.endMs, sceneDurationMs),
+            keyframes: widget.timeline.keyframes ?? [],
+          },
+        },
+      ];
+    }),
+  );
+}
+
 function normalizeFeeds(feeds: StudioState['document']['feeds'] | undefined): FeedCatalog {
   const defaults = createInitialState().document.feeds;
   return {
@@ -92,6 +117,8 @@ export function normalizeStudioState(raw: StudioState): StudioState {
   const activeCanvasVariantId = canvasVariants.some((variant) => variant.id === raw.document.activeCanvasVariantId)
     ? raw.document.activeCanvasVariantId
     : canvasVariants[0]?.id ?? base.document.activeCanvasVariantId;
+  const sceneDurationByIdMap = new Map((raw.document.scenes ?? []).map((scene) => [scene.id, scene.durationMs]));
+  const migratedWidgets = migrateLegacyExcludedFlag(raw.document.widgets, sceneDurationByIdMap);
 
   const normalized: StudioState = {
     document: {
@@ -100,7 +127,7 @@ export function normalizeStudioState(raw: StudioState): StudioState {
       canvasVariants,
       activeCanvasVariantId,
       widgetOverrides: raw.document.widgetOverrides ?? {},
-      widgets: normalizeWidgets(raw.document.widgets),
+      widgets: normalizeWidgets(migratedWidgets),
       sharedLayers: raw.document.sharedLayers ?? {},
       feeds: normalizeFeeds(raw.document.feeds),
       selection: {

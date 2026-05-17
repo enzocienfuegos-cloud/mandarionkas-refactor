@@ -59,35 +59,6 @@ describe('timeline helpers', () => {
     expect(isWidgetVisibleAt(widget, 1000)).toBe(false);
   });
 
-  it('keeps timeline-excluded widgets visible regardless of playhead', () => {
-    const excludedWidget = {
-      ...widget,
-      timeline: {
-        ...widget.timeline,
-        excluded: true,
-      },
-    } as any;
-
-    expect(isWidgetVisibleAt(excludedWidget, 0)).toBe(true);
-    expect(isWidgetVisibleAt(excludedWidget, 500)).toBe(true);
-    expect(isWidgetVisibleAt(excludedWidget, 5000)).toBe(true);
-  });
-
-  it('keeps timeline-excluded widgets static instead of replaying managed motion tracks', () => {
-    const excludedWidget = {
-      ...widget,
-      frame: { ...widget.frame, x: 24 },
-      style: { opacity: 0.72 },
-      timeline: {
-        ...widget.timeline,
-        excluded: true,
-      },
-    } as any;
-
-    expect(getLiveWidgetFrame(excludedWidget, 500).x).toBe(24);
-    expect(getLiveWidgetOpacity(excludedWidget, 500)).toBeCloseTo(0.72);
-  });
-
   it('derives grid step from zoom', () => {
     expect(getTimelineGridStepMs(0.5)).toBe(1000);
     expect(getTimelineGridStepMs(1)).toBe(500);
@@ -101,21 +72,6 @@ describe('timeline helpers', () => {
     expect(targets.some((target) => target.kind === 'start' && target.widgetId === peerWidget.id)).toBe(true);
     expect(targets.some((target) => target.kind === 'keyframe' && target.keyframeId === 'k5')).toBe(true);
     expect(targets.some((target) => target.widgetId === widget.id)).toBe(false);
-  });
-
-  it('skips excluded timeline widgets when building snap targets', () => {
-    const targets = buildTimelineSnapTargets([
-      {
-        ...peerWidget,
-        timeline: {
-          ...peerWidget.timeline,
-          excluded: true,
-        },
-      } as any,
-    ], { playheadMs: 700 });
-
-    expect(targets.some((target) => target.widgetId === peerWidget.id)).toBe(false);
-    expect(targets.some((target) => target.kind === 'playhead' && target.ms === 700)).toBe(true);
   });
 
   it('prefers explicit targets over grid when both are in range', () => {
