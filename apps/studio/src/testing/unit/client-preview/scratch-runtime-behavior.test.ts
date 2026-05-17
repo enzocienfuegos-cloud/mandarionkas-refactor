@@ -13,7 +13,7 @@ async function getBrowser(): Promise<Browser> {
 afterAll(async () => {
   await browser?.close();
   browser = null;
-});
+}, 30000);
 
 describe('scratch reveal runtime behavior', () => {
   it('replays compositor motion on a selected target group child after scratch completion', async () => {
