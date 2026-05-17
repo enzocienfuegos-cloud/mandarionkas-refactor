@@ -9,6 +9,7 @@ import { rectStyle, sceneTransitionOpacity, sceneTransitionTransform, toRect } f
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 import { isVisibleWithinParentTimeline, resolveInheritedMotionFrame, resolveInheritedOpacity } from './stage-motion-inheritance';
 import { isScratchGroupActive } from '../../../widgets/group/group-scratch-activation';
+import { getScratchRevealTargetMode, isWidgetTargetedByScratchGroup } from '../../../widgets/group/group-reveal-target';
 
 export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
@@ -165,8 +166,13 @@ export function StageSurface({
         if (candidate.id === widget.id) return;
         if (candidate.type !== 'group' || !candidate.props.scratchEnabled) return;
         if (candidate.zIndex <= widget.zIndex) return;
-        const candidateFrame = resolveScratchGroupFrame(candidate);
-        if (!rectsOverlap(candidateFrame, widgetFrame)) return;
+        const revealTargetMode = getScratchRevealTargetMode(candidate);
+        if (revealTargetMode === 'auto') {
+          const candidateFrame = resolveScratchGroupFrame(candidate);
+          if (!rectsOverlap(candidateFrame, widgetFrame)) return;
+        } else if (!isWidgetTargetedByScratchGroup(candidate, widget, widgetsById)) {
+          return;
+        }
         if (candidate.zIndex > topCoverZIndex) {
           topCoverId = candidate.id;
           topCoverZIndex = candidate.zIndex;

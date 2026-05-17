@@ -30,6 +30,7 @@ export type ExportRuntimeWidget = {
   type: PortableExportWidget['type'];
   sceneId: string;
   zIndex: number;
+  parentId?: string;
   frame: PortableExportWidget['frame'];
   props: PortableExportWidget['props'];
   style: PortableExportWidget['style'];
@@ -135,6 +136,7 @@ function buildRuntimeWidget(widget: PortableExportWidget): ExportRuntimeWidget {
     type: widget.type,
     sceneId: widget.sceneId,
     zIndex: widget.zIndex,
+    parentId: widget.parentId,
     frame: widget.frame,
     props: widget.props,
     style: widget.style,

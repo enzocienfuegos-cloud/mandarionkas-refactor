@@ -152,6 +152,41 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
       && Number(left.y || 0) + Number(left.height || 0) > Number(right.y || 0);
   }
 
+  function getScratchRevealTargetMode(widget) {
+    var rawMode = String(widget && widget.props ? widget.props.revealTargetMode || 'auto' : 'auto').trim().toLowerCase();
+    if (rawMode === 'widget' || rawMode === 'scene') return rawMode;
+    return 'auto';
+  }
+
+  function getScratchRevealTargetId(widget) {
+    return String(widget && widget.props ? widget.props.revealTargetId || '' : '').trim();
+  }
+
+  function isRuntimeWidgetDescendantOf(sceneRuntime, widget, ancestorWidgetId) {
+    if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !widget || !ancestorWidgetId) return false;
+    var widgetsById = sceneRuntime.widgets.reduce(function(acc, item) {
+      if (item && item.id) acc[item.id] = item;
+      return acc;
+    }, {});
+    var currentParentId = widget.parentId;
+    var visited = {};
+    while (currentParentId && !visited[currentParentId]) {
+      if (currentParentId === ancestorWidgetId) return true;
+      visited[currentParentId] = true;
+      currentParentId = widgetsById[currentParentId] ? widgetsById[currentParentId].parentId : undefined;
+    }
+    return false;
+  }
+
+  function isWidgetTargetedByScratchGroup(sceneRuntime, scratchWidget, widget) {
+    var mode = getScratchRevealTargetMode(scratchWidget);
+    var targetId = getScratchRevealTargetId(scratchWidget);
+    if (!targetId) return false;
+    if (mode === 'scene') return String(widget && widget.sceneId || '') === targetId;
+    if (mode === 'widget') return widget && (widget.id === targetId || isRuntimeWidgetDescendantOf(sceneRuntime, widget, targetId));
+    return false;
+  }
+
   function getScratchRevealCompletionMs(sceneRuntime, widget) {
     if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets) || !widget) return undefined;
     var topCover = null;
@@ -159,7 +194,11 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
       if (!candidate || candidate.id === widget.id) return;
       if (candidate.type !== 'group' || !candidate.props || !candidate.props.scratchEnabled) return;
       if (Number(candidate.zIndex || 0) <= Number(widget.zIndex || 0)) return;
-      if (!rectsOverlap(candidate.frame, widget.frame)) return;
+      if (getScratchRevealTargetMode(candidate) === 'auto') {
+        if (!rectsOverlap(candidate.frame, widget.frame)) return;
+      } else if (!isWidgetTargetedByScratchGroup(sceneRuntime, candidate, widget)) {
+        return;
+      }
       if (!topCover || Number(candidate.zIndex || 0) > Number(topCover.zIndex || 0)) topCover = candidate;
     });
     if (!topCover || !window.__smxScratchCompletionMsByWidgetId) return undefined;

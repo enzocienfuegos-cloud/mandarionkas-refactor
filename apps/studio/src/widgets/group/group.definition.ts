@@ -21,6 +21,8 @@ export const groupDefinition: WidgetDefinition = {
     props: {
       title: 'Group',
       scratchEnabled: false,
+      revealTargetMode: 'auto',
+      revealTargetId: '',
       coverLabel: 'Scratch to reveal',
       beforeImage: '',
       beforeAssetId: '',
