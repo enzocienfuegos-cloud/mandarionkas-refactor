@@ -362,17 +362,22 @@ function hasResolvedInventoryPassthrough(params = []) {
 function appendQueryParams(rawUrl, params = []) {
   const safeUrl = trimText(rawUrl);
   if (!safeUrl || !params.length) return safeUrl;
-  try {
-    const parsed = new URL(safeUrl);
-    for (const [key, value] of params) parsed.searchParams.set(key, value);
-    return parsed.toString();
-  } catch {
-    let nextUrl = safeUrl;
-    for (const [key, value] of params) {
-      nextUrl = appendQueryParam(nextUrl, key, value);
-    }
-    return nextUrl;
+  let nextUrl = safeUrl;
+  for (const [key, value] of params) {
+    nextUrl = appendQueryParam(nextUrl, key, value);
   }
+  return nextUrl;
+}
+
+function buildSelectedCreativeTrackerParams(selectedBinding = {}) {
+  const params = [];
+  const creativeId = trimText(selectedBinding?.creative_id);
+  const creativeVersionId = trimText(selectedBinding?.creative_version_id);
+  const variantId = trimText(selectedBinding?.creative_size_variant_id);
+  if (creativeId) params.push(['smx_creative_id', creativeId]);
+  if (creativeVersionId) params.push(['smx_creative_version_id', creativeVersionId]);
+  if (variantId) params.push(['smx_variant_id', variantId]);
+  return params;
 }
 
 function estimateBitrateKbps(width, height) {
@@ -913,10 +918,12 @@ function buildLiveXmlForTagContext(ctx, { profile = 'default', baseUrl, queryPar
     ? ''
     : deriveProfileDsp(normalizedProfile, campaignDsp);
   const rawTrackers = buildTrackerUrls({ baseUrl: liveBaseUrl, tagId: ctx.tag.id, dsp: trackerDsp });
+  const selectedCreativeParams = buildSelectedCreativeTrackerParams(ctx.selectedBinding || {});
+  const trackerParams = [...trackerPassthroughParams, ...selectedCreativeParams];
   const trackers = {
-    impression: appendQueryParams(rawTrackers.impression, trackerPassthroughParams),
-    click: appendQueryParams(rawTrackers.click, trackerPassthroughParams),
-    engagement: appendQueryParams(rawTrackers.engagement, trackerPassthroughParams),
+    impression: appendQueryParams(rawTrackers.impression, trackerParams),
+    click: appendQueryParams(rawTrackers.click, trackerParams),
+    engagement: appendQueryParams(rawTrackers.engagement, trackerParams),
   };
   const impressionUrls = [trackers.impression, ...buildSupplementalTrackerUrls(ctx, 'impression')];
   const clickTrackingUrls = [trackers.click, ...buildSupplementalTrackerUrls(ctx, 'click')];
