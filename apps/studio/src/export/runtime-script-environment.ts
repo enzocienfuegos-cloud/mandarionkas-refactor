@@ -253,6 +253,37 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     return startMs + Math.max(0, elapsedMs - completedAtMs);
   }
 
+  function getRuntimeWidgetsById(sceneRuntime) {
+    return (sceneRuntime.widgets || []).reduce(function(acc, item) {
+      if (item && item.id) acc[item.id] = item;
+      return acc;
+    }, {});
+  }
+
+  function getScratchCoverAncestorMotion(sceneRuntime, widget, elapsedMs) {
+    var widgetsById = getRuntimeWidgetsById(sceneRuntime);
+    var currentParentId = widget && widget.parentId;
+    var visited = {};
+    var offsetX = 0;
+    var offsetY = 0;
+    var opacity = 1;
+
+    while (currentParentId && !visited[currentParentId]) {
+      visited[currentParentId] = true;
+      var parent = widgetsById[currentParentId];
+      if (!parent) break;
+      if (parent.type === 'group' && parent.props && parent.props.scratchEnabled) break;
+      var parentFrame = parent.frame || {};
+      var parentElapsedMs = getEffectiveWidgetElapsedMs(sceneRuntime, parent, elapsedMs);
+      offsetX += getWidgetTrackValue(parent, 'x', parentElapsedMs, Number(parentFrame.x || 0)) - Number(parentFrame.x || 0);
+      offsetY += getWidgetTrackValue(parent, 'y', parentElapsedMs, Number(parentFrame.y || 0)) - Number(parentFrame.y || 0);
+      opacity *= getWidgetTrackValue(parent, 'opacity', parentElapsedMs, Number(parent.style && parent.style.opacity !== undefined ? parent.style.opacity : 1));
+      currentParentId = parent.parentId;
+    }
+
+    return { offsetX: offsetX, offsetY: offsetY, opacity: opacity };
+  }
+
   function syncTimelineAnimatedWidgets(sceneRuntime, elapsedMs) {
     if (!sceneRuntime || !Array.isArray(sceneRuntime.widgets)) return;
     sceneRuntime.widgets.forEach((widget) => {
@@ -266,14 +297,18 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
       const style = node.style;
       const originX = Number(node.getAttribute('data-scratch-origin-x') || 0);
       const originY = Number(node.getAttribute('data-scratch-origin-y') || 0);
+      const isScratchCoverNode = Boolean(node.getAttribute('data-scratch-cover-widget-id'));
+      const ancestorMotion = isScratchCoverNode
+        ? getScratchCoverAncestorMotion(sceneRuntime, widget, elapsedMs)
+        : { offsetX: 0, offsetY: 0, opacity: 1 };
       if (!node.getAttribute('data-smx-base-opacity')) {
         node.setAttribute('data-smx-base-opacity', style.opacity || '1');
       }
-      style.left = String(getWidgetTrackValue(widget, 'x', effectiveElapsedMs, Number(frame.x || 0)) - originX) + 'px';
-      style.top = String(getWidgetTrackValue(widget, 'y', effectiveElapsedMs, Number(frame.y || 0)) - originY) + 'px';
+      style.left = String(getWidgetTrackValue(widget, 'x', effectiveElapsedMs, Number(frame.x || 0)) - originX + ancestorMotion.offsetX) + 'px';
+      style.top = String(getWidgetTrackValue(widget, 'y', effectiveElapsedMs, Number(frame.y || 0)) - originY + ancestorMotion.offsetY) + 'px';
       style.width = String(getWidgetTrackValue(widget, 'width', effectiveElapsedMs, Number(frame.width || 0))) + 'px';
       style.height = String(getWidgetTrackValue(widget, 'height', effectiveElapsedMs, Number(frame.height || 0))) + 'px';
-      style.opacity = String(getWidgetTrackValue(widget, 'opacity', effectiveElapsedMs, Number(node.getAttribute('data-smx-base-opacity') || widget.style?.opacity || 1)));
+      style.opacity = String(getWidgetTrackValue(widget, 'opacity', effectiveElapsedMs, Number(node.getAttribute('data-smx-base-opacity') || widget.style?.opacity || 1)) * ancestorMotion.opacity);
     });
   }
 

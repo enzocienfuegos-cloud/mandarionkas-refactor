@@ -197,6 +197,11 @@ export function StageSurface({
     return getLiveWidgetFrame(widget, getEffectiveWidgetPlayheadMs(widget));
   }
 
+  function getStageLiveFrame(widget: WidgetNode): WidgetFrame {
+    if (findScratchRevealCompletionMs(widget) !== undefined) return getEffectiveLiveFrame(widget);
+    return liveFrameById[widget.id] ?? getEffectiveLiveFrame(widget);
+  }
+
   function getEffectiveLiveOpacity(widget: WidgetNode): number {
     return getLiveWidgetOpacity(widget, getEffectiveWidgetPlayheadMs(widget));
   }
@@ -257,14 +262,15 @@ export function StageSurface({
           && (!Boolean(widget.props.scratchEnabled) || !scratchGroupActive);
         const groupSelectedInEditor = !previewMode && selectedIds.includes(widget.id);
         if (isPassThroughGroup && !groupSelectedInEditor) return null;
-        const liveFrame = liveFrameById[widget.id] ?? getEffectiveLiveFrame(widget);
+        const liveFrame = getStageLiveFrame(widget);
         const baseFrame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
           ? resolveScratchGroupFrame(widget)
           : liveFrame;
+        const inheritedLiveFrameById = findScratchRevealCompletionMs(widget) === undefined ? liveFrameById : {};
         const frame = resolveInheritedMotionFrame({
           widget,
           widgetsById,
-          liveFrameById,
+          liveFrameById: inheritedLiveFrameById,
           playheadMs,
           getLiveFrame: (target, _playheadMs) => getEffectiveLiveFrame(target),
           ownFrame: baseFrame,

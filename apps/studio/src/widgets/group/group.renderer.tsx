@@ -166,9 +166,74 @@ function getScratchCoverEffectivePlayheadMs(
   return node.timeline.startMs + Math.max(0, playheadMs - revealCompletedAtMs);
 }
 
+function resolveScratchCoverLiveFrame({
+  node,
+  rootGroupId,
+  ctx,
+  revealCompletedAtMs,
+}: {
+  node: WidgetNode;
+  rootGroupId: string;
+  ctx: RenderContext;
+  revealCompletedAtMs: number | undefined;
+}): WidgetNode['frame'] {
+  const effectivePlayheadMs = getScratchCoverEffectivePlayheadMs(node, ctx.playheadMs, revealCompletedAtMs);
+  const liveFrame = getLiveWidgetFrame(node, effectivePlayheadMs);
+  let nextX = liveFrame.x;
+  let nextY = liveFrame.y;
+  let currentParentId = node.parentId;
+  const visited = new Set<string>([node.id]);
+
+  while (currentParentId && currentParentId !== rootGroupId && !visited.has(currentParentId)) {
+    visited.add(currentParentId);
+    const parent = ctx.widgetsById[currentParentId];
+    if (!parent) break;
+    const parentPlayheadMs = getScratchCoverEffectivePlayheadMs(parent, ctx.playheadMs, revealCompletedAtMs);
+    const parentLiveFrame = getLiveWidgetFrame(parent, parentPlayheadMs);
+    nextX += parentLiveFrame.x - parent.frame.x;
+    nextY += parentLiveFrame.y - parent.frame.y;
+    currentParentId = parent.parentId;
+  }
+
+  return {
+    ...liveFrame,
+    x: nextX,
+    y: nextY,
+  };
+}
+
+function resolveScratchCoverOpacity({
+  node,
+  rootGroupId,
+  ctx,
+  revealCompletedAtMs,
+}: {
+  node: WidgetNode;
+  rootGroupId: string;
+  ctx: RenderContext;
+  revealCompletedAtMs: number | undefined;
+}): number {
+  const effectivePlayheadMs = getScratchCoverEffectivePlayheadMs(node, ctx.playheadMs, revealCompletedAtMs);
+  let opacity = getLiveWidgetOpacity(node, effectivePlayheadMs);
+  let currentParentId = node.parentId;
+  const visited = new Set<string>([node.id]);
+
+  while (currentParentId && currentParentId !== rootGroupId && !visited.has(currentParentId)) {
+    visited.add(currentParentId);
+    const parent = ctx.widgetsById[currentParentId];
+    if (!parent) break;
+    const parentPlayheadMs = getScratchCoverEffectivePlayheadMs(parent, ctx.playheadMs, revealCompletedAtMs);
+    opacity *= getLiveWidgetOpacity(parent, parentPlayheadMs);
+    currentParentId = parent.parentId;
+  }
+
+  return Math.max(0, Math.min(1, opacity));
+}
+
 function renderScratchCoverNode(
   node: WidgetNode,
   rootFrame: WidgetNode['frame'],
+  rootGroupId: string,
   ctx: RenderContext,
   revealCompletedAtMs: number | undefined,
   visited = new Set<string>(),
@@ -182,7 +247,7 @@ function renderScratchCoverNode(
       .map((childId) => ctx.widgetsById[childId])
       .filter((child): child is WidgetNode => Boolean(child))
       .sort((left, right) => left.zIndex - right.zIndex)
-      .flatMap((child) => renderScratchCoverNode(child, rootFrame, ctx, revealCompletedAtMs, visited));
+      .flatMap((child) => renderScratchCoverNode(child, rootFrame, rootGroupId, ctx, revealCompletedAtMs, visited));
   }
 
   return [
@@ -191,6 +256,7 @@ function renderScratchCoverNode(
         key={node.id}
         node={node}
         rootFrame={rootFrame}
+        rootGroupId={rootGroupId}
         ctx={ctx}
         revealCompletedAtMs={revealCompletedAtMs}
       />
@@ -201,19 +267,20 @@ function renderScratchCoverNode(
 function ScratchCoverWidget({
   node,
   rootFrame,
+  rootGroupId,
   ctx,
   revealCompletedAtMs,
 }: {
   node: WidgetNode;
   rootFrame: WidgetNode['frame'];
+  rootGroupId: string;
   ctx: RenderContext;
   revealCompletedAtMs?: number;
 }): JSX.Element {
   const compositorMotionRef = useRef<HTMLDivElement | null>(null);
   useCompositorMotion({ ref: compositorMotionRef, motion: node.motion, active: ctx.previewMode });
-  const effectivePlayheadMs = getScratchCoverEffectivePlayheadMs(node, ctx.playheadMs, revealCompletedAtMs);
-  const liveFrame = getLiveWidgetFrame(node, effectivePlayheadMs);
-  const liveOpacity = getLiveWidgetOpacity(node, effectivePlayheadMs);
+  const liveFrame = resolveScratchCoverLiveFrame({ node, rootGroupId, ctx, revealCompletedAtMs });
+  const liveOpacity = resolveScratchCoverOpacity({ node, rootGroupId, ctx, revealCompletedAtMs });
   const contentNode: WidgetNode = {
     ...node,
     frame: {
@@ -271,7 +338,7 @@ function GroupScratchCoverChildren({
     .filter((child): child is WidgetNode => Boolean(child))
     .sort((left, right) => left.zIndex - right.zIndex);
 
-  const scratchNodes = childWidgets.flatMap((child) => renderScratchCoverNode(child, node.frame, ctx, revealCompletedAtMs));
+  const scratchNodes = childWidgets.flatMap((child) => renderScratchCoverNode(child, node.frame, node.id, ctx, revealCompletedAtMs));
   if (!scratchNodes.length) return null;
 
   return <>{scratchNodes}</>;
