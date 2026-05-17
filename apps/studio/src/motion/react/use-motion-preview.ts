@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { MotionConfig, MotionTemplate } from '../motion-template-contract';
 import { readConfigNumber } from '../motion-engine';
+import { toKeyframeAnimationOptions } from '../compositor-motion';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -77,6 +78,13 @@ function buildTemplatePreview(template: MotionTemplate, config: MotionConfig, ba
   keyframes: Keyframe[];
   options: KeyframeAnimationOptions;
 } {
+  const compositorMotion = template.buildCompositorMotion?.(config);
+  if (compositorMotion) {
+    return {
+      keyframes: compositorMotion.keyframes,
+      options: toKeyframeAnimationOptions(compositorMotion.options),
+    };
+  }
   if (template.category === 'hover') {
     return buildHoverPreview(template, config, baseOpacity);
   }

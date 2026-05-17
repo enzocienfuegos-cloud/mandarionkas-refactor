@@ -48,14 +48,25 @@ describe('motion templates build timeline keyframes', () => {
     expect(keyframes.at(-1)?.atMs).toBeLessThanOrEqual(2300);
   });
 
-  it('builds float as finite y cycles across the widget timeline', () => {
+  it('builds float as compositor transform motion instead of timeline y cycles', () => {
     const template = getMotionTemplate('float');
     const keyframes = template?.buildKeyframes({ durationMs: 1200, delayMs: 0, distancePx: 8 }, frame, timeline) ?? [];
+    const compositorMotion = template?.buildCompositorMotion?.({ durationMs: 1200, delayMs: 25, distancePx: 8 });
 
-    expect(keyframes.length).toBeGreaterThan(4);
-    expect(keyframes.every((keyframe) => keyframe.property === 'y')).toBe(true);
-    expect(keyframes.every((keyframe) => keyframe.easing === 'ease-in-out')).toBe(true);
-    expect(keyframes.some((keyframe) => keyframe.value > frame.y)).toBe(true);
-    expect(keyframes.some((keyframe) => keyframe.value < frame.y)).toBe(true);
+    expect(keyframes).toEqual([]);
+    expect(compositorMotion?.willChange).toBe('transform');
+    expect(compositorMotion?.options).toEqual(expect.objectContaining({
+      duration: 1200,
+      delay: 25,
+      easing: 'cubic-bezier(0.45, 0, 0.55, 1)',
+      iterations: 'infinite',
+    }));
+    expect(compositorMotion?.keyframes).toEqual([
+      expect.objectContaining({ transform: 'translate3d(0, 0, 0)', offset: 0 }),
+      expect.objectContaining({ transform: 'translate3d(0, -8px, 0)', offset: 0.25 }),
+      expect.objectContaining({ transform: 'translate3d(0, 0, 0)', offset: 0.5 }),
+      expect.objectContaining({ transform: 'translate3d(0, 8px, 0)', offset: 0.75 }),
+      expect.objectContaining({ transform: 'translate3d(0, 0, 0)', offset: 1 }),
+    ]);
   });
 });

@@ -49,6 +49,14 @@ describe('animation presets', () => {
     expect(keyframes.every((keyframe) => keyframe.property === 'opacity')).toBe(true);
   });
 
+  it('keeps compositor-native float out of timeline-managed tracks', () => {
+    const { keyframes, motion, stylePatch } = applyAnimationPreset(createWidget('image'), 'float');
+
+    expect(stylePatch.animationPreset).toBe('float');
+    expect(motion?.templateId).toBe('float');
+    expect(keyframes).toHaveLength(0);
+  });
+
   it('replaces previous preset-managed tracks when switching templates', () => {
     const widget = createWidget('cta');
     widget.timeline.keyframes = [

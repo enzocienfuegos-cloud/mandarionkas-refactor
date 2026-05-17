@@ -1,4 +1,4 @@
-import { memo, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { memo, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { getWidgetActions } from '../../../actions/runtime';
 import { renderWidgetContents } from '../render-widget';
 import type { ActionNode, WidgetFrame, WidgetNode, StudioState } from '../../../domain/document/types';
@@ -6,6 +6,7 @@ import type { ResizeHandle } from '../use-stage-controller';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 import { isNativeStageDragWidgetType } from '../../../domain/document/widget-type-groups';
 import { resolveWidgetHoverMotion } from '../../../motion/motion-model';
+import { useCompositorMotion } from '../../../motion/react/use-compositor-motion';
 
 const HANDLE_SIZE = 10;
 const showDebugWidgetTags = import.meta.env.DEV && import.meta.env.VITE_SHOW_WIDGET_TAGS === 'true';
@@ -56,7 +57,9 @@ export const StageWidget = memo(function StageWidget({
   onWidgetTrigger,
 }: StageWidgetProps): JSX.Element {
   const managesNativeDrag = isNativeStageDragWidgetType(node.type);
+  const compositorMotionRef = useRef<HTMLDivElement | null>(null);
   const useWireframe = !previewMode && editModeWireframe && !selected && !active && !hovered;
+  useCompositorMotion({ ref: compositorMotionRef, motion: node.motion, active: previewMode });
   const triggerWidgetAction = (trigger: ActionNode['trigger'], _metadata?: Record<string, unknown>) => {
     if (!previewMode) return;
     onWidgetTrigger?.(node.id, trigger, _metadata);
@@ -69,6 +72,7 @@ export const StageWidget = memo(function StageWidget({
     hovered,
     active,
   });
+  const widgetCompositorMotionStyle = buildStageWidgetCompositorMotionStyle();
   const widgetContentStyle = buildStageWidgetContentStyle(previewMode);
 
   return (
@@ -98,22 +102,24 @@ export const StageWidget = memo(function StageWidget({
       }}
       style={widgetStyle}
     >
-      <div className="stage-widget-content" style={widgetContentStyle}>
-        {renderWidgetContents(
-          node,
-          {
-            previewMode,
-            playheadMs,
-            sceneDurationMs,
-            hovered,
-            active,
-            widgetsById,
-            state: stateRef.current,
-            triggerWidgetAction,
-            executeAction: onExecuteAction,
-          },
-          { wireframe: useWireframe },
-        )}
+      <div ref={compositorMotionRef} className="stage-widget-compositor-motion" style={widgetCompositorMotionStyle}>
+        <div className="stage-widget-content" style={widgetContentStyle}>
+          {renderWidgetContents(
+            node,
+            {
+              previewMode,
+              playheadMs,
+              sceneDurationMs,
+              hovered,
+              active,
+              widgetsById,
+              state: stateRef.current,
+              triggerWidgetAction,
+              executeAction: onExecuteAction,
+            },
+            { wireframe: useWireframe },
+          )}
+        </div>
       </div>
       {!previewMode && showBadge && !useWireframe && showDebugWidgetTags ? <div className="edit-mode-label">{node.type} · {node.name}</div> : null}
       {selected ? <SelectionOverlay primary={primary} onResizePointerDown={onResizePointerDown} /> : null}
@@ -172,6 +178,14 @@ function buildStageWidgetStyle(
     '--smx-motion-hover-transform': hoverTransform,
   };
   return style;
+}
+
+function buildStageWidgetCompositorMotionStyle(): CSSProperties {
+  return {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  };
 }
 
 function buildStageWidgetContentStyle(previewMode: boolean): CSSProperties {

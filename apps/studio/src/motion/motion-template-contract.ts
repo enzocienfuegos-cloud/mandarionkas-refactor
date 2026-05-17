@@ -5,6 +5,26 @@ import type { WidgetCapabilities } from '../widgets/registry/widget-definition';
 export type MotionCategory = 'entrance' | 'exit' | 'loop' | 'hover';
 export type MotionConfig = Record<string, number | string>;
 
+export type CompositorMotionKeyframe = {
+  transform?: string;
+  opacity?: number;
+  offset?: number;
+};
+
+export type CompositorMotionOptions = {
+  duration: number;
+  delay?: number;
+  easing?: string;
+  iterations?: number | 'infinite';
+  fill?: FillMode;
+};
+
+export type CompositorMotionSpec = {
+  keyframes: CompositorMotionKeyframe[];
+  options: CompositorMotionOptions;
+  willChange?: string;
+};
+
 export type MotionConfigField =
   | {
       key: string;
@@ -36,6 +56,7 @@ export type MotionTemplate = {
     widgetFrame: WidgetFrame,
     widgetTimeline: WidgetTimeline,
   ) => KeyframeNode[];
+  buildCompositorMotion?: (config: MotionConfig) => CompositorMotionSpec | null;
   thumbnail: (config?: MotionConfig) => JSX.Element;
   supportsWidgetType?: (type: WidgetType, capabilities: WidgetCapabilities | undefined) => boolean;
 };

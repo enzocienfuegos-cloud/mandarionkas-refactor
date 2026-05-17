@@ -116,6 +116,46 @@ export const EXPORT_RUNTIME_MOTION_SECTION = `
   };
 `;
 
+export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
+  function normalizeCompositorMotionIterations(value) {
+    if (value === 'infinite') return Infinity;
+    return Math.max(0, Number(value == null ? 1 : value));
+  }
+
+  function normalizeCompositorMotionFill(value) {
+    var fill = String(value || 'both');
+    return fill === 'none' || fill === 'forwards' || fill === 'backwards' || fill === 'both' || fill === 'auto' ? fill : 'both';
+  }
+
+  function findCompositorMotionNode(widgetId) {
+    return document.querySelector('[data-widget-layer-id="' + widgetId + '"]') || document.querySelector('[data-widget-id="' + widgetId + '"]');
+  }
+
+  function initCompositorMotion() {
+    if (!runtime || !Array.isArray(runtime.scenes)) return;
+    runtime.scenes.forEach(function(scene) {
+      if (!scene || !Array.isArray(scene.widgets)) return;
+      scene.widgets.forEach(function(widget) {
+        var spec = widget && widget.compositorMotion ? widget.compositorMotion : null;
+        if (!widget || !widget.id || !spec || !Array.isArray(spec.keyframes) || !spec.keyframes.length) return;
+        var node = findCompositorMotionNode(widget.id);
+        if (!node || typeof node.animate !== 'function') return;
+        var options = spec.options || {};
+        if (spec.willChange) node.style.willChange = String(spec.willChange);
+        node.animate(spec.keyframes, {
+          duration: Math.max(1, Number(options.duration || 1)),
+          delay: Math.max(0, Number(options.delay || 0)),
+          easing: String(options.easing || 'linear'),
+          iterations: normalizeCompositorMotionIterations(options.iterations),
+          fill: normalizeCompositorMotionFill(options.fill),
+        });
+      });
+    });
+  }
+
+  initCompositorMotion();
+`;
+
 export const EXPORT_RUNTIME_TIMELINE_SECTION = `
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));

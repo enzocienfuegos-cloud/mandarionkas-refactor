@@ -2,6 +2,7 @@ import { buildExportExitConfig } from './packaging';
 import type { ExportHtmlAdapter } from './html';
 import type { PortableExportProject, PortableExportWidget } from './portable';
 import {
+  EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION,
   EXPORT_RUNTIME_COUNTDOWN_SECTION,
   EXPORT_RUNTIME_ENVIRONMENT_SECTION,
   EXPORT_RUNTIME_FONTS_SECTION,
@@ -12,6 +13,7 @@ import {
   EXPORT_RUNTIME_TIMELINE_SECTION,
   EXPORT_RUNTIME_WEATHER_SECTION,
 } from './runtime-script-sections';
+import { buildCompositorMotionSpec } from '../motion/compositor-motion';
 
 type RuntimeCapabilities = {
   hasMap: boolean;
@@ -23,6 +25,7 @@ type RuntimeCapabilities = {
   hasScratchReveal: boolean;
   hasCountdown: boolean;
   hasTimelineAnimations: boolean;
+  hasCompositorMotion: boolean;
 };
 
 const MAP_WIDGET_TYPES = new Set<string>(['dynamic-map', 'leaflet-map']);
@@ -73,6 +76,7 @@ export function analyzeRuntimeCapabilities(document: PortableExportProject): Run
   const hasScratchReveal = widgets.some((widget) => SCRATCH_WIDGET_TYPES.has(widget.type) || (widget.type === 'group' && Boolean(widget.props?.scratchEnabled)));
   const hasCountdown = widgets.some((widget) => COUNTDOWN_WIDGET_TYPES.has(widget.type));
   const hasTimelineAnimations = widgets.some((widget) => (widget.timeline.keyframes?.length ?? 0) > 0);
+  const hasCompositorMotion = widgets.some((widget) => Boolean(buildCompositorMotionSpec(widget.motion)));
   const hasFontFaces = widgets.some((widget) => typeof widget.props?.fontAssetSrc === 'string' && widget.props.fontAssetSrc.trim().length > 0);
   const hasHoverMotion = widgets.some((widget) => {
     if (widget.hoverMotion?.templateId) return true;
@@ -90,6 +94,7 @@ export function analyzeRuntimeCapabilities(document: PortableExportProject): Run
     hasScratchReveal,
     hasCountdown,
     hasTimelineAnimations,
+    hasCompositorMotion,
   };
 }
 
@@ -104,6 +109,7 @@ export function compileRuntime(document: PortableExportProject, adapter: ExportH
   if (capabilities.hasWeather) sections.push(EXPORT_RUNTIME_WEATHER_SECTION);
   if (capabilities.hasScratchReveal) sections.push(EXPORT_RUNTIME_SCRATCH_SECTION);
   if (capabilities.hasCountdown) sections.push(EXPORT_RUNTIME_COUNTDOWN_SECTION);
+  if (capabilities.hasCompositorMotion) sections.push(EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION);
   if (capabilities.hasTimelineAnimations) sections.push(EXPORT_RUNTIME_TIMELINE_SECTION);
   return buildExportRuntimeScript(adapter, sections.join('\n'));
 }

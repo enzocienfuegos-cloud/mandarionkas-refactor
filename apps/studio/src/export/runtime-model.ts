@@ -1,5 +1,7 @@
 import { buildPortableProjectExport, type PortableExportInteraction, type PortableExportProject, type PortableExportScene, type PortableExportWidget } from './portable';
 import type { StudioState } from '../domain/document/types';
+import { buildCompositorMotionSpec } from '../motion/compositor-motion';
+import type { CompositorMotionSpec } from '../motion/motion-template-contract';
 
 export type ExportRuntimeGesture =
   | 'tap'
@@ -36,6 +38,7 @@ export type ExportRuntimeWidget = {
   style: PortableExportWidget['style'];
   motion?: PortableExportWidget['motion'];
   hoverMotion?: PortableExportWidget['hoverMotion'];
+  compositorMotion?: CompositorMotionSpec;
   timeline: PortableExportWidget['timeline'];
   hidden: boolean;
   interactive: boolean;
@@ -131,6 +134,7 @@ function inferWidgetGestures(widget: PortableExportWidget): ExportRuntimeGesture
 
 function buildRuntimeWidget(widget: PortableExportWidget): ExportRuntimeWidget {
   const gestures = inferWidgetGestures(widget);
+  const motion = widget.motion ? { ...widget.motion, config: { ...widget.motion.config } } : undefined;
   return {
     id: widget.id,
     type: widget.type,
@@ -140,8 +144,9 @@ function buildRuntimeWidget(widget: PortableExportWidget): ExportRuntimeWidget {
     frame: widget.frame,
     props: widget.props,
     style: widget.style,
-    motion: widget.motion ? { ...widget.motion, config: { ...widget.motion.config } } : undefined,
+    motion,
     hoverMotion: widget.hoverMotion ? { ...widget.hoverMotion, config: { ...widget.hoverMotion.config } } : undefined,
+    compositorMotion: buildCompositorMotionSpec(motion) ?? undefined,
     timeline: widget.timeline,
     hidden: widget.hidden,
     interactive: gestures.length > 0,

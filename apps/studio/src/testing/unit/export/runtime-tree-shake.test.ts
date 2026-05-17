@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
-import { buildGamHtml5Adapter, buildMraidAdapter, compileRuntime, buildExportPreflight } from '../../../export/engine';
+import { buildExportRuntimeModelFromPortable, buildGamHtml5Adapter, buildMraidAdapter, compileRuntime, buildExportPreflight } from '../../../export/engine';
 
 describe('runtime tree shake', () => {
   const getByteLength = (value: string) => new TextEncoder().encode(value).length;
@@ -253,6 +253,41 @@ describe('runtime tree shake', () => {
 
     expect(exportedWidget?.timeline.keyframes?.length).toBeGreaterThan(0);
     expect(script).toContain('startWidgetTimelineLoop');
+  });
+
+  it('serializes compositor-native motion without adding timeline runtime', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.metadata.release.targetChannel = 'gam-html5';
+    state.document.widgets.image_1 = {
+      id: 'image_1',
+      type: 'image',
+      name: 'Hero',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 300, height: 160, rotation: 0 },
+      style: { opacity: 1 },
+      motion: {
+        templateId: 'float',
+        config: { durationMs: 3600, delayMs: 100, distancePx: 14 },
+      },
+      props: { src: 'https://cdn.example.com/hero.png', alt: 'Hero' },
+      timeline: { startMs: 0, endMs: 1000, keyframes: [] },
+    } as any;
+    state.document.scenes[0].widgetIds.push('image_1');
+
+    const adapter = buildGamHtml5Adapter(state);
+    const script = compileRuntime(adapter.portableProject, adapter);
+    const exportedWidget = adapter.portableProject.scenes[0]?.widgets.find((widget) => widget.id === 'image_1');
+    const runtimeModel = buildExportRuntimeModelFromPortable(adapter.portableProject);
+    const runtimeWidget = runtimeModel.scenes[0]?.widgets.find((widget) => widget.id === 'image_1');
+
+    expect(exportedWidget?.timeline.keyframes ?? []).toHaveLength(0);
+    expect(runtimeWidget?.compositorMotion?.keyframes[1]?.transform).toBe('translate3d(0, -14px, 0)');
+    expect(runtimeWidget?.compositorMotion?.options.iterations).toBe('infinite');
+    expect(script).toContain('initCompositorMotion');
+    expect(script).toContain('data-widget-layer-id');
+    expect(script).not.toContain('startWidgetTimelineLoop');
   });
 
   it('always includes environment scene management and keeps full runtime sections present when needed', () => {
