@@ -13,13 +13,19 @@ registerBuiltins();
 export default function App(): JSX.Element {
   const previewRoute = typeof window !== 'undefined' ? readClientPreviewRoute(window.location) : null;
 
+  if (previewRoute) {
+    return (
+      <ToastProvider>
+        <ClientPreviewShell projectId={previewRoute.projectId} token={previewRoute.token} />
+      </ToastProvider>
+    );
+  }
+
   return (
     <ToastProvider>
       <AutosaveGate />
       <FontAssetRuntime />
-      {previewRoute
-        ? <ClientPreviewShell projectId={previewRoute.projectId} token={previewRoute.token} />
-        : <PlatformShell />}
+      <PlatformShell />
     </ToastProvider>
   );
 }

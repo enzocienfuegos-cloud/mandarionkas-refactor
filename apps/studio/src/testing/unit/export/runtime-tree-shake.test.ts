@@ -223,6 +223,7 @@ describe('runtime tree shake', () => {
     expect(script).toContain('getCompositorRuntimeDescendantWidgets');
     expect(script).toContain('findCompositorLayerNode(descendant.id)');
     expect(script).toContain('playCompositorMotion(widget, findCompositorLayerNode(descendant.id))');
+    expect(script).toContain("getCompositorScratchRevealTargetMode(scratchWidget) !== 'auto'");
   });
 
   it('restarts timeline-keyframed targets behind a scratch group from reveal time', () => {
@@ -255,7 +256,13 @@ describe('runtime tree shake', () => {
       zIndex: 4,
       frame: { x: 0, y: 0, width: 220, height: 160, rotation: 0 },
       style: {},
-      props: { title: 'Scratch group', scratchEnabled: true, beforeImage: 'https://cdn.example.com/cover.png' },
+      props: {
+        title: 'Scratch group',
+        scratchEnabled: true,
+        revealTargetMode: 'widget',
+        revealTargetId: 'image_1',
+        beforeImage: 'https://cdn.example.com/cover.png',
+      },
       timeline: { startMs: 0, endMs: 1000 },
       childIds: [],
     } as any;
@@ -268,6 +275,7 @@ describe('runtime tree shake', () => {
     expect(script).toContain('playScratchRevealTargetTimelineMotions');
     expect(script).toContain('completedAtMs + localElapsedMs');
     expect(script).toContain('playScratchRevealTargetTimelineMotions(root.getAttribute');
+    expect(script).toContain("getScratchRevealTargetMode(scratchWidget) !== 'auto'");
   });
 
   it('includes the timeline runtime only when widgets define keyframes', () => {

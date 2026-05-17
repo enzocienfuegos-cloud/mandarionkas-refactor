@@ -211,11 +211,11 @@ export const EXPORT_RUNTIME_COMPOSITOR_MOTION_SECTION = `
   function isCompositorWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, widget) {
     if (!sceneRuntime || !scratchWidget || !widget || scratchWidget.id === widget.id) return false;
     if (isCompositorRuntimeWidgetDescendantOf(sceneRuntime, widget, scratchWidget.id)) return false;
-    if (Number(scratchWidget.zIndex || 0) <= Number(widget.zIndex || 0)) return false;
-    if (getCompositorScratchRevealTargetMode(scratchWidget) === 'auto') {
-      return compositorRectsOverlap(scratchWidget.frame, widget.frame);
+    if (getCompositorScratchRevealTargetMode(scratchWidget) !== 'auto') {
+      return isCompositorWidgetTargetedByScratchGroup(sceneRuntime, scratchWidget, widget);
     }
-    return isCompositorWidgetTargetedByScratchGroup(sceneRuntime, scratchWidget, widget);
+    if (Number(scratchWidget.zIndex || 0) <= Number(widget.zIndex || 0)) return false;
+    return compositorRectsOverlap(scratchWidget.frame, widget.frame);
   }
 
   function isCompositorWidgetWaitingForScratchReveal(sceneRuntime, widget) {
@@ -350,9 +350,9 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
   function isWidgetCoveredByScratchGroup(sceneRuntime, scratchWidget, widget) {
     if (!sceneRuntime || !scratchWidget || !widget || scratchWidget.id === widget.id) return false;
     if (isRuntimeWidgetDescendantOf(sceneRuntime, widget, scratchWidget.id)) return false;
+    if (getScratchRevealTargetMode(scratchWidget) !== 'auto') return isWidgetTargetedByScratchGroup(sceneRuntime, scratchWidget, widget);
     if (Number(scratchWidget.zIndex || 0) <= Number(widget.zIndex || 0)) return false;
-    if (getScratchRevealTargetMode(scratchWidget) === 'auto') return rectsOverlap(scratchWidget.frame, widget.frame);
-    return isWidgetTargetedByScratchGroup(sceneRuntime, scratchWidget, widget);
+    return rectsOverlap(scratchWidget.frame, widget.frame);
   }
 
   function getScratchRevealCompletionMs(sceneRuntime, widget) {
@@ -392,11 +392,8 @@ export const EXPORT_RUNTIME_TIMELINE_SECTION = `
     return sceneRuntime.widgets.some(function(candidate){
       if (!candidate || candidate.id === widget.id) return false;
       if (candidate.type !== 'group' || !candidate.props || !candidate.props.scratchEnabled) return false;
-      if (isRuntimeWidgetDescendantOf(sceneRuntime, widget, candidate.id)) return false;
       if (window.__smxScratchCompletionMsByWidgetId && Number.isFinite(Number(window.__smxScratchCompletionMsByWidgetId[candidate.id]))) return false;
-      if (Number(candidate.zIndex || 0) <= Number(widget.zIndex || 0)) return false;
-      if (getScratchRevealTargetMode(candidate) === 'auto') return rectsOverlap(candidate.frame, widget.frame);
-      return isWidgetTargetedByScratchGroup(sceneRuntime, candidate, widget);
+      return isWidgetCoveredByScratchGroup(sceneRuntime, candidate, widget);
     });
   }
 
