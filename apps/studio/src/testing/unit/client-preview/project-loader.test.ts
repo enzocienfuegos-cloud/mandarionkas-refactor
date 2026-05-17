@@ -34,19 +34,21 @@ describe('client preview project loader', () => {
     const snapshot = persistClientPreviewSnapshot('project_123', state);
     const widget = snapshot.document.widgets.cta_1;
 
-    expect(widget.motion).toEqual({
-      enter: {
-        templateId: 'appear',
-        config: {
-          durationMs: 720,
-          delayMs: 80,
-          distancePx: 18,
-          intensity: 0.5,
-          repeatMode: 'once',
-        },
-        trigger: 'timeline',
+    expect(widget.motion?.enter).toEqual({
+      templateId: 'appear',
+      config: {
+        durationMs: 720,
+        delayMs: 80,
+        distancePx: 18,
+        intensity: 0.5,
+        repeatMode: 'once',
+        iterations: 1,
       },
+      trigger: 'timeline',
+      replayPolicy: undefined,
     });
+    expect(widget.motion?.idle).toBeUndefined();
+    expect(widget.motion?.exit).toBeUndefined();
     expect(widget.hoverMotion).toEqual({
       templateId: 'lift',
       config: {

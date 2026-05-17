@@ -99,4 +99,40 @@ describe('animation engine plan derivation', () => {
     expect(plans[0]?.widgetId).toBe('image_1');
     expect(plans[0]?.targetId).toBe('image_1');
   });
+
+  it('treats repeatMode=repeat as infinite iterations for non-loop templates', () => {
+    const widget = createWidget({
+      id: 'image_repeat',
+      type: 'image',
+      motion: {
+        enter: {
+          templateId: 'slide-in-up',
+          trigger: 'load',
+          config: { durationMs: 500, delayMs: 0, distancePx: 32, repeatMode: 'repeat' },
+        },
+      },
+    });
+
+    const plans = derivePlansForWidget(widget, { widgetsById: { [widget.id]: widget }, previewMode: true });
+
+    expect(plans[0]?.iterations).toBe('infinite');
+  });
+
+  it('respects explicit iterations for non-loop templates', () => {
+    const widget = createWidget({
+      id: 'image_iterations',
+      type: 'image',
+      motion: {
+        enter: {
+          templateId: 'fade-up',
+          trigger: 'timeline',
+          config: { durationMs: 500, delayMs: 0, distancePx: 24, iterations: 3 },
+        },
+      },
+    });
+
+    const plans = derivePlansForWidget(widget, { widgetsById: { [widget.id]: widget }, previewMode: true });
+
+    expect(plans[0]?.iterations).toBe(3);
+  });
 });

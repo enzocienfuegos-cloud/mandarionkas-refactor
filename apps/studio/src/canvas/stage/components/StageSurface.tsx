@@ -107,6 +107,11 @@ export function StageSurface({
   const transitionDuration = Math.max(120, sceneTransitionDurationMs);
   const previousPlayheadRef = useRef(playheadMs);
   const previousSceneIdRef = useRef<string | undefined>(undefined);
+  const widgetsRef = useRef(widgets);
+
+  useEffect(() => {
+    widgetsRef.current = widgets;
+  }, [widgets]);
 
   useEffect(() => {
     if (!previewMode) {
@@ -127,28 +132,24 @@ export function StageSurface({
       previousSceneIdRef.current = undefined;
       return;
     }
+    if (previousSceneIdRef.current === sceneId) return;
 
     const nowMs = typeof performance !== 'undefined' && typeof performance.now === 'function'
       ? performance.now()
       : Date.now();
-    const previousSceneId = previousSceneIdRef.current;
-
-    if (!previousSceneId || previousSceneId !== sceneId) {
-      const enterClock = createEventClock('scene-enter', nowMs);
-      widgets.forEach((widget) => {
-        engine.emit({
-          trigger: 'scene-enter',
-          sourceId: widget.id,
-          targetId: widget.id,
-          sceneTimeMs: 0,
-          realTimeMs: nowMs,
-          clock: enterClock,
-        });
-      });
-    }
-
     previousSceneIdRef.current = sceneId;
-  }, [engine, isReproducing, sceneId, widgets]);
+    const enterClock = createEventClock('scene-enter', nowMs);
+    widgetsRef.current.forEach((widget) => {
+      engine.emit({
+        trigger: 'scene-enter',
+        sourceId: widget.id,
+        targetId: widget.id,
+        sceneTimeMs: 0,
+        realTimeMs: nowMs,
+        clock: enterClock,
+      });
+    });
+  }, [engine, isReproducing, sceneId]);
 
   function isCoveredByScratchGroup(widget: WidgetNode): boolean {
     if (!previewMode) return false;

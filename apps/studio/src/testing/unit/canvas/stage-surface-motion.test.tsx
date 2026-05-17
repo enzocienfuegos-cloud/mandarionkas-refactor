@@ -107,4 +107,30 @@ describe('StageSurface motion behavior', () => {
 
     expect(engine.resetEventClocks).toHaveBeenCalledTimes(1);
   });
+
+  it('does not re-emit scene-enter when only the widgets array identity changes', () => {
+    const widget = createWidget('widget_1');
+    let root: ReturnType<typeof create>;
+
+    act(() => {
+      root = create(<StageSurface {...buildProps({ isPlaying: true, widgets: [widget], widgetsById: { [widget.id]: widget } })} />);
+    });
+
+    expect(engine.emit).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root!.update(
+        <StageSurface
+          {...buildProps({
+            isPlaying: true,
+            playheadMs: 180,
+            widgets: [{ ...widget }],
+            widgetsById: { [widget.id]: { ...widget } },
+          })}
+        />,
+      );
+    });
+
+    expect(engine.emit).toHaveBeenCalledTimes(1);
+  });
 });

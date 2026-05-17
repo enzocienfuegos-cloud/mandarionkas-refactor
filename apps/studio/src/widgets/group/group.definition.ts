@@ -5,6 +5,7 @@ import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-d
 import { GroupThumb } from '../registry/widget-thumbnails';
 import { GroupInspector } from './group.inspector';
 import { renderGroupExport } from './group.export';
+import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
 
 export const groupDefinition: WidgetDefinition = {
   type: 'group',
@@ -29,7 +30,7 @@ export const groupDefinition: WidgetDefinition = {
       scratchCoverAssetId: '',
       coverBlur: 0,
       scratchRadius: 22,
-      autoRevealThresholdPercent: 10,
+      autoRevealThresholdPercent: DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD,
       scratchActivationMode: 'delay',
       scratchActivationDelayMs: 0,
     },

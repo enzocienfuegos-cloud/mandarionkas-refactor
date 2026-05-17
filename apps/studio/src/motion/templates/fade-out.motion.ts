@@ -1,9 +1,10 @@
 import { createElement } from 'react';
+import { resolveMotionIterations } from '../motion-iterations';
 import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
-const defaults = { durationMs: 700 };
+const defaults = { durationMs: 700, iterations: 1 };
 
 const fadeOutTemplate: MotionTemplate = {
   id: 'fade-out',
@@ -12,6 +13,7 @@ const fadeOutTemplate: MotionTemplate = {
   description: 'Fade out at the end of the scene.',
   fields: [
     { key: 'durationMs', label: 'Duration', kind: 'number', min: 120, max: 4000, step: 20, unit: 'ms', defaultValue: 700 },
+    { key: 'iterations', label: 'Times', kind: 'number', min: 1, max: 10, step: 1, unit: '', defaultValue: 1 },
   ],
   defaults,
   buildSpec: () => ({
@@ -27,7 +29,12 @@ const fadeOutTemplate: MotionTemplate = {
         { opacity: 1, offset: 0 },
         { opacity: 0, offset: 1 },
       ],
-      options: { duration: durationMs, easing: 'ease-in', iterations: 1, fill: 'both' },
+      options: {
+        duration: durationMs,
+        easing: 'ease-in',
+        iterations: resolveMotionIterations(config, 1),
+        fill: 'both',
+      },
       willChange: 'opacity',
     };
   },

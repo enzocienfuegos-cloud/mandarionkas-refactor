@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { getLiveWidgetFrame, getLiveWidgetOpacity, isWidgetVisibleAt } from '../../domain/document/timeline';
 import type { WidgetNode } from '../../domain/document/types';
@@ -7,6 +7,7 @@ import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resol
 import { renderWidgetContents } from '../../canvas/stage/render-widget';
 import { MotionLayer } from '../../motion/react/MotionLayer';
 import { isScratchGroupActive } from './group-scratch-activation';
+import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
 
 const groupBaseStyle: CSSProperties = {
   width: '100%',
@@ -366,10 +367,14 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const maskSizeRef = useRef({ width: 0, height: 0 });
   const previousPreviewModeRef = useRef(ctx.previewMode);
   const previousPlayheadRef = useRef(ctx.playheadMs);
+  const pendingResizeResetRef = useRef(false);
   const [maskUrl, setMaskUrl] = useState('');
   const [scratchCompleted, setScratchCompleted] = useState(false);
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
-  const autoRevealThresholdPercent = Math.max(0, Math.min(100, Number(node.props.autoRevealThresholdPercent ?? 10)));
+  const autoRevealThresholdPercent = Math.max(
+    0,
+    Math.min(100, Number(node.props.autoRevealThresholdPercent ?? DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD)),
+  );
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
 
   const syncMaskPreview = () => {
@@ -393,19 +398,34 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     initializeScratchMask(canvas);
     progressCanvasRef.current = createScratchProgressCanvas(width, height);
     scratchCompletedRef.current = false;
+    pendingResizeResetRef.current = false;
     lastScratchPointRef.current = null;
     setScratchCompleted(false);
     syncMaskPreview();
   };
 
-  useEffect(() => {
+  const flushPendingResizeReset = () => {
+    if (!pendingResizeResetRef.current) return;
+    if (pointerActiveRef.current || scratchCompletedRef.current) return;
+    pendingResizeResetRef.current = false;
+    resetScratchMask();
+  };
+
+  useLayoutEffect(() => {
     resetScratchMask({ force: true });
   }, [node.frame.width, node.frame.height, ctx.previewMode]);
 
   useEffect(() => {
     const shell = shellRef.current;
     if (!shell || typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(() => resetScratchMask());
+    const observer = new ResizeObserver(() => {
+      if (pointerActiveRef.current || scratchCompletedRef.current) {
+        pendingResizeResetRef.current = true;
+        return;
+      }
+      resetScratchMask();
+      pendingResizeResetRef.current = false;
+    });
     observer.observe(shell);
     return () => observer.disconnect();
   }, [ctx.previewMode, node.id]);
@@ -488,15 +508,18 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
             pointerActiveRef.current = false;
             lastScratchPointRef.current = null;
             event.currentTarget.releasePointerCapture?.(event.pointerId);
+            flushPendingResizeReset();
           }}
           onPointerCancel={(event) => {
             pointerActiveRef.current = false;
             lastScratchPointRef.current = null;
             event.currentTarget.releasePointerCapture?.(event.pointerId);
+            flushPendingResizeReset();
           }}
           onLostPointerCapture={() => {
             pointerActiveRef.current = false;
             lastScratchPointRef.current = null;
+            flushPendingResizeReset();
           }}
         />
       ) : null}

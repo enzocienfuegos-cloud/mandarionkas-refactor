@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -59,16 +60,22 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
   const engine = useAnimationEngine();
   const outerRef = useRef<HTMLDivElement | null>(null);
   const motionTargetRef = useRef<HTMLDivElement | null>(null);
-  const motionSignature = JSON.stringify({
-    motion: widget.motion ?? null,
-    timeline: widget.timeline,
-    previewMode,
-    isReproducing,
-  });
   const planContext = useMemo(() => ({
     widgetsById: widgetsById ?? { [widget.id]: widget },
     previewMode,
   }), [previewMode, widget, widgetsById]);
+  const widgetRef = useRef(widget);
+  const plans = useMemo(
+    () => engine.buildPlansForWidget(widget, planContext),
+    [engine, planContext, widget],
+  );
+  const plansRef = useRef(plans);
+  const motionSignature = useMemo(() => JSON.stringify(plans), [plans]);
+
+  useEffect(() => {
+    widgetRef.current = widget;
+    plansRef.current = plans;
+  }, [plans, widget]);
 
   useLayoutEffect(() => {
     if (!isReproducing || !motionTargetRef.current) {
@@ -80,11 +87,10 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
       if (!motionTargetRef.current) return;
       const matchesWidget = event.targetId === widget.id || event.sourceId === widget.id;
       if (!matchesWidget) return;
-      const plans = engine
-        .buildPlansForWidget(widget, planContext)
+      const matchingPlans = plansRef.current
         .filter((plan) => plan.trigger === event.trigger);
-      plans.forEach((plan) => {
-        engine.play({ node: motionTargetRef.current as Element, widget }, plan, event.clock);
+      matchingPlans.forEach((plan) => {
+        engine.play({ node: motionTargetRef.current as Element, widget: widgetRef.current }, plan, event.clock);
       });
     }));
 
@@ -92,27 +98,26 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
       unsubscribes.forEach((unsubscribe) => unsubscribe());
       engine.cancelAllForWidget(widget.id);
     };
-  }, [engine, isReproducing, motionSignature, planContext, widget]);
+  }, [engine, isReproducing, motionSignature, widget.id]);
 
   useLayoutEffect(() => {
     if (!isReproducing || !motionTargetRef.current) return undefined;
-    const plans = engine.buildPlansForWidget(widget, planContext);
-    plans
+    plansRef.current
       .filter((plan) => plan.trigger === 'timeline')
       .forEach((plan) => {
-        engine.play({ node: motionTargetRef.current as Element, widget }, plan, SCENE_CLOCK);
+        engine.play({ node: motionTargetRef.current as Element, widget: widgetRef.current }, plan, SCENE_CLOCK);
       });
-    plans
+    plansRef.current
       .filter((plan) => plan.trigger === 'load')
       .forEach((plan) => {
         engine.play(
-          { node: motionTargetRef.current as Element, widget },
+          { node: motionTargetRef.current as Element, widget: widgetRef.current },
           plan,
           createEventClock('load', performance.now()),
         );
       });
     return undefined;
-  }, [engine, isReproducing, motionSignature, planContext, widget]);
+  }, [engine, isReproducing, motionSignature, widget.id]);
 
   useLayoutEffect(() => {
     if (!isReproducing) return;

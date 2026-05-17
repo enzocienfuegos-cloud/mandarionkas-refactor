@@ -4,6 +4,7 @@ import { exportTokens as exportPalette } from '../../export/export-tokens';
 import { escapeHtml, renderGenericExport } from '../registry/export-helpers';
 import { getWidgetDefinition } from '../registry/widget-registry';
 import { getScratchActivationDelayMs } from './group-scratch-activation';
+import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
 
 function renderGroupScratchChildren(
   node: WidgetNode,
@@ -129,7 +130,10 @@ export function renderGroupExport(
   const accent = String(style.accentColor ?? exportPalette.orange);
   const frame = resolveScratchGroupExportFrame(node, state);
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
-  const autoRevealThresholdPercent = Math.max(0, Math.min(100, Number(node.props.autoRevealThresholdPercent ?? 10)));
+  const autoRevealThresholdPercent = Math.max(
+    0,
+    Math.min(100, Number(node.props.autoRevealThresholdPercent ?? DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD)),
+  );
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
   const scratchActivationDelayMs = getScratchActivationDelayMs(node, buildResolvedWidgetsById(state.document));
   const base = [

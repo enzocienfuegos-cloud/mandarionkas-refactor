@@ -4,6 +4,7 @@ import {
   DEFAULT_MOTION_DURATION_MS,
   DEFAULT_MOTION_INTENSITY,
 } from '../../motion/animation-engine/constants';
+import { resolveMotionIterations } from '../../motion/motion-iterations';
 import { DEFAULT_REPLAY_POLICY } from '../../motion/animation-engine/replay-policy';
 import type { AnimationPlan, AnimationSpec } from '../../motion/animation-engine/plan';
 import type { AnimationStartMode } from '../../motion/animation-engine/clock';
@@ -196,7 +197,7 @@ function buildPlanFromSlot(
     startMode,
     delayMs,
     durationMs,
-    iterations: template.isLoop ? 'infinite' : Math.max(1, readConfigNumber(slot.config, 'iterations', 1)),
+    iterations: resolveMotionIterations(slot.config, template.isLoop ? 'infinite' : 1),
     fill: 'both',
     replayPolicy: slot.replayPolicy ?? DEFAULT_REPLAY_POLICY,
     spec: template.buildSpec(slot.config),

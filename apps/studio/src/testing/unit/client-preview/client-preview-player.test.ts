@@ -1,8 +1,16 @@
-import { describe, expect, it } from 'vitest';
+// @vitest-environment jsdom
+import { create } from 'react-test-renderer';
+import { act, createElement } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createInitialState } from '../../../domain/document/factories';
-import { buildClientPreviewSceneHtml, buildClientPreviewSceneState } from '../../../features/client-preview/ClientPreviewPlayer';
+import { buildClientPreviewSceneHtml, buildClientPreviewSceneState, ClientPreviewPlayer } from '../../../features/client-preview/ClientPreviewPlayer';
 
 describe('client preview player', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   it('renders public preview through the compiled export runtime bundle', () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
@@ -84,5 +92,33 @@ describe('client preview player', () => {
     expect(previewState.document.scenes[0]?.id).toBe('scene_2');
     expect(previewState.ui.previewMode).toBe(true);
     expect(previewState.ui.isPlaying).toBe(true);
+  });
+
+  it('allows same-origin access inside the client preview iframe sandbox', () => {
+    const state = createInitialState();
+    vi.spyOn(window, 'addEventListener').mockImplementation(() => {});
+    vi.spyOn(window, 'removeEventListener').mockImplementation(() => {});
+    let root: ReturnType<typeof create>;
+
+    act(() => {
+      root = create(
+        createElement(ClientPreviewPlayer, {
+          state,
+          sceneIndex: 0,
+          threads: [],
+          activeThreadId: null,
+          pinMode: false,
+          onTogglePinMode: () => {},
+          onSelectThread: () => {},
+          onCreatePinnedThread: () => {},
+        }),
+      );
+    });
+
+    expect(root!.root.findByType('iframe').props.sandbox).toContain('allow-same-origin');
+
+    act(() => {
+      root!.unmount();
+    });
   });
 });

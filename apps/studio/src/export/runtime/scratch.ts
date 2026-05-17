@@ -1,5 +1,6 @@
 import { createEventClock } from '../../motion/animation-engine/clock';
 import type { AnimationEngine } from '../../motion/animation-engine/engine';
+import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from '../../widgets/group/group-scratch-constants';
 import type { ExportRuntimeModel, ExportRuntimeScene, ExportRuntimeWidget } from './runtime-model';
 
 type ScratchRuntimeWindow = Window & typeof globalThis & {
@@ -68,21 +69,15 @@ function paintScratchCover(
     onReady();
   };
 
-  const loadImage = (useCrossOrigin: boolean): void => {
+  const loadImage = (): void => {
     const image = new Image();
-    if (useCrossOrigin) image.crossOrigin = 'anonymous';
+    image.crossOrigin = 'anonymous';
     image.onload = () => renderImage(image);
-    image.onerror = () => {
-      if (useCrossOrigin) {
-        loadImage(false);
-        return;
-      }
-      fallback();
-    };
+    image.onerror = fallback;
     image.src = coverImage;
   };
 
-  loadImage(true);
+  loadImage();
 }
 
 function applyScratchMask(maskTarget: HTMLElement | null, maskCanvas: HTMLCanvasElement): void {
@@ -240,7 +235,7 @@ export function mountScratchReveal(engine: AnimationEngine, runtimeModel: Export
       || shell.getAttribute('data-scratch-threshold')
       || root.getAttribute('data-scratch-auto-reveal-threshold')
       || root.getAttribute('data-scratch-threshold')
-      || '100';
+      || String(DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD);
     const completeThreshold = Math.max(0, Math.min(100, Number(thresholdValue)));
     const coverImage = shell.getAttribute('data-scratch-cover-image') || root.getAttribute('data-scratch-cover-image') || '';
     const coverBlur = Number(shell.getAttribute('data-scratch-cover-blur') || root.getAttribute('data-scratch-cover-blur') || 0);

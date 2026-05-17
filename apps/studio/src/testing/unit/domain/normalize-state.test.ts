@@ -41,6 +41,7 @@ describe('normalizeStudioState', () => {
           durationMs: 840,
           delayMs: 120,
           distancePx: 36,
+          iterations: 1,
           intensity: 0.66,
           repeatMode: 'repeat',
         },
@@ -132,7 +133,7 @@ describe('normalizeStudioState', () => {
     expect(group?.motion).toEqual({
       enter: {
         templateId: 'fade-up',
-        config: { durationMs: 700, delayMs: 0, distancePx: 24, intensity: 0.55, repeatMode: 'once' },
+        config: { durationMs: 700, delayMs: 0, distancePx: 24, iterations: 1, intensity: 0.55, repeatMode: 'once' },
         trigger: 'timeline',
       },
     });

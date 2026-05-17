@@ -1,5 +1,6 @@
 import type { WidgetNode } from '../../domain/document/types';
 import { resolveWidgetHoverMotion } from '../motion-model';
+import { resolveMotionIterations } from '../motion-iterations';
 import { getMotionTemplate } from '../motion-registry';
 import { readConfigNumber } from '../motion-engine';
 import type { MotionConfig } from '../motion-template-contract';
@@ -69,7 +70,7 @@ function buildPlanFromSlot(
     startMode,
     delayMs,
     durationMs,
-    iterations: template.isLoop ? 'infinite' : Math.max(1, readConfigNumber(slot.config as MotionConfig, 'iterations', 1)),
+    iterations: resolveMotionIterations(slot.config as MotionConfig, template.isLoop ? 'infinite' : 1),
     fill: 'both',
     replayPolicy: slot.replayPolicy ?? DEFAULT_REPLAY_POLICY,
     spec: template.buildSpec(slot.config as MotionConfig, widget),

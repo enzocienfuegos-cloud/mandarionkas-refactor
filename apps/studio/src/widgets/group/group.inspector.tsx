@@ -4,6 +4,7 @@ import { useStudioStore } from '../../core/store/use-studio-store';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { InspectorRangeField } from '../../shared/ui/InspectorRangeField';
 import { getScratchActivationMode } from './group-scratch-activation';
+import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
 import { getScratchRevealTargetId, getScratchRevealTargetMode, isRevealTargetCandidate } from './group-reveal-target';
 
 export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element {
@@ -147,7 +148,7 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
               max={100}
               step={1}
               unit="%"
-              value={Number(widget.props.autoRevealThresholdPercent ?? 10)}
+              value={Number(widget.props.autoRevealThresholdPercent ?? DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD)}
               onChange={(autoRevealThresholdPercent) => widgetActions.updateWidgetProps(widget.id, { autoRevealThresholdPercent })}
               helpText="Set 0% to disable automatic completion."
             />

@@ -1,9 +1,10 @@
 import { createElement } from 'react';
+import { resolveMotionIterations } from '../motion-iterations';
 import { readConfigNumber } from '../motion-engine';
 import type { MotionTemplate } from '../motion-template-contract';
 import { MotionThumbnail } from '../react/MotionThumbnail';
 
-const defaults = { durationMs: 700, delayMs: 0, distancePx: 24 };
+const defaults = { durationMs: 700, delayMs: 0, distancePx: 24, iterations: 1 };
 
 const fadeUpTemplate: MotionTemplate = {
   id: 'fade-up',
@@ -14,6 +15,7 @@ const fadeUpTemplate: MotionTemplate = {
     { key: 'durationMs', label: 'Duration', kind: 'number', min: 120, max: 4000, step: 20, unit: 'ms', defaultValue: 700 },
     { key: 'delayMs', label: 'Delay', kind: 'number', min: 0, max: 6000, step: 20, unit: 'ms', defaultValue: 0 },
     { key: 'distancePx', label: 'Distance', kind: 'number', min: 0, max: 160, step: 2, unit: 'px', defaultValue: 24 },
+    { key: 'iterations', label: 'Times', kind: 'number', min: 1, max: 10, step: 1, unit: '', defaultValue: 1 },
   ],
   defaults,
   buildSpec: (config) => ({
@@ -31,7 +33,13 @@ const fadeUpTemplate: MotionTemplate = {
         { opacity: 0, transform: `translate3d(0, ${distancePx}px, 0)`, offset: 0 },
         { opacity: 1, transform: 'translate3d(0, 0, 0)', offset: 1 },
       ],
-      options: { duration: durationMs, delay: delayMs, easing: 'ease-out', iterations: 1, fill: 'both' },
+      options: {
+        duration: durationMs,
+        delay: delayMs,
+        easing: 'ease-out',
+        iterations: resolveMotionIterations(config, 1),
+        fill: 'both',
+      },
       willChange: 'opacity, transform',
     };
   },

@@ -127,7 +127,7 @@ export function ClientPreviewPlayer({
               ref={iframeRef}
               className="cp-banner-iframe"
               title={`${scene.name} preview`}
-              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin"
               srcDoc={previewHtml}
               style={{
                 width: canvas.width,
