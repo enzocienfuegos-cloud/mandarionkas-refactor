@@ -73,7 +73,7 @@ function createTemplateWidgetDefaults(type: WidgetType): TemplateWidgetDefaults 
       return {
         name: 'Drop Zone',
         frame: { x: 60, y: 60, width: 140, height: 140, rotation: 0 },
-        props: { acceptsSource: '', hitPadding: 16, width: 120, height: 120, debugOutline: true, onMatchAction: '' },
+        props: { acceptsSource: '', hitPadding: 16, width: 120, height: 120, debugOutline: true, onMatchAction: '', anchorWidgetId: '' },
         style: { backgroundColor: 'transparent', accentColor: '#00e5ff', color: '#ffffff' },
         timeline: { startMs: 0, endMs: 15000 },
       };

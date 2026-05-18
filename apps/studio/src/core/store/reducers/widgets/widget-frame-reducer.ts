@@ -79,7 +79,10 @@ function applyFramePatch(
   state: StudioState,
   widgetId: string,
   patch: Partial<WidgetFrame>,
+  visited = new Set<string>(),
 ): StudioState {
+  if (visited.has(widgetId)) return state;
+  visited.add(widgetId);
   const resolvedWidgets = buildResolvedWidgetsById(state.document);
   const target = resolvedWidgets[widgetId];
   if (!target) return state;
@@ -89,29 +92,57 @@ function applyFramePatch(
   if (rawTarget?.sharedLayerId) {
     const sharedLayer = state.document.sharedLayers[rawTarget.sharedLayerId];
     if (sharedLayer && sharedLayer.baseWidgetId !== rawTarget.id) {
-      return withDirty({
+      let nextState = withDirty({
         ...state,
         document: {
           ...state.document,
           sharedLayers: writeSharedSceneFrameOverride(state, widgetId, nextFrame),
         },
       });
+      const anchoredDropZones = Object.values(nextState.document.widgets).filter((widget) => (
+        widget.type === 'drop-zone'
+        && widget.id !== widgetId
+        && String(widget.props.anchorWidgetId ?? '').trim() === widgetId
+      ));
+      anchoredDropZones.forEach((dropZone) => {
+        nextState = applyFramePatch(nextState, dropZone.id, {
+          x: nextFrame.x,
+          y: nextFrame.y,
+          width: nextFrame.width,
+          height: nextFrame.height,
+        }, visited);
+      });
+      return nextState;
     }
   }
 
   if (!isMasterVariant(state)) {
-    return withDirty({
+    let nextState = withDirty({
       ...state,
       document: {
         ...state.document,
         widgetOverrides: writeFrameOverride(state, widgetId, nextFrame),
       },
     });
+    const anchoredDropZones = Object.values(nextState.document.widgets).filter((widget) => (
+      widget.type === 'drop-zone'
+      && widget.id !== widgetId
+      && String(widget.props.anchorWidgetId ?? '').trim() === widgetId
+    ));
+    anchoredDropZones.forEach((dropZone) => {
+      nextState = applyFramePatch(nextState, dropZone.id, {
+        x: nextFrame.x,
+        y: nextFrame.y,
+        width: nextFrame.width,
+        height: nextFrame.height,
+      }, visited);
+    });
+    return nextState;
   }
 
   const baseTarget = state.document.widgets[widgetId];
   if (!baseTarget) return state;
-  return withDirty({
+  let nextState = withDirty({
     ...state,
     document: {
       ...state.document,
@@ -132,6 +163,20 @@ function applyFramePatch(
       },
     },
   });
+  const anchoredDropZones = Object.values(nextState.document.widgets).filter((widget) => (
+    widget.type === 'drop-zone'
+    && widget.id !== widgetId
+    && String(widget.props.anchorWidgetId ?? '').trim() === widgetId
+  ));
+  anchoredDropZones.forEach((dropZone) => {
+    nextState = applyFramePatch(nextState, dropZone.id, {
+      x: nextFrame.x,
+      y: nextFrame.y,
+      width: nextFrame.width,
+      height: nextFrame.height,
+    }, visited);
+  });
+  return nextState;
 }
 
 export function widgetFrameReducer(state: StudioState, command: StudioCommand): StudioState {

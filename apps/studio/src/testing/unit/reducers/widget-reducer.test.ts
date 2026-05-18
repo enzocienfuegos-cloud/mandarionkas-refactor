@@ -210,6 +210,27 @@ describe('widget reducer slices', () => {
     expect(buildResolvedWidgetsById(state.document)[widgetId]?.frame.y).toBe(masterFrame.y);
   });
 
+  it('keeps an anchored drop zone aligned when its attached widget moves', () => {
+    let state = createInitialState();
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'image' });
+    const imageId = Object.keys(state.document.widgets)[0];
+    state = reduceBySlices(state, {
+      type: 'CREATE_WIDGET',
+      widgetType: 'drop-zone',
+      placement: { x: 0, y: 0, anchor: 'top-left' },
+      initialProps: { anchorWidgetId: imageId },
+    });
+
+    const dropZoneId = Object.keys(state.document.widgets).find((widgetId) => widgetId !== imageId) ?? '';
+    const imageFrame = state.document.widgets[imageId].frame;
+    state = reduceBySlices(state, { type: 'UPDATE_WIDGET_FRAME', widgetId: imageId, patch: { x: imageFrame.x + 90, y: imageFrame.y + 45, width: imageFrame.width + 24 } });
+
+    expect(state.document.widgets[dropZoneId]?.frame.x).toBe(state.document.widgets[imageId]?.frame.x);
+    expect(state.document.widgets[dropZoneId]?.frame.y).toBe(state.document.widgets[imageId]?.frame.y);
+    expect(state.document.widgets[dropZoneId]?.frame.width).toBe(state.document.widgets[imageId]?.frame.width);
+    expect(state.document.widgets[dropZoneId]?.frame.height).toBe(state.document.widgets[imageId]?.frame.height);
+  });
+
   it('stores local style overrides on non-master canvas variants', () => {
     let state = createInitialState({ canvasPresetId: 'wide-skyscraper' });
     state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'text' });

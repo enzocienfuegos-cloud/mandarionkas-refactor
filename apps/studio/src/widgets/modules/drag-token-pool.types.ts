@@ -5,6 +5,7 @@ export type DragTokenItem = {
   id: string;
   label: string;
   targetSceneId?: string;
+  targetActionId?: string;
   assetId?: string;
   imageUrl?: string;
   accentColor?: string;

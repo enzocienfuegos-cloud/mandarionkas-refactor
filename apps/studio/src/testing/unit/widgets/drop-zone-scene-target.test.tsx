@@ -159,4 +159,52 @@ describe('drop zone scene targeting', () => {
     expect(goToScene).not.toHaveBeenCalled();
     expect(executeAction).not.toHaveBeenCalled();
   });
+
+  it('executes a configured widget action for the dropped token before any fallback action map', () => {
+    const tokenPool = createTokenPool([{ id: 'tok_2', label: 'Token 2', targetActionId: 'act_show_layer' }]);
+    const goToScene = vi.fn();
+    const executeAction = vi.fn();
+    const ctx = createContext(
+      {
+        [tokenPool.id]: tokenPool,
+      },
+      { goToScene, executeAction },
+    );
+
+    const { container } = render(renderDropZoneStage(createDropZone('drop_1', {
+      matchActionMap: JSON.stringify({ tok_2: 'act_fallback' }),
+    }), ctx));
+    const shell = container.firstElementChild as HTMLDivElement | null;
+    const zone = shell?.firstElementChild as HTMLDivElement | null;
+    expect(zone).toBeTruthy();
+
+    Object.defineProperty(zone!, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => ({
+        left: 0,
+        top: 0,
+        right: 160,
+        bottom: 160,
+        width: 160,
+        height: 160,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    });
+
+    act(() => {
+      emitTokenDrag({
+        phase: 'end',
+        tokenId: 'tok_2',
+        sourceWidgetId: tokenPool.id,
+        clientX: 80,
+        clientY: 80,
+      });
+    });
+
+    expect(executeAction).toHaveBeenCalledWith('act_show_layer');
+    expect(goToScene).not.toHaveBeenCalled();
+    expect(executeAction).not.toHaveBeenCalledWith('act_fallback');
+  });
 });

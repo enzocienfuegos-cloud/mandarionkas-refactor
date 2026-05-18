@@ -45,8 +45,19 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
   const scenes = useStudioStore((state) => state.document.scenes);
   const sceneWidgets = useStudioStore((state) => Object.values(state.document.widgets).filter((widget) => widget.sceneId === node.sceneId));
+  const sceneActions = useStudioStore((state) => {
+    const sceneWidgetIds = new Set(
+      Object.values(state.document.widgets)
+        .filter((widget) => widget.sceneId === node.sceneId)
+        .map((widget) => widget.id),
+    );
+    return Object.values(state.document.actions).filter((action) => (
+      sceneWidgetIds.has(action.widgetId)
+      || (action.targetWidgetId ? sceneWidgetIds.has(action.targetWidgetId) : false)
+    ));
+  });
   const primaryWidgetId = useStudioStore((state) => state.document.selection.primaryWidgetId);
-  const pendingDropZoneRef = useRef<{ frame: { x: number; y: number; width: number; height: number } } | null>(null);
+  const pendingDropZoneRef = useRef<{ frame: { x: number; y: number; width: number; height: number }; anchorWidgetId?: string } | null>(null);
   const tokens: DragTokenItem[] = Array.isArray(node.props.tokens) ? node.props.tokens as DragTokenItem[] : [];
   const disabledIds = Array.isArray(node.props.disabledIds) ? node.props.disabledIds.map((value) => String(value)) : [];
   const tokenSize = Math.max(TOKEN_SIZE_MIN, Math.min(TOKEN_SIZE_MAX, Number(node.props.tokenSize ?? 72)));
@@ -126,29 +137,43 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const availableDropZones = sceneWidgets.filter((widget): widget is WidgetNode => widget.type === 'drop-zone' && widget.id !== node.id);
   const anchorCandidates = sceneWidgets.filter((widget) => widget.id !== node.id && widget.type !== 'drop-zone');
   const selectedDropZoneId = String(node.props.dropTargetId ?? '').trim();
-  const activeDropZone = availableDropZones.find((widget) => widget.id === selectedDropZoneId) ?? availableDropZones[0];
+  const activeDropZone = availableDropZones.find((widget) => widget.id === selectedDropZoneId);
   const effectiveDropTargetId = activeDropZone?.id ?? '';
   const [anchorWidgetId, setAnchorWidgetId] = useState('');
   const activeAnchorWidget = useMemo(
-    () => anchorCandidates.find((widget) => widget.id === anchorWidgetId) ?? anchorCandidates[0],
+    () => anchorWidgetId ? anchorCandidates.find((widget) => widget.id === anchorWidgetId) : undefined,
     [anchorCandidates, anchorWidgetId],
+  );
+  const actionOwnerNameById = useMemo(
+    () => Object.fromEntries(sceneWidgets.map((widget) => [widget.id, widget.name || widget.type])),
+    [sceneWidgets],
   );
 
   useEffect(() => {
-    if (activeAnchorWidget?.id && activeAnchorWidget.id !== anchorWidgetId) {
-      setAnchorWidgetId(activeAnchorWidget.id);
+    const linkedAnchorWidgetId = String(activeDropZone?.props.anchorWidgetId ?? '').trim();
+    if (linkedAnchorWidgetId) {
+      if (linkedAnchorWidgetId !== anchorWidgetId) setAnchorWidgetId(linkedAnchorWidgetId);
+      return;
+    }
+    if (activeDropZone) {
+      if (anchorWidgetId) {
+        setAnchorWidgetId('');
+      }
       return;
     }
     if (!activeAnchorWidget && anchorWidgetId) {
       setAnchorWidgetId('');
     }
-  }, [activeAnchorWidget, anchorWidgetId]);
+  }, [activeAnchorWidget, activeDropZone, anchorWidgetId]);
 
   useEffect(() => {
     const pendingDropZone = pendingDropZoneRef.current;
     if (!pendingDropZone || !primaryWidgetId || primaryWidgetId === node.id) return;
     updateWidgetFrame(primaryWidgetId, pendingDropZone.frame);
     updateWidgetProps(node.id, { dropTargetId: primaryWidgetId });
+    if (pendingDropZone.anchorWidgetId) {
+      updateWidgetProps(primaryWidgetId, { anchorWidgetId: pendingDropZone.anchorWidgetId });
+    }
     selectWidget(node.id);
     pendingDropZoneRef.current = null;
   }, [node.id, primaryWidgetId, selectWidget, updateWidgetFrame, updateWidgetProps]);
@@ -160,6 +185,11 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
       width: targetWidget.frame.width,
       height: targetWidget.frame.height,
     });
+  };
+
+  const setLinkedDropZoneAnchor = (dropZoneId: string, targetWidget?: WidgetNode) => {
+    updateWidgetProps(dropZoneId, { anchorWidgetId: targetWidget?.id || undefined });
+    if (targetWidget) alignDropZoneToWidget(dropZoneId, targetWidget);
   };
 
   const createLinkedDropZone = () => {
@@ -179,7 +209,12 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
         };
 
     if (activeDropZone) {
-      alignDropZoneToWidget(activeDropZone.id, targetWidget ?? { ...node, frame: nextFrame });
+      if (targetWidget) {
+        setLinkedDropZoneAnchor(activeDropZone.id, targetWidget);
+      } else {
+        updateWidgetProps(activeDropZone.id, { anchorWidgetId: undefined });
+        updateWidgetFrame(activeDropZone.id, nextFrame);
+      }
       updateWidgetProps(node.id, { dropTargetId: activeDropZone.id });
       selectWidget(node.id);
       return;
@@ -198,10 +233,11 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
           height: nextFrame.height,
           hitPadding: 16,
           debugOutline: true,
+          anchorWidgetId: targetWidget?.id ?? '',
         },
       },
     );
-    pendingDropZoneRef.current = { frame: nextFrame };
+    pendingDropZoneRef.current = { frame: nextFrame, anchorWidgetId: targetWidget?.id };
   };
 
   return (
@@ -259,8 +295,13 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
               <div>
                 <label>Attach to widget</label>
                 <select
-                  value={activeAnchorWidget?.id ?? ''}
-                  onChange={(event) => setAnchorWidgetId(event.target.value)}
+                  value={anchorWidgetId}
+                  onChange={(event) => {
+                    const nextAnchorWidgetId = event.target.value;
+                    setAnchorWidgetId(nextAnchorWidgetId);
+                    const targetWidget = anchorCandidates.find((widget) => widget.id === nextAnchorWidgetId);
+                    setLinkedDropZoneAnchor(activeDropZone.id, targetWidget);
+                  }}
                 >
                   <option value="">Manual area</option>
                   {anchorCandidates.map((widget) => (
@@ -327,6 +368,9 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 Fit area to widget
               </Button>
             ) : null}
+            <div className="meta-line">
+              This editor outline is the real drag trigger surface. Tokens only fire after the drop ends inside this area.
+            </div>
             <label className="checkbox-row">
               <input
                 type="checkbox"
@@ -348,7 +392,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
               <div>
                 <label>Target widget</label>
                 <select
-                  value={activeAnchorWidget?.id ?? ''}
+                  value={anchorWidgetId}
                   onChange={(event) => setAnchorWidgetId(event.target.value)}
                 >
                   <option value="">Free area</option>
@@ -361,7 +405,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
               </div>
             ) : null}
             <div className="meta-line">
-              No linked drag area yet. Pick a widget to place an invisible drop layer over it, or create a free manual area.
+              No linked drag area yet. Pick a widget to place an invisible drop layer over it, link an existing area above, or create a free manual area.
             </div>
           </div>
         )}
@@ -382,7 +426,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
           Hide shape when token image exists
         </label>
         <div className="meta-line">
-          Each token can trigger a different scene after a successful drop inside the linked drag area.
+          Each token can trigger a different scene or widget action after a successful drop inside the linked drag area.
         </div>
         <strong>{`Tokens (${tokens.length}/${MAX_TOKENS})`}</strong>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
@@ -419,7 +463,10 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 <label>On drop, go to scene</label>
                 <select
                   value={token.targetSceneId ?? ''}
-                  onChange={(event) => updateToken(token.id, { targetSceneId: event.target.value || undefined })}
+                  onChange={(event) => updateToken(token.id, {
+                    targetSceneId: event.target.value || undefined,
+                    targetActionId: event.target.value ? undefined : token.targetActionId,
+                  })}
                 >
                   <option value="">Stay on current scene</option>
                   {availableScenes.map((scene) => (
@@ -427,8 +474,25 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                   ))}
                 </select>
               </div>
+              <div>
+                <label>Or trigger action</label>
+                <select
+                  value={token.targetActionId ?? ''}
+                  onChange={(event) => updateToken(token.id, {
+                    targetActionId: event.target.value || undefined,
+                    targetSceneId: event.target.value ? undefined : token.targetSceneId,
+                  })}
+                >
+                  <option value="">No layer/widget action</option>
+                  {sceneActions.map((action) => (
+                    <option key={action.id} value={action.id}>
+                      {(action.label || `${action.trigger} → ${action.type}`)} · {actionOwnerNameById[action.widgetId] ?? 'Widget'}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="meta-line">
-                This scene change runs after this token is dropped into the linked drag area.
+                This token can either change scene or run a widget action after it is dropped inside the linked drag area.
               </div>
               <label className="checkbox-row">
                 <input type="checkbox" checked={disabledIds.includes(token.id)} onChange={(event) => setTokenDisabled(token.id, event.target.checked)} />

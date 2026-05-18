@@ -10,7 +10,7 @@ export const DropZoneDefinition = createModuleDefinition({
   category: 'interactive',
   thumbnail: DropZoneThumb,
   frame: { x: 60, y: 60, width: 140, height: 140, rotation: 0 },
-  props: { acceptsSource: '', hitPadding: 16, width: 120, height: 120, debugOutline: true, onMatchAction: '' },
+  props: { acceptsSource: '', hitPadding: 16, width: 120, height: 120, debugOutline: true, onMatchAction: '', anchorWidgetId: '' },
   style: { backgroundColor: 'transparent', accentColor: '#00e5ff', color: '#ffffff' },
   renderStage: renderDropZoneStage,
   renderInspector: (node) => createElement(DropZoneInspector, { node }),
