@@ -12,10 +12,13 @@ import { Button } from '../../shared/ui/Button';
 import {
   clampTokenImageMaxSizePercent,
   DEFAULT_TOKEN_IMAGE_MAX_SIZE_PERCENT,
+  DEFAULT_TOKEN_IMAGE_FIT,
   DEFAULT_TOKEN_SHAPE,
   generateTokenId,
   MAX_TOKENS,
   MIN_TOKENS,
+  normalizeTokenImageFit,
+  TOKEN_IMAGE_FIT_OPTIONS,
   TOKEN_IMAGE_MAX_SIZE_PERCENT_MAX,
   TOKEN_IMAGE_MAX_SIZE_PERCENT_MIN,
   TOKEN_SIZE_MAX,
@@ -199,6 +202,17 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 })}
                 onClear={() => updateToken(token.id, { baseAssetId: undefined, baseImageUrl: undefined })}
               />
+              <div>
+                <label>Base image fit</label>
+                <select
+                  value={normalizeTokenImageFit(token.baseImageFit ?? DEFAULT_TOKEN_IMAGE_FIT)}
+                  onChange={(event) => updateToken(token.id, { baseImageFit: normalizeTokenImageFit(event.target.value) })}
+                >
+                  {TOKEN_IMAGE_FIT_OPTIONS.map((fit) => (
+                    <option key={fit} value={fit}>{fit}</option>
+                  ))}
+                </select>
+              </div>
             </li>
           ))}
         </ul>

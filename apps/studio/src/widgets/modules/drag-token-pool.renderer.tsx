@@ -7,8 +7,10 @@ import { renderCollapsedIfNeeded } from './shared-styles';
 import { emitTokenDrag } from './token-drag-runtime';
 import {
   clampTokenImageMaxSizePercent,
+  normalizeTokenImageFit,
   tokenShapeToBorderRadius,
   type DragTokenItem,
+  type TokenImageFit,
   type TokenShape,
 } from './drag-token-pool.types';
 
@@ -109,14 +111,14 @@ function buildDragTokenGhostStyle(
   };
 }
 
-function buildDragTokenArtworkStyle(imageMaxSizePercent: number, hideShape: boolean): CSSProperties {
+function buildDragTokenArtworkStyle(imageMaxSizePercent: number, hideShape: boolean, imageFit: TokenImageFit): CSSProperties {
   const imageSize = `${imageMaxSizePercent}%`;
   return {
     maxWidth: imageSize,
     maxHeight: imageSize,
     width: imageSize,
     height: imageSize,
-    objectFit: 'contain',
+    objectFit: imageFit,
     borderRadius: hideShape ? '0' : 'inherit',
   };
 }
@@ -184,6 +186,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
         {tokens.map((token) => {
           const isDisabled = disabled.has(token.id);
           const displayImageUrl = token.baseImageUrl ?? token.imageUrl;
+          const imageFit = normalizeTokenImageFit(token.baseImageFit);
           const hasTokenImage = Boolean(displayImageUrl);
           const hideFrame = hasTokenImage && hideAccentForImageTokens;
           const hideShape = hasTokenImage && hideShapeForImageTokens;
@@ -213,7 +216,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                     src={displayImageUrl}
                     alt={token.label}
                     draggable={false}
-                    style={buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape)}
+                    style={buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape, imageFit)}
                   />
                 ) : token.label}
               </span>
@@ -225,6 +228,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
         const draggingToken = tokens.find((token) => token.id === draggingId);
         if (!draggingToken) return null;
         const displayImageUrl = draggingToken.baseImageUrl ?? draggingToken.imageUrl;
+        const imageFit = normalizeTokenImageFit(draggingToken.baseImageFit);
         const hasTokenImage = Boolean(displayImageUrl);
         const hideFrame = hasTokenImage && hideAccentForImageTokens;
         const hideShape = hasTokenImage && hideShapeForImageTokens;
@@ -246,7 +250,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                   src={displayImageUrl}
                   alt={draggingToken.label}
                   draggable={false}
-                  style={{ ...buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape), pointerEvents: 'none' }}
+                  style={{ ...buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape, imageFit), pointerEvents: 'none' }}
                 />
               ) : draggingToken.label}
             </span>

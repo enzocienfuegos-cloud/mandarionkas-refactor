@@ -67,6 +67,7 @@ describe('DragTokenPoolInspector', () => {
     })} />);
     expect(screen.getByText('Tokens (2/12)')).toBeTruthy();
     expect(screen.getAllByText('Base image')).toHaveLength(2);
+    expect(screen.getAllByText('Base image fit')).toHaveLength(2);
   });
 
   it('does not render a textarea', () => {
