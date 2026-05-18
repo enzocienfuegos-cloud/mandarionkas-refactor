@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePlatformActions, usePlatformPermission } from '../../../platform/runtime';
-import { resolveAssetDeliveryUrl } from '../../../assets/policy';
+import { resolveAssetPreviewUrl as resolveAssetPreviewImageUrl } from '../../../assets/policy';
 import type { AssetKind, AssetProcessingStatus, AssetQualityPreference, AssetRecord } from '../../../assets/types';
 import { ingestAssetFile, ingestAssetUrl, listAssets, removeAsset, renameAsset, reprocessAsset, updateAssetQuality } from '../../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../../repositories/asset/events';
@@ -198,7 +198,7 @@ export function useLeftRailAssets({
   }
 
   function resolveAssetPreviewUrl(asset: AssetRecord): string {
-    return resolveAssetDeliveryUrl(asset, targetChannel, getAssetQualityPreference(asset));
+    return resolveAssetPreviewImageUrl(asset, targetChannel, getAssetQualityPreference(asset));
   }
 
   async function addAssetFromUrl(): Promise<void> {

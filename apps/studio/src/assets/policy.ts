@@ -90,6 +90,14 @@ function pickDerivativeFromTier(asset: AssetRecord, tier: AssetQualityTier): Ass
   return asset.derivatives?.[tier];
 }
 
+function firstUsableAssetUrl(...candidates: Array<string | undefined | null>): string {
+  for (const candidate of candidates) {
+    const normalized = absolutizeAssetUrl(candidate);
+    if (normalized) return normalized;
+  }
+  return '';
+}
+
 export function getAssetOptimizationPolicy(targetChannel: ReleaseTarget): AssetOptimizationPolicy {
   return CHANNEL_POLICIES[targetChannel] ?? DEFAULT_POLICY;
 }
@@ -123,7 +131,7 @@ export function resolveAssetDeliveryUrl(
   preferredQuality: AssetQualityPreference = asset.qualityPreference ?? 'auto',
 ): string {
   const derived = selectAssetDerivative(asset, targetChannel, preferredQuality);
-  return absolutizeAssetUrl(derived?.src ?? asset.optimizedUrl ?? asset.publicUrl ?? asset.src);
+  return firstUsableAssetUrl(derived?.src, asset.optimizedUrl, asset.publicUrl, asset.src);
 }
 
 export function resolveAssetPreviewUrl(
@@ -131,12 +139,12 @@ export function resolveAssetPreviewUrl(
   targetChannel: ReleaseTarget = 'generic-html5',
   preferredQuality: AssetQualityPreference = asset.qualityPreference ?? 'auto',
 ): string {
-  return absolutizeAssetUrl(
-    asset.thumbnailUrl
-    ?? asset.derivatives?.thumbnail?.src
-    ?? asset.derivatives?.poster?.src
-    ?? asset.posterSrc
-    ?? resolveAssetDeliveryUrl(asset, targetChannel, preferredQuality),
+  return firstUsableAssetUrl(
+    asset.thumbnailUrl,
+    asset.derivatives?.thumbnail?.src,
+    asset.derivatives?.poster?.src,
+    asset.posterSrc,
+    resolveAssetDeliveryUrl(asset, targetChannel, preferredQuality),
   );
 }
 

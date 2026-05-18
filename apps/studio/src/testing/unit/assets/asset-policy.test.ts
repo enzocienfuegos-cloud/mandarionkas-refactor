@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assetHasSourceUrl, assetViolatesChannelPolicy, getAssetOptimizationPolicy, resolveAssetDeliveryUrl, resolveAssetQualityPreference, selectAssetDerivative } from '../../../assets/policy';
+import { assetHasSourceUrl, assetViolatesChannelPolicy, getAssetOptimizationPolicy, resolveAssetDeliveryUrl, resolveAssetPreviewUrl, resolveAssetQualityPreference, selectAssetDerivative } from '../../../assets/policy';
 import type { AssetRecord } from '../../../assets/types';
 
 function buildImageAsset(): AssetRecord {
@@ -63,6 +63,16 @@ describe('asset policy', () => {
     expect(selectAssetDerivative(image, 'mraid')?.src).toContain('hero-low');
     expect(resolveAssetDeliveryUrl(image, 'generic-html5')).toContain('hero-mid');
     expect(resolveAssetDeliveryUrl(image, 'generic-html5', 'high')).toContain('hero-high');
+  });
+
+  it('ignores blank preview and optimized fields when resolving image urls', () => {
+    const image = buildImageAsset();
+    image.thumbnailUrl = '';
+    image.optimizedUrl = '';
+    image.publicUrl = 'https://cdn.example.com/original.jpg';
+    image.derivatives = undefined;
+    expect(resolveAssetPreviewUrl(image, 'generic-html5')).toBe('https://cdn.example.com/original.jpg');
+    expect(resolveAssetDeliveryUrl(image, 'generic-html5')).toBe('https://cdn.example.com/original.jpg');
   });
 
   it('matches stored widget sources against delivery and original asset urls', () => {
