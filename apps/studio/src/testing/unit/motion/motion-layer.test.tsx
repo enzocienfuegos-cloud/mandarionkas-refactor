@@ -82,6 +82,7 @@ describe('MotionLayer', () => {
     engine.subscribe.mockClear();
     engine.cancelAllForWidget.mockClear();
     engine.seekScene.mockClear();
+    engine.subscribe.mockImplementation(() => () => {});
   });
 
   afterEach(() => {
@@ -119,5 +120,44 @@ describe('MotionLayer', () => {
 
     expect(engine.play).toHaveBeenCalledTimes(1);
     expect(engine.subscribe).toHaveBeenCalledTimes(9);
+  });
+
+  it('ignores reveal events where the widget is only the source and not the target', async () => {
+    const subscriptions = new Map<string, (event: { trigger: string; sourceId: string; targetId: string; clock: object }) => void>();
+    engine.subscribe.mockImplementation((trigger: string, handler: (event: any) => void) => {
+      subscriptions.set(trigger, handler);
+      return () => subscriptions.delete(trigger);
+    });
+
+    const revealPlan: AnimationPlan = {
+      ...plan,
+      id: 'widget_1:enter:fade-in:reveal',
+      trigger: 'reveal',
+      startMode: 'trigger-local-zero',
+    };
+    engine.buildPlansForWidget.mockImplementation(() => [revealPlan]);
+
+    await act(async () => {
+      root.render(
+        <MotionLayer widget={createWidget()} playheadMs={120} isReproducing previewMode>
+          <div>Child</div>
+        </MotionLayer>,
+      );
+    });
+
+    engine.play.mockClear();
+    const handler = subscriptions.get('reveal');
+    expect(handler).toBeTruthy();
+
+    await act(async () => {
+      handler?.({
+        trigger: 'reveal',
+        sourceId: 'widget_1',
+        targetId: 'other_widget',
+        clock: {},
+      });
+    });
+
+    expect(engine.play).not.toHaveBeenCalled();
   });
 });

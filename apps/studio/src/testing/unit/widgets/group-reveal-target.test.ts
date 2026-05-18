@@ -5,6 +5,7 @@ import {
   getScratchRevealTargetMode,
   isRevealTargetCandidate,
   isWidgetTargetedByScratchGroup,
+  resolveScratchRevealTargets,
 } from '../../../widgets/group/group-reveal-target';
 
 function createWidget(overrides: Partial<WidgetNode> & Pick<WidgetNode, 'id' | 'type'>): WidgetNode {
@@ -70,6 +71,12 @@ describe('group reveal target', () => {
       reveal_group: revealGroup,
       text_1: revealText,
     })).toBe(true);
+
+    expect(resolveScratchRevealTargets(scratchGroup, [scratchGroup, revealGroup, revealText], {
+      scratch_group: scratchGroup,
+      reveal_group: revealGroup,
+      text_1: revealText,
+    }).map((widget) => widget.id)).toEqual(['reveal_group', 'text_1']);
   });
 
   it('matches all widgets in a targeted scene', () => {
@@ -93,6 +100,18 @@ describe('group reveal target', () => {
       scratch_group: scratchGroup,
       image_1: revealImage,
     })).toBe(true);
+
+    const scratchCoverText = createWidget({
+      id: 'cover_text',
+      type: 'text',
+      sceneId: 'scene_2',
+      parentId: 'scratch_group',
+    });
+    expect(resolveScratchRevealTargets(scratchGroup, [scratchGroup, revealImage, scratchCoverText], {
+      scratch_group: scratchGroup,
+      image_1: revealImage,
+      cover_text: scratchCoverText,
+    }).map((widget) => widget.id)).toEqual(['image_1']);
   });
 
   it('excludes the scratch group subtree from reveal target candidates', () => {

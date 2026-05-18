@@ -66,6 +66,13 @@ describe('scratch reveal runtime behavior', () => {
         revealTargetMode: 'widget',
         revealTargetId: 'target_group',
       },
+      motion: {
+        enter: {
+          templateId: 'slide-in-right',
+          trigger: 'reveal',
+          config: { durationMs: 900, delayMs: 0, distancePx: 80 },
+        },
+      },
       timeline: { startMs: 0, endMs: 1000 },
       childIds: [],
     } as any;
@@ -82,10 +89,12 @@ describe('scratch reveal runtime behavior', () => {
         ready: typeof (window as any).smxInitCompositorMotion === 'function',
         completed: Boolean((window as any).__smxScratchCompletionMsByWidgetId?.scratch_group),
         childTransform: window.getComputedStyle(document.querySelector('[data-widget-layer-id="image_1"]') as Element).transform,
+        scratchTransform: window.getComputedStyle(document.querySelector('[data-widget-layer-id="scratch_group"]') as Element).transform,
       }));
       expect(before.ready).toBe(true);
       expect(before.completed).toBe(false);
       expect(before.childTransform).toBe('none');
+      expect(before.scratchTransform).toBe('none');
 
       await page.evaluate(() => {
         const canvas = document.querySelector('[data-scratch-canvas]');
@@ -116,15 +125,18 @@ describe('scratch reveal runtime behavior', () => {
       const after = await page.evaluate(() => {
         const layer = document.querySelector('[data-widget-layer-id="image_1"]');
         const widget = document.querySelector('[data-widget-id="image_1"]');
+        const scratchLayer = document.querySelector('[data-widget-layer-id="scratch_group"]');
         return {
           childLayerTransform: layer ? window.getComputedStyle(layer).transform : 'none',
           childWidgetTransform: widget ? window.getComputedStyle(widget).transform : 'none',
+          scratchLayerTransform: scratchLayer ? window.getComputedStyle(scratchLayer).transform : 'none',
           completed: Boolean((window as any).__smxScratchCompletionMsByWidgetId?.scratch_group),
         };
       });
 
       expect(after.completed).toBe(true);
       expect(after.childLayerTransform !== 'none' || after.childWidgetTransform !== 'none').toBe(true);
+      expect(after.scratchLayerTransform).toBe('none');
     } finally {
       await page.close();
     }

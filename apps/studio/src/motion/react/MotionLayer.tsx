@@ -85,7 +85,7 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
 
     const unsubscribes = EVENT_TRIGGERS.map((trigger) => engine.subscribe(trigger, (event) => {
       if (!motionTargetRef.current) return;
-      const matchesWidget = event.targetId === widget.id || event.sourceId === widget.id;
+      const matchesWidget = event.targetId === widget.id;
       if (!matchesWidget) return;
       const matchingPlans = plansRef.current
         .filter((plan) => plan.trigger === event.trigger);

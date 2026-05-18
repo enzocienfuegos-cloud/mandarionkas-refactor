@@ -11,6 +11,7 @@ import { isVisibleWithinParentTimeline, resolveInheritedMotionFrame, resolveInhe
 import { createEventClock } from '../../../motion/animation-engine';
 import { useAnimationEngine } from '../../../motion/animation-engine';
 import { isScratchGroupActive } from '../../../widgets/group/group-scratch-activation';
+import { resolveScratchRevealTargets } from '../../../widgets/group/group-reveal-target';
 
 export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
@@ -47,24 +48,6 @@ export type StageSurfaceProps = {
   onSetHoveredWidget: (widgetId?: string) => void;
   onExecuteAction: (actionId: string) => void;
 };
-
-function collectScratchDescendants(root: WidgetNode, widgetsById: Record<string, WidgetNode>): WidgetNode[] {
-  const descendants: WidgetNode[] = [];
-  const stack = [...(root.childIds ?? [])];
-  const visited = new Set<string>();
-
-  while (stack.length) {
-    const childId = stack.pop();
-    if (!childId || visited.has(childId)) continue;
-    visited.add(childId);
-    const child = widgetsById[childId];
-    if (!child) continue;
-    descendants.push(child);
-    stack.push(...(child.childIds ?? []));
-  }
-
-  return descendants;
-}
 
 export function StageSurface({
   stageRef,
@@ -313,13 +296,13 @@ export function StageSurface({
               if (trigger !== 'scratch-complete') return;
               const scratchWidget = widgetsById[widgetId];
               if (!scratchWidget) return;
-              const descendants = collectScratchDescendants(scratchWidget, widgetsById);
+              const revealTargets = resolveScratchRevealTargets(scratchWidget, widgets, widgetsById);
               const clock = createEventClock('reveal', nowMs);
-              descendants.forEach((descendant) => {
+              revealTargets.forEach((targetWidget) => {
                 engine.emit({
                   trigger: 'reveal',
                   sourceId: widgetId,
-                  targetId: descendant.id,
+                  targetId: targetWidget.id,
                   sceneTimeMs: Number(metadata?.completedAtMs ?? playheadMs),
                   realTimeMs: nowMs,
                   clock,

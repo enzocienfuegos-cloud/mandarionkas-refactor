@@ -35,6 +35,14 @@ function buildWidgetIndex(runtimeModel: ExportRuntimeModel): Record<string, Expo
 
 function isCoveredByScratchGroup(scene: ExportRuntimeScene, scratchWidget: ExportRuntimeWidget, widget: ExportRuntimeWidget): boolean {
   if (scratchWidget.id === widget.id) return false;
+  let scratchParentId = widget.parentId;
+  const scratchVisited = new Set<string>();
+  const scratchSceneWidgetsById = Object.fromEntries(scene.widgets.map((entry) => [entry.id, entry] as const));
+  while (scratchParentId && !scratchVisited.has(scratchParentId)) {
+    if (scratchParentId === scratchWidget.id) return false;
+    scratchVisited.add(scratchParentId);
+    scratchParentId = scratchSceneWidgetsById[scratchParentId]?.parentId;
+  }
   const targetMode = String(scratchWidget.props?.revealTargetMode ?? 'auto').trim().toLowerCase();
   const targetId = String(scratchWidget.props?.revealTargetId ?? '').trim();
   if (targetMode === 'scene') return widget.sceneId === targetId;
@@ -42,11 +50,10 @@ function isCoveredByScratchGroup(scene: ExportRuntimeScene, scratchWidget: Expor
     if (widget.id === targetId) return true;
     let currentParentId = widget.parentId;
     const visited = new Set<string>();
-    const sceneWidgetsById = Object.fromEntries(scene.widgets.map((entry) => [entry.id, entry] as const));
     while (currentParentId && !visited.has(currentParentId)) {
       if (currentParentId === targetId) return true;
       visited.add(currentParentId);
-      currentParentId = sceneWidgetsById[currentParentId]?.parentId;
+      currentParentId = scratchSceneWidgetsById[currentParentId]?.parentId;
     }
     return false;
   }
@@ -189,7 +196,7 @@ export function mountWidgetMotions(
 
       EVENT_TRIGGERS.forEach((trigger) => {
         unsubscribes.push(engine.subscribe(trigger, (event) => {
-          if (event.targetId !== widget.id && event.sourceId !== widget.id) return;
+          if (event.targetId !== widget.id) return;
           const eventPlans = plans
             .filter((plan) => plan.trigger === trigger)
             .concat(
