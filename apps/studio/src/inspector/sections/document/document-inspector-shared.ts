@@ -11,16 +11,14 @@ export function useDocumentInspectorTab(initial: DocumentInspectorTab | string =
   return useState<string>(initial);
 }
 
-export function useDocumentInspectorContext() {
+function useDocumentInspectorSharedContext() {
   const state = useStudioStoreSnapshot();
   const snapshot = useStudioStore((current) => ({
     document: current.document,
-    playheadMs: current.ui.playheadMs,
     lastAction: current.ui.lastTriggeredActionLabel,
     activeVariant: current.ui.activeVariant,
   }), shallowEqual);
-  const document = state.document;
-  const playheadMs = usePlaybackMsThrottled(snapshot.playheadMs);
+  const document = snapshot.document;
   const lastAction = snapshot.lastAction;
   const activeVariant = snapshot.activeVariant;
   const activeSceneId = state.document.selection.activeSceneId;
@@ -32,13 +30,26 @@ export function useDocumentInspectorContext() {
 
   return {
     document,
-    playheadMs,
     lastAction,
     activeVariant,
     activeScene,
     nextSceneId,
     activeClient,
     currentUser,
+  };
+}
+
+export function useDocumentInspectorContext() {
+  return useDocumentInspectorSharedContext();
+}
+
+export function useDocumentInspectorContextWithPlayhead() {
+  const context = useDocumentInspectorSharedContext();
+  const storePlayheadMs = useStudioStore((current) => current.ui.playheadMs);
+  const playheadMs = usePlaybackMsThrottled(storePlayheadMs);
+  return {
+    ...context,
+    playheadMs,
   };
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useStudioStore, useStudioStoreSnapshot } from '../../core/store/use-studio-store';
+import { shallowEqual, useStudioStore, useStudioStoreSnapshot } from '../../core/store/use-studio-store';
 import { useTimelineActions, useWidgetActions } from '../../hooks/use-studio-actions';
 import { Tabs } from '../../shared/ui/Tabs';
 import { getAccordionOpenState, setAccordionOpenState } from '../inspector-preferences';
@@ -65,18 +65,21 @@ function WidgetInspectorAccordion({
 
 export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.Element {
   const state = useStudioStoreSnapshot();
-  const widget = useStudioStore((current) => resolveWidgetForCanvasVariant(current.document, current.document.widgets[widgetId]));
+  const widget = useStudioStore((current) => resolveWidgetForCanvasVariant(current.document, current.document.widgets[widgetId]), shallowEqual);
   const storePlayheadMs = useStudioStore((state) => state.ui.playheadMs);
   const inspectorFocus = useStudioStore((state) => state.ui.inspectorFocus);
   const playheadMs = usePlaybackMsThrottled(storePlayheadMs);
-  const actions = useStudioStore((state) => Object.values(state.document.actions).filter((action) => action.widgetId === widgetId));
+  const actions = useStudioStore((state) => Object.values(state.document.actions).filter((action) => action.widgetId === widgetId), shallowEqual);
   const { updateWidgetName, applyPropertyClipboard } = useWidgetActions();
   const { setWidgetKeyframes } = useTimelineActions();
   const [tab, setTab] = useState<WidgetInspectorTabId>('basics');
   const [propertyClipboard, setPropertyClipboard] = useState(() => getWidgetPropertyClipboardPayload());
 
   const definition = useMemo<WidgetDefinition | null>(() => (widget ? getWidgetDefinition(widget.type) : null), [widget]);
-  const tabs = useMemo(() => (definition && widget ? getWidgetInspectorTabs(definition, widget, state) : EMPTY_TABS), [definition, state, widget]);
+  const tabs = useMemo(
+    () => (definition && widget ? getWidgetInspectorTabs(definition, widget, state) : EMPTY_TABS),
+    [definition, state.document, state.ui.activeVariant, widget],
+  );
   const activeTab = tabs.find((item) => item.id === tab) ?? tabs[0] ?? null;
   const behaviorPanelCount = definition && widget ? getWidgetBehaviorPanelCount(definition, widget, state) : 0;
   const sameTypeClipboard = widget && propertyClipboard ? propertyClipboard.widgetType === widget.type : false;

@@ -84,14 +84,13 @@ export function StudioKeyboardShortcuts({
   const widgetActions = useWidgetActions();
   const { pushToast } = useToast();
   const stateRef = useStudioStoreRef((state) => state);
-  const { previewMode, previewContext, editModeWireframe, zoom, canvas, isPlaying, playheadMs } = useStudioStore((state) => ({
+  const { previewMode, previewContext, editModeWireframe, zoom, canvas, isPlaying } = useStudioStore((state) => ({
     previewMode: state.ui.previewMode,
     previewContext: state.ui.previewContext,
     editModeWireframe: state.ui.editModeWireframe,
     zoom: state.ui.zoom,
     canvas: state.document.canvas,
     isPlaying: state.ui.isPlaying,
-    playheadMs: state.ui.playheadMs,
   }), shallowEqual);
 
   const bindings = useMemo<ShortcutBinding[]>(() => {
@@ -221,7 +220,7 @@ export function StudioKeyboardShortcuts({
       { combo: 'cmd+e', action: () => runExport(), enabled: () => !open },
       { combo: '?', action: () => onOpenChange(true), enabled: () => !open },
     ];
-  }, [canvas, controller.projectSession, controller.workspace.canSaveProjects, editModeWireframe, isPlaying, onOpenChange, open, playheadMs, previewContext, previewMode, pushToast, stateRef, timelineActions, uiActions, widgetActions, zoom]);
+  }, [canvas, controller.projectSession, controller.workspace.canSaveProjects, editModeWireframe, isPlaying, onOpenChange, open, previewContext, previewMode, pushToast, stateRef, timelineActions, uiActions, widgetActions, zoom]);
 
   useKeyboardShortcuts(bindings);
 

@@ -67,3 +67,42 @@ live vive en `playbackEngine`, en `subscribeDom(...)`, y en `usePlayheadRef()`.
 - Durante playback, el store deja de recibir `SET_PLAYHEAD` periodico; el clock
   vive en `playbackEngine` y el store se sincroniza al pausar, al terminar escena
   o al cambiar de escena.
+
+## Editor Fluidity (S54): Playhead-Coupled Snapshots
+
+S53 saco las suscripciones amplias de identidad y el playback live-reactive del
+stage, pero todavia quedaban dos patrones que hacian stutter en el editor:
+
+- snapshots compartidos con `playheadMs` adentro
+- `useStudioStore(...)` que retornaban objetos literales sin `shallowEqual`
+
+### Snapshots compartidos con playhead
+
+El top bar y parte del inspector armaban snapshots compuestos con `shallowEqual`
+pero incluyendo `playheadMs`. Eso parecia seguro, pero igual acoplaba esos
+consumidores al ciclo de playback y los hacia commitear cada 250ms.
+
+S54 introduce `selectDocumentStructuralSnapshot`, que modela exactamente la
+parte estructural del documento/editor y deja el playhead afuera. Cuando un
+consumidor realmente necesita tiempo, lo lee aparte con
+`usePlaybackMsThrottled(...)`.
+
+### Object selectors sin shallowEqual
+
+Left rail, timeline, canvas variant strip y algunos panels retornaban objetos
+literales sin segundo argumento. Con el `Object.is` default eso implica un
+objeto nuevo por selector run, asi que el componente se invalida con cualquier
+dispatch aunque la data real no haya cambiado.
+
+S54 normaliza esos casos a:
+
+- selector estrecho
+- `shallowEqual`
+- derivaciones como `reverse()` o mappings fuera del selector, via `useMemo`
+
+### Guardrails nuevos
+
+- `lint:broad-store` ahora tambien detecta object selectors sin `shallowEqual`
+- el mismo lint detecta snapshots con `playheadMs` dentro de bloques con
+  `shallowEqual`
+- tests unitarios cubren ambos patrones para evitar regresiones

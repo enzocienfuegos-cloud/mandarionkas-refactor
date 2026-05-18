@@ -115,10 +115,24 @@ export function buildResolvedWidgetsById(
   document: StudioDocument,
   variantId = document.activeCanvasVariantId,
 ): Record<string, WidgetNode> {
-  return Object.fromEntries(
+  if (cachedResolvedWidgetsDocument === document && cachedResolvedWidgetsVariantId === variantId && cachedResolvedWidgetsResult) {
+    return cachedResolvedWidgetsResult;
+  }
+
+  const result = Object.fromEntries(
     Object.entries(document.widgets).map(([widgetId, widget]) => [
       widgetId,
       resolveSharedLayerWidget(document, widget, variantId),
     ]),
   );
+
+  cachedResolvedWidgetsDocument = document;
+  cachedResolvedWidgetsVariantId = variantId;
+  cachedResolvedWidgetsResult = result;
+
+  return result;
 }
+
+let cachedResolvedWidgetsDocument: StudioDocument | null = null;
+let cachedResolvedWidgetsVariantId: string | undefined;
+let cachedResolvedWidgetsResult: Record<string, WidgetNode> | null = null;

@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import type { WidgetNode } from '../domain/document/types';
 import { resolveWidgetForCanvasVariant } from '../domain/document/canvas-variants';
-import { useStudioStore } from '../core/store/use-studio-store';
+import { shallowEqual, useStudioStore } from '../core/store/use-studio-store';
 
 export type InheritanceBadgeState = 'local' | 'shared' | 'master' | 'none';
 
@@ -17,7 +18,7 @@ export function badgeStateFromInheritance(input: {
 }
 
 export function useWidgetInheritance(widget: WidgetNode) {
-  return useStudioStore((state) => {
+  const snapshot = useStudioStore((state) => {
     const activeVariantId = state.document.activeCanvasVariantId;
     const activeVariant = state.document.canvasVariants.find((variant) => variant.id === activeVariantId);
     const rawWidget = state.document.widgets[widget.id];
@@ -37,12 +38,26 @@ export function useWidgetInheritance(widget: WidgetNode) {
       isMasterVariant: activeVariant?.isMaster ?? true,
       isSharedLayerBase,
       isSharedLayerClone,
-      localVariantFrameOverrideKeys: new Set(Object.keys(variantOverride?.frame ?? {})),
-      localVariantStyleOverrideKeys: new Set(Object.keys(variantOverride?.style ?? {})),
-      localVariantPropsOverrideKeys: new Set(Object.keys(variantOverride?.props ?? {})),
-      localSceneFrameOverrideKeys: new Set(Object.keys(sceneOverride?.frame ?? {})),
-      localSceneStyleOverrideKeys: new Set(Object.keys(sceneOverride?.style ?? {})),
-      localScenePropsOverrideKeys: new Set(Object.keys(sceneOverride?.props ?? {})),
+      localVariantFrameOverride: variantOverride?.frame,
+      localVariantStyleOverride: variantOverride?.style,
+      localVariantPropsOverride: variantOverride?.props,
+      localSceneFrameOverride: sceneOverride?.frame,
+      localSceneStyleOverride: sceneOverride?.style,
+      localScenePropsOverride: sceneOverride?.props,
     };
-  });
+  }, shallowEqual);
+
+  return useMemo(() => ({
+    baseWidget: snapshot.baseWidget,
+    inheritedSharedBaseWidget: snapshot.inheritedSharedBaseWidget,
+    isMasterVariant: snapshot.isMasterVariant,
+    isSharedLayerBase: snapshot.isSharedLayerBase,
+    isSharedLayerClone: snapshot.isSharedLayerClone,
+    localVariantFrameOverrideKeys: new Set(Object.keys(snapshot.localVariantFrameOverride ?? {})),
+    localVariantStyleOverrideKeys: new Set(Object.keys(snapshot.localVariantStyleOverride ?? {})),
+    localVariantPropsOverrideKeys: new Set(Object.keys(snapshot.localVariantPropsOverride ?? {})),
+    localSceneFrameOverrideKeys: new Set(Object.keys(snapshot.localSceneFrameOverride ?? {})),
+    localSceneStyleOverrideKeys: new Set(Object.keys(snapshot.localSceneStyleOverride ?? {})),
+    localScenePropsOverrideKeys: new Set(Object.keys(snapshot.localScenePropsOverride ?? {})),
+  }), [snapshot]);
 }

@@ -1,5 +1,5 @@
 import { useWidgetActions } from '../../hooks/use-studio-actions';
-import { useStudioStore } from '../../core/store/use-studio-store';
+import { shallowEqual, useStudioStore } from '../../core/store/use-studio-store';
 import { Button } from '../../shared/ui/Button';
 import { buildResolvedWidgetsById } from '../../domain/document/canvas-variants';
 
@@ -7,7 +7,7 @@ export function MultiSelectionInspectorPanel({ widgetIds }: { widgetIds: string[
   const widgets = useStudioStore((state) => {
     const widgetsById = buildResolvedWidgetsById(state.document);
     return widgetIds.map((id) => widgetsById[id]).filter(Boolean);
-  });
+  }, shallowEqual);
   const { groupSelected, ungroupSelected, duplicateSelected, deleteSelected } = useWidgetActions();
 
   return (

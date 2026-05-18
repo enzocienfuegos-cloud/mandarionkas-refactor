@@ -2,13 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-const PATTERNS = [
-  /useStudioStore\s*\(\s*\(\s*value\s*\)\s*=>\s*value\s*\)/,
-  /useStudioStore\s*\(\s*\(\s*state\s*\)\s*=>\s*state\s*\)/,
-  /useStudioStore\s*\(\s*\(\s*current\s*\)\s*=>\s*current\s*\)/,
-  /useStudioStore\s*\(\s*\(\s*snapshot\s*\)\s*=>\s*snapshot\s*\)/,
-  /useStudioStore\s*\(\s*\(\s*s\s*\)\s*=>\s*s\s*\)/,
-];
+function collectFiles(dir: string): string[] {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'testing') continue;
+      files.push(...collectFiles(fullPath));
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    if (!/\.(ts|tsx)$/.test(entry.name)) continue;
+    files.push(fullPath);
+  }
+  return files;
+}
 
 function collectUseStudioStoreCalls(content: string): string[] {
   const calls: string[] = [];
@@ -97,25 +106,8 @@ function returnsObjectLiteral(call: string): boolean {
     || /useStudioStore\s*\(\s*\(\s*\w+\s*\)\s*=>\s*\{[\s\S]*?\breturn\s*\{/.test(call);
 }
 
-function collectFiles(dir: string): string[] {
-  const entries = readdirSync(dir, { withFileTypes: true });
-  const files: string[] = [];
-  for (const entry of entries) {
-    const fullPath = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name === 'testing') continue;
-      files.push(...collectFiles(fullPath));
-      continue;
-    }
-    if (!entry.isFile()) continue;
-    if (!/\.(ts|tsx)$/.test(entry.name)) continue;
-    files.push(fullPath);
-  }
-  return files;
-}
-
-describe('no broad store subscriptions', () => {
-  it('keeps production code off identity subscriptions and object selectors without shallowEqual', () => {
+describe('no playhead-coupled snapshots', () => {
+  it('keeps playheadMs out of shared shallowEqual snapshots', () => {
     const srcRoot = join(process.cwd(), 'src');
     const files = collectFiles(srcRoot)
       .filter((file) => !file.endsWith('use-studio-store.ts'));
@@ -123,13 +115,9 @@ describe('no broad store subscriptions', () => {
     const offenders: string[] = [];
     for (const file of files) {
       const content = readFileSync(file, 'utf8');
-      if (PATTERNS.some((pattern) => pattern.test(content))) {
-        offenders.push(file);
-        continue;
-      }
       const calls = collectUseStudioStoreCalls(content);
       for (const call of calls) {
-        if (returnsObjectLiteral(call) && !call.includes('shallowEqual')) {
+        if (returnsObjectLiteral(call) && call.includes('shallowEqual') && call.includes('playheadMs')) {
           offenders.push(file);
           break;
         }

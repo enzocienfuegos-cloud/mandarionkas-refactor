@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { shallowEqual, useStudioStore } from '../../core/store/use-studio-store';
 import { CANVAS_PRESETS } from '../../domain/document/canvas-presets';
 import { useDocumentActions } from '../../hooks/use-studio-actions';
-import { useStudioStore } from '../../core/store/use-studio-store';
 import { Button } from '../../shared/ui/Button';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { useTopBarController } from './topbar/use-top-bar-controller';
@@ -11,7 +11,7 @@ export function CanvasVariantStrip(): JSX.Element {
   const { canvasVariants, activeCanvasVariantId } = useStudioStore((state) => ({
     canvasVariants: state.document.canvasVariants,
     activeCanvasVariantId: state.document.activeCanvasVariantId,
-  }));
+  }), shallowEqual);
   const selectionCount = useStudioStore((state) => state.document.selection.widgetIds.length);
   const controller = useTopBarController();
   const { addCanvasVariant, selectCanvasVariant, renameCanvasVariant, duplicateCanvasVariant, deleteCanvasVariant, setMasterCanvasVariant } = useDocumentActions();

@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useStudioStore } from '../core/store/use-studio-store';
+import { shallowEqual, useStudioStore } from '../core/store/use-studio-store';
 import { useSceneActions, useTimelineActions, useUiActions, useWidgetActions } from '../hooks/use-studio-actions';
 import { buildTimelineSnapTargets, getTimelineGridStepMs, snapTimelineMs } from '../shared/timeline-snapping';
 import { selectResolvedWidgetsById } from '../core/store/selectors/resolved-widgets';
@@ -54,7 +54,7 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
   const uiActions = useUiActions();
   const sceneActions = useSceneActions();
   const { timelineZoom, zoomIn, zoomOut, onWheel } = useTimelineZoom(1);
-  const { scene, scenes, activeSceneId, widgets, selectedIds, playheadMs: storePlayheadMs, isPlaying } = useStudioStore((state) => {
+  const { scene, scenes, activeSceneId, widgets, selectedIds } = useStudioStore((state) => {
     const widgetsById = selectResolvedWidgetsById(state);
     const scene = state.document.scenes.find((item) => item.id === state.document.selection.activeSceneId)
       ?? state.document.scenes[0];
@@ -65,10 +65,10 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
       activeSceneId: state.document.selection.activeSceneId,
       widgets: resolvedWidgets,
       selectedIds: state.document.selection.widgetIds,
-      playheadMs: state.ui.playheadMs,
-      isPlaying: state.ui.isPlaying,
     };
-  });
+  }, shallowEqual);
+  const isPlaying = useStudioStore((state) => state.ui.isPlaying);
+  const storePlayheadMs = useStudioStore((state) => state.ui.playheadMs);
   const playheadMs = usePlaybackMsThrottled(storePlayheadMs);
   const playheadRef = useRef(playheadMs);
   const selectedWidgets = useMemo(() => selectedIds.map((widgetId) => widgets.find((widget) => widget.id === widgetId)).filter(Boolean) as TimelineWidget[], [selectedIds, widgets]);

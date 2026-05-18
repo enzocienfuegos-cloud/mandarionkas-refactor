@@ -1,36 +1,40 @@
 import { useMemo } from 'react';
+import { selectDocumentStructuralSnapshot } from '../../../core/store/selectors/playhead-aware';
 import { shallowEqual, useStudioStore, useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
+import { usePlaybackMsThrottled } from '../../../hooks/use-playback-engine';
 import type { TopBarStudioSnapshot } from './top-bar-types';
 
 export function useTopBarStudioSnapshot(): TopBarStudioSnapshot {
   const state = useStudioStoreSnapshot();
-  const snapshot = useStudioStore((current) => ({
-    name: current.document.name,
-    dirty: current.document.metadata.dirty,
-    selectionCount: current.document.selection.widgetIds.length,
-    zoom: current.ui.zoom,
-    playhead: current.ui.playheadMs,
-    isPlaying: current.ui.isPlaying,
-    previewMode: current.ui.previewMode,
-    previewContext: current.ui.previewContext,
-    editModeWireframe: current.ui.editModeWireframe,
-    lastAction: current.ui.lastTriggeredActionLabel,
-    activeVariant: current.ui.activeVariant,
-    activeFeedSource: current.ui.activeFeedSource,
-    activeFeedRecordId: current.ui.activeFeedRecordId,
-    activeProjectId: current.ui.activeProjectId,
-    activeSceneId: current.document.selection.activeSceneId,
-    scenes: current.document.scenes,
-    canvasPresetId: current.document.canvas.presetId ?? 'custom',
-    release: current.document.metadata.release,
-    lastSavedAt: current.document.metadata.lastSavedAt,
-    lastAutosavedAt: current.document.metadata.lastAutosavedAt,
-    platformMeta: current.document.metadata.platform,
-    documentVersion: current.document.version,
-  }), shallowEqual);
+  const snapshot = useStudioStore(selectDocumentStructuralSnapshot, shallowEqual);
+  const lastAction = useStudioStore((current) => current.ui.lastTriggeredActionLabel);
+  const isPlaying = useStudioStore((current) => current.ui.isPlaying);
+  const storePlayheadMs = useStudioStore((current) => current.ui.playheadMs);
+  const playhead = usePlaybackMsThrottled(storePlayheadMs);
 
   return useMemo(() => ({
     state,
-    ...snapshot,
-  }), [snapshot, state]);
+    name: snapshot.documentName,
+    dirty: snapshot.dirty,
+    selectionCount: snapshot.selectionCount,
+    zoom: snapshot.zoom,
+    playhead,
+    isPlaying,
+    previewMode: snapshot.previewMode,
+    previewContext: snapshot.previewContext,
+    editModeWireframe: snapshot.editModeWireframe,
+    lastAction,
+    activeVariant: snapshot.activeVariant,
+    activeFeedSource: snapshot.activeFeedSource,
+    activeFeedRecordId: snapshot.activeFeedRecordId,
+    activeProjectId: snapshot.activeProjectId,
+    activeSceneId: snapshot.activeSceneId,
+    scenes: snapshot.scenes,
+    canvasPresetId: snapshot.canvasPresetId,
+    release: snapshot.release,
+    lastSavedAt: snapshot.lastSavedAt,
+    lastAutosavedAt: snapshot.lastAutosavedAt,
+    platformMeta: snapshot.platformMeta,
+    documentVersion: snapshot.documentVersion,
+  }), [isPlaying, lastAction, playhead, snapshot, state]);
 }

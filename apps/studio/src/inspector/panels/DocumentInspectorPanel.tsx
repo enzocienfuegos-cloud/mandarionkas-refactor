@@ -12,8 +12,6 @@ export function DocumentInspectorPanel(): JSX.Element {
   const stateVersion = useStudioStore((current) => ({
     document: current.document,
     inspectorFocus: current.ui.inspectorFocus,
-    playheadMs: current.ui.playheadMs,
-    isPlaying: current.ui.isPlaying,
     activeVariant: current.ui.activeVariant,
     activeFeedSource: current.ui.activeFeedSource,
     activeFeedRecordId: current.ui.activeFeedRecordId,

@@ -1,6 +1,6 @@
 import { useWidgetActions } from '../../hooks/use-studio-actions';
+import { shallowEqual, useStudioStore } from '../../core/store/use-studio-store';
 import { Button } from '../../shared/ui/Button';
-import { useStudioStore } from '../../core/store/use-studio-store';
 
 export function WidgetUtilitiesSection(): JSX.Element {
   const { groupSelected, ungroupSelected, convertWidgetToSharedLayer, duplicateSelected, deleteSelected } = useWidgetActions();
@@ -10,7 +10,7 @@ export function WidgetUtilitiesSection(): JSX.Element {
       selectedWidget: selectedId ? state.document.widgets[selectedId] : undefined,
       sceneCount: state.document.scenes.length,
     };
-  });
+  }, shallowEqual);
   const canConvertToSharedLayer = Boolean(selectedWidget && !selectedWidget.sharedLayerId && !selectedWidget.parentId && !(selectedWidget.childIds?.length) && sceneCount > 1);
 
   return (

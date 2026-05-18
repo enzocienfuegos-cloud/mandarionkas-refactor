@@ -1,4 +1,5 @@
-import { useStudioStore } from '../../../core/store/use-studio-store';
+import { useMemo } from 'react';
+import { shallowEqual, useStudioStore } from '../../../core/store/use-studio-store';
 import { usePlatformActions } from '../../../platform/runtime';
 import { getWidgetDefinition } from '../../../widgets/registry/widget-registry';
 import { useSceneActions, useUiActions, useWidgetActions } from '../../../hooks/use-studio-actions';
@@ -18,7 +19,6 @@ export function useLeftRailController() {
   const {
     scene,
     scenes,
-    layerIds,
     selectedIds,
     nodes,
     activeSceneId,
@@ -34,7 +34,6 @@ export function useLeftRailController() {
       scene,
       scenes: state.document.scenes,
       activeSceneId: state.document.selection.activeSceneId,
-      layerIds: [...scene.widgetIds].reverse(),
       selectedIds: state.document.selection.widgetIds,
       nodes: state.document.widgets,
       primaryWidget: state.document.selection.primaryWidgetId ? state.document.widgets[state.document.selection.primaryWidgetId] : undefined,
@@ -43,7 +42,8 @@ export function useLeftRailController() {
       activeLeftTab: state.ui.activeLeftTab,
       targetChannel: state.document.metadata.release.targetChannel,
     };
-  });
+  }, shallowEqual);
+  const layerIds = useMemo(() => [...scene.widgetIds].reverse(), [scene.widgetIds]);
   const activeClient = platform.state.clients.find((client) => client.id === platform.state.session.activeClientId);
 
   const assetLibrary = useLeftRailAssets({

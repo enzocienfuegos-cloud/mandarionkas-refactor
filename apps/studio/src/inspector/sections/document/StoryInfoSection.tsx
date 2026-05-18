@@ -1,8 +1,8 @@
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
-import { useDocumentInspectorContext } from './document-inspector-shared';
+import { useDocumentInspectorContextWithPlayhead } from './document-inspector-shared';
 
 export function StoryInfoSection(): JSX.Element {
-  const { document, playheadMs, activeVariant, activeScene, nextSceneId, lastAction } = useDocumentInspectorContext();
+  const { document, playheadMs, activeVariant, activeScene, nextSceneId, lastAction } = useDocumentInspectorContextWithPlayhead();
   const { updateName } = useDocumentActions();
 
   return (
