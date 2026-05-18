@@ -7,7 +7,12 @@ import {
   type CreativeIngestion,
   type TagOption,
 } from '../catalog';
-import { loadAuthMe, loadWorkspaces, type WorkspaceOption } from '../../shared/workspaces';
+import {
+  WORKSPACE_CHANGED_EVENT,
+  loadAuthMe,
+  loadWorkspaces,
+  type WorkspaceOption,
+} from '../../shared/workspaces';
 import type { LatestVersionMap } from './types';
 import { buildLatestVersionPatch } from './utils';
 
@@ -47,6 +52,17 @@ export function useCreativeCatalogData() {
 
   useEffect(() => {
     void load();
+  }, []);
+
+  useEffect(() => {
+    const handleWorkspaceChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ workspaceId?: string | null }>).detail;
+      const nextWorkspaceId = detail?.workspaceId ?? '';
+      if (nextWorkspaceId) setActiveWorkspaceId(nextWorkspaceId);
+    };
+
+    window.addEventListener(WORKSPACE_CHANGED_EVENT, handleWorkspaceChange);
+    return () => window.removeEventListener(WORKSPACE_CHANGED_EVENT, handleWorkspaceChange);
   }, []);
 
   useEffect(() => {

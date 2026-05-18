@@ -15,6 +15,18 @@ export interface WorkspaceOption {
   product_access: ProductAccess;
 }
 
+export const WORKSPACE_CHANGED_EVENT = 'dusk:workspace-changed';
+
+function notifyWorkspaceChanged(authMe: AuthMeResponse, requestedWorkspaceId: string) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(WORKSPACE_CHANGED_EVENT, {
+    detail: {
+      workspace: authMe.workspace,
+      workspaceId: authMe.workspace?.id ?? requestedWorkspaceId,
+    },
+  }));
+}
+
 export function getWorkspaceProductLabel(
   workspace: { product_access?: ProductAccess | null } | null | undefined,
 ): string {
@@ -150,7 +162,9 @@ export async function switchWorkspace(workspaceId: string): Promise<AuthMeRespon
   });
   // Re-fetch the full session after the switch so the component always gets
   // a consistent, backend-resolved payload.
-  return loadAuthMe();
+  const authMe = await loadAuthMe();
+  notifyWorkspaceChanged(authMe, workspaceId);
+  return authMe;
 }
 
 export async function createClientWorkspace(

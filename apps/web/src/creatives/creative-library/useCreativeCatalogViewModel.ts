@@ -186,19 +186,24 @@ export function useCreativeCatalogViewModel({
     return width > 0 && height > 0 ? `${width}x${height}` : 'unknown';
   };
 
+  const clientScopedCreatives = useMemo(
+    () => creatives.filter((creative) => (
+      selectedClientIds.length === 0 || selectedClientIds.includes(creative.workspaceId ?? '')
+    )),
+    [creatives, selectedClientIds],
+  );
+
   const availableSizeOptions = useMemo(
-    () => Array.from(new Set(creatives.map((creative) => getCreativeSizeLabel(creative)).filter((value) => value !== 'unknown'))).sort((left, right) => {
+    () => Array.from(new Set(clientScopedCreatives.map((creative) => getCreativeSizeLabel(creative)).filter((value) => value !== 'unknown'))).sort((left, right) => {
       const [leftWidth, leftHeight] = left.split('x').map(Number);
       const [rightWidth, rightHeight] = right.split('x').map(Number);
       return (leftWidth * leftHeight) - (rightWidth * rightHeight) || left.localeCompare(right);
     }),
-    [creatives, latestVersions],
+    [clientScopedCreatives, latestVersions],
   );
 
   const filteredCreatives = useMemo(
-    () => creatives.filter((creative) => {
-      if (selectedClientIds.length && !selectedClientIds.includes(creative.workspaceId ?? '')) return false;
-
+    () => clientScopedCreatives.filter((creative) => {
       const version = latestVersions[creative.id];
       const formatFamily = getCreativeFormatFamily(creative);
       if (formatFilter !== 'all' && formatFamily !== formatFilter) return false;
@@ -229,7 +234,7 @@ export function useCreativeCatalogViewModel({
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(needle));
     }),
-    [creatives, selectedClientIds, latestVersions, formatFilter, statusFilter, sizeFilter, searchTerm],
+    [clientScopedCreatives, latestVersions, formatFilter, statusFilter, sizeFilter, searchTerm],
   );
 
   const allVisibleCreativesSelected = filteredCreatives.length > 0 && filteredCreatives.every((creative) => selectedCreativeIds.includes(creative.id));

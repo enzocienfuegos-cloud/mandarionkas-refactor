@@ -143,6 +143,14 @@ export default function CreativesView() {
   useEffect(() => {
     filters.setSearchTerm(searchQueryParam);
   }, [filters.setSearchTerm, searchQueryParam]);
+
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    filters.setSelectedClientIds((current) => (
+      current.length === 1 && current[0] === activeWorkspaceId ? current : [activeWorkspaceId]
+    ));
+  }, [activeWorkspaceId, filters.setSelectedClientIds]);
+
   useEffect(() => {
     if (!currentViewId) return;
     let cancelled = false;
@@ -158,7 +166,11 @@ export default function CreativesView() {
           return;
         }
         const nextFilters = view.filters ?? {};
-        filters.setSelectedClientIds(nextFilters.selectedWorkspaceId ? [String(nextFilters.selectedWorkspaceId)] : []);
+        filters.setSelectedClientIds(nextFilters.selectedWorkspaceId
+          ? [String(nextFilters.selectedWorkspaceId)]
+          : activeWorkspaceId
+            ? [activeWorkspaceId]
+            : []);
         const nextStatusFilter = String(nextFilters.statusFilter ?? 'all');
         const normalizedStatusFilter = nextStatusFilter === 'active'
           ? 'live'
@@ -188,6 +200,7 @@ export default function CreativesView() {
     };
   }, [
     currentViewId,
+    activeWorkspaceId,
     filters.setFormatFilter,
     filters.setSearchTerm,
     filters.setSelectedClientIds,
