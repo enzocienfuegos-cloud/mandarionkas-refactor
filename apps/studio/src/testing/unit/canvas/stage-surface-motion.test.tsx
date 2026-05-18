@@ -165,7 +165,7 @@ describe('StageSurface motion behavior', () => {
       scratchRoot = create(
         <StageSurface
           {...buildProps({
-            widgets: [scratchGroup, targetGroup, targetImage],
+            widgets: [scratchGroup, targetGroup],
             widgetsById: {
               scratch_group: scratchGroup,
               cover_text: coverText,
@@ -191,6 +191,63 @@ describe('StageSurface motion behavior', () => {
     expect(revealCalls).toHaveLength(2);
     expect(revealCalls.map((event) => event.targetId)).toEqual(['target_group', 'target_image']);
     expect(revealCalls.every((event) => event.sourceId === 'scratch_group')).toBe(true);
+
+    act(() => {
+      scratchRoot!.unmount();
+    });
+  });
+
+  it('emits reveal only to the configured target layer and not its parent group', () => {
+    const scratchGroup = createWidget('scratch_group');
+    scratchGroup.type = 'group';
+    scratchGroup.props = { scratchEnabled: true, revealTargetMode: 'widget', revealTargetId: 'target_image' };
+    scratchGroup.childIds = ['cover_text'];
+    scratchGroup.zIndex = 5;
+
+    const coverText = createWidget('cover_text');
+    coverText.parentId = 'scratch_group';
+    coverText.zIndex = 6;
+
+    const targetGroup = createWidget('target_group');
+    targetGroup.type = 'group';
+    targetGroup.childIds = ['target_image'];
+    targetGroup.zIndex = 1;
+
+    const targetImage = createWidget('target_image');
+    targetImage.parentId = 'target_group';
+    targetImage.zIndex = 2;
+
+    let scratchRoot: ReturnType<typeof create>;
+    act(() => {
+      scratchRoot = create(
+        <StageSurface
+          {...buildProps({
+            widgets: [scratchGroup, targetGroup],
+            widgetsById: {
+              scratch_group: scratchGroup,
+              cover_text: coverText,
+              target_group: targetGroup,
+              target_image: targetImage,
+            },
+          })}
+        />,
+      );
+    });
+
+    const scratchWidgetProps = stageWidgetProps.find((entry) => entry.node.id === 'scratch_group');
+    expect(scratchWidgetProps).toBeTruthy();
+
+    act(() => {
+      scratchWidgetProps.onWidgetTrigger('scratch_group', 'scratch-complete', { completedAtMs: 420 });
+    });
+
+    const revealCalls = engine.emit.mock.calls
+      .map(([event]) => event)
+      .filter((event) => event.trigger === 'reveal');
+
+    expect(revealCalls).toHaveLength(1);
+    expect(revealCalls[0]?.targetId).toBe('target_image');
+    expect(revealCalls[0]?.sourceId).toBe('scratch_group');
 
     act(() => {
       scratchRoot!.unmount();

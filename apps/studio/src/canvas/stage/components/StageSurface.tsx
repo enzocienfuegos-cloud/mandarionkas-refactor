@@ -91,6 +91,7 @@ export function StageSurface({
   const previousPlayheadRef = useRef(playheadMs);
   const previousSceneIdRef = useRef<string | undefined>(undefined);
   const widgetsRef = useRef(widgets);
+  const sceneWidgets = Object.values(widgetsById).filter((widget) => widget.sceneId === sceneId);
 
   useEffect(() => {
     widgetsRef.current = widgets;
@@ -296,7 +297,7 @@ export function StageSurface({
               if (trigger !== 'scratch-complete') return;
               const scratchWidget = widgetsById[widgetId];
               if (!scratchWidget) return;
-              const revealTargets = resolveScratchRevealTargets(scratchWidget, widgets, widgetsById);
+              const revealTargets = resolveScratchRevealTargets(scratchWidget, sceneWidgets, widgetsById);
               const clock = createEventClock('reveal', nowMs);
               revealTargets.forEach((targetWidget) => {
                 engine.emit({
