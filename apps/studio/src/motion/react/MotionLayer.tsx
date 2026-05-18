@@ -50,7 +50,7 @@ function setRefValue(ref: Ref<HTMLDivElement> | undefined, value: HTMLDivElement
 export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function MotionLayer({
   widget,
   widgetsById,
-  playheadMs,
+  playheadMs: _playheadMs,
   previewMode = false,
   isReproducing,
   children,
@@ -125,11 +125,6 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
       });
     return undefined;
   }, [engine, isReproducing, motionSignature, widget.id]);
-
-  useLayoutEffect(() => {
-    if (!isReproducing) return;
-    engine.seekScene(playheadMs);
-  }, [engine, isReproducing, playheadMs]);
 
   return (
     <div
