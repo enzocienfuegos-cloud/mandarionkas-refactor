@@ -85,7 +85,7 @@ export function ReportingPage() {
   const applyWorkspaceScope = React.useCallback((workspaceId: string) => {
     if (!workspaceId) return;
     setActiveWorkspaceId(workspaceId);
-    setAdvertiserFilter(workspaceId);
+    setAdvertiserFilter('');
     setCampaignFilter('');
     setTagFilter('');
     setCreativeFilter('');
@@ -154,6 +154,7 @@ export function ReportingPage() {
     statusFilter,
     spendView,
     search: debouncedSearch,
+    workspaceScopeId: activeWorkspaceId,
   });
 
   const widgets = useMemo(
@@ -337,7 +338,7 @@ export function ReportingPage() {
         onDownloadCsv={handleDownloadCsv}
         downloadDisabled={loading && !kpis.length}
         onResetFilters={() => {
-          setAdvertiserFilter(activeWorkspaceId);
+          setAdvertiserFilter('');
           setCampaignFilter('');
           setTagFilter('');
           setCreativeFilter('');

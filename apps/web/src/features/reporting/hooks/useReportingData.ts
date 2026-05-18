@@ -225,6 +225,7 @@ type HookArgs = {
   statusFilter: StatusFilter;
   spendView: SpendView;
   search: string;
+  workspaceScopeId?: string;
 };
 
 type HookState = {
@@ -999,6 +1000,7 @@ export function useReportingData({
   statusFilter,
   spendView,
   search,
+  workspaceScopeId = '',
 }: HookArgs) {
   const [state, setState] = useState<HookState>(INITIAL_STATE);
   const requestSequence = useRef(0);
@@ -1040,11 +1042,12 @@ export function useReportingData({
 
     try {
       const expandedQuery = query ? `${query}&limit=100` : '?limit=100';
-      const cachedPayloads = reportingPayloadCache.get(query);
+      const cacheKey = `${workspaceScopeId || 'current'}::${query}`;
+      const cachedPayloads = reportingPayloadCache.get(cacheKey);
       const payloads = !force && cachedPayloads && Date.now() - cachedPayloads.timestamp < REPORTING_CACHE_TTL_MS
         ? cachedPayloads.payloads
         : await fetchReportingPayloads(query, expandedQuery).then((nextPayloads) => {
-          reportingPayloadCache.set(query, { timestamp: Date.now(), payloads: nextPayloads });
+          reportingPayloadCache.set(cacheKey, { timestamp: Date.now(), payloads: nextPayloads });
           return nextPayloads;
         });
 
@@ -1375,7 +1378,7 @@ export function useReportingData({
         error: error instanceof Error ? error.message : 'Failed to load reporting workspace',
       }));
     }
-  }, [mode, query, search, spendView, statusFilter]);
+  }, [mode, query, search, spendView, statusFilter, workspaceScopeId]);
 
   useEffect(() => {
     void reload();
