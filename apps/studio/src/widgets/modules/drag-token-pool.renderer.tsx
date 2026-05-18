@@ -113,11 +113,12 @@ function buildDragTokenGhostStyle(
 
 function buildDragTokenArtworkStyle(imageMaxSizePercent: number, hideShape: boolean, imageFit: TokenImageFit): CSSProperties {
   const imageSize = `${imageMaxSizePercent}%`;
+  const usesFullFrame = imageFit === 'cover' || imageFit === 'fill';
   return {
-    maxWidth: imageSize,
-    maxHeight: imageSize,
-    width: imageSize,
-    height: imageSize,
+    maxWidth: usesFullFrame ? '100%' : imageSize,
+    maxHeight: usesFullFrame ? '100%' : imageSize,
+    width: usesFullFrame ? '100%' : imageSize,
+    height: usesFullFrame ? '100%' : imageSize,
     objectFit: imageFit,
     borderRadius: hideShape ? '0' : 'inherit',
   };
