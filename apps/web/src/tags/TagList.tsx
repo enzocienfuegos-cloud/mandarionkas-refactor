@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { readCampaignDsp } from '@smx/contracts/dsp-macros';
-import { strToU8, zipSync } from 'fflate';
 import {
   Badge,
   Button,
@@ -31,6 +30,7 @@ import {
   buildTagDiagnosticChecks,
   buildTagMacroSpec,
   buildTagPreviewSnippets,
+  getDefaultSnippetVariant,
   type DeliveryDiagnosticsPayload,
   type PreviewSavedTag,
 } from './tag-preview-content';
@@ -277,31 +277,41 @@ export default function TagList() {
     }
   };
 
-  const sanitizeFilename = (value: string) => (
-    value
-      .trim()
-      .replace(/[^a-z0-9-_]+/gi, '_')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 80)
-      .toLowerCase()
-      || 'tag'
-  );
-
-  const csvCell = (value: unknown) => {
-    const text = String(value ?? '');
-    if (/[",\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
-    return text;
+  const normalizeExcelText = (value: unknown) => {
+    const text = String(value ?? '').trim();
+    return /^[=+\-@]/.test(text) ? `'${text}` : text;
   };
 
-  const downloadBlob = (filename: string, blob: Blob) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const resolveBulkExportSnippets = (
+    tag: PreviewSavedTag,
+    campaignDsp: string,
+    diagnostics: DeliveryDiagnosticsPayload | null,
+  ) => {
+    const snippets = buildTagPreviewSnippets(tag, campaignDsp, diagnostics);
+    const primaryVariant = getDefaultSnippetVariant(tag.format, tag.trackerType ?? null, campaignDsp) as TagExportMode;
+    const primarySnippet = snippets[primaryVariant]
+      ?? snippets['display-js']
+      ?? snippets['vast-url-vast4-dynamic']
+      ?? snippets['tracker-click']
+      ?? snippets['tracker-impression']
+      ?? snippets['native-js']
+      ?? '';
+
+    const htmlContent = tag.format === 'display'
+      ? snippets['display-iframe'] ?? snippets['display-ins'] ?? ''
+      : tag.format === 'VAST'
+        ? snippets['vast-xml'] ?? ''
+        : '';
+
+    const impressionPixel = tag.format === 'tracker' && tag.trackerType === 'impression'
+      ? snippets['tracker-impression'] ?? ''
+      : '';
+
+    return {
+      primarySnippet,
+      htmlContent,
+      impressionPixel,
+    };
   };
 
   const handleBulkExportTags = async () => {
@@ -313,12 +323,19 @@ export default function TagList() {
 
     setBulkExportLoading(true);
     try {
-      const files: Record<string, Uint8Array> = {};
-      const manifestRows: Array<Record<string, unknown>> = [];
-      const manifestJson: Array<Record<string, unknown>> = [];
+      const rows: Array<Array<string | Date>> = [[
+        'Placement Name',
+        'Dimensions',
+        'Start Date (MM/DD/YYYY)',
+        'End Date (MM/DD/YYYY)',
+        'Ad Tag HTML',
+        'HTML Content',
+        'Impression Pixel 1',
+        'Impression Pixel 2',
+        'Language Code',
+      ]];
 
       for (const tag of selectedTags) {
-        const folder = `${sanitizeFilename(tag.name)}-${tag.id.slice(0, 8)}`;
         const [detailResponse, diagnosticsResponse] = await Promise.allSettled([
           fetch(`/v1/tags/${tag.id}`, { credentials: 'include' }),
           fetch(`/v1/tags/${tag.id}/delivery-diagnostics`, { credentials: 'include' }),
@@ -345,56 +362,49 @@ export default function TagList() {
           clickUrl: detail.clickUrl ?? tag.clickUrl ?? null,
         };
         const campaignDsp = readCampaignDsp(detail.campaign?.metadata);
-        const snippets = buildTagPreviewSnippets(mergedTag, campaignDsp, diagnostics);
-        const snippetEntries = Object.entries(snippets).filter((entry): entry is [TagExportMode, string] => Boolean(entry[1]));
+        const { primarySnippet, htmlContent, impressionPixel } = resolveBulkExportSnippets(mergedTag, campaignDsp, diagnostics);
+        const dimensions = mergedTag.width && mergedTag.height
+          ? `${mergedTag.width}x${mergedTag.height}`
+          : tag.sizeLabel || '';
+        const startDate = tag.createdAt ? new Date(tag.createdAt) : '';
 
-        const metadata = {
-          id: mergedTag.id,
-          name: mergedTag.name,
-          workspaceId: detail.workspaceId ?? tag.workspaceId ?? null,
-          workspaceName: detail.workspaceName ?? tag.workspaceName ?? null,
-          campaignName: detail.campaign?.name ?? tag.campaign?.name ?? null,
-          format: mergedTag.format,
-          status: detail.status ?? tag.status,
-          size: mergedTag.width && mergedTag.height ? `${mergedTag.width}x${mergedTag.height}` : tag.sizeLabel ?? '',
-          trackerType: mergedTag.trackerType ?? null,
-          clickUrl: mergedTag.clickUrl ?? null,
-          campaignDsp,
-          snippets: snippetEntries.map(([mode]) => `${folder}/snippets/${mode}.txt`),
-        };
-
-        files[`${folder}/metadata.json`] = strToU8(JSON.stringify(metadata, null, 2));
-        for (const [mode, snippet] of snippetEntries) {
-          files[`${folder}/snippets/${mode}.txt`] = strToU8(snippet);
-        }
-
-        manifestRows.push({
-          tag_id: metadata.id,
-          tag_name: metadata.name,
-          advertiser: metadata.workspaceName,
-          campaign: metadata.campaignName,
-          format: metadata.format,
-          status: metadata.status,
-          size: metadata.size,
-          dsp: campaignDsp,
-          snippet_count: snippetEntries.length,
-          folder,
-        });
-        manifestJson.push(metadata);
+        rows.push([
+          normalizeExcelText(mergedTag.name),
+          normalizeExcelText(dimensions),
+          startDate,
+          '',
+          primarySnippet,
+          htmlContent,
+          impressionPixel,
+          '',
+          'en',
+        ]);
       }
 
-      const manifestHeaders = ['tag_id', 'tag_name', 'advertiser', 'campaign', 'format', 'status', 'size', 'dsp', 'snippet_count', 'folder'];
-      const manifestCsv = [
-        manifestHeaders.join(','),
-        ...manifestRows.map((row) => manifestHeaders.map((header) => csvCell(row[header])).join(',')),
-      ].join('\n');
-      files['manifest.csv'] = strToU8(manifestCsv);
-      files['manifest.json'] = strToU8(JSON.stringify(manifestJson, null, 2));
-
-      const zipped = zipSync(files, { level: 6 });
-      const zipBytes = new Uint8Array(zipped);
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.aoa_to_sheet(rows, { cellDates: true });
+      worksheet['!cols'] = [
+        { wch: 28 },
+        { wch: 14 },
+        { wch: 22 },
+        { wch: 22 },
+        { wch: 92 },
+        { wch: 54 },
+        { wch: 54 },
+        { wch: 54 },
+        { wch: 14 },
+      ];
+      worksheet['!autofilter'] = { ref: `A1:I${Math.max(1, rows.length)}` };
+      for (let index = 2; index <= rows.length; index += 1) {
+        const startCell = worksheet[`C${index}`];
+        if (startCell) startCell.z = 'mm/dd/yyyy';
+        const endCell = worksheet[`D${index}`];
+        if (endCell) endCell.z = 'mm/dd/yyyy';
+      }
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
       const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
-      downloadBlob(`dusk-tags-${stamp}.zip`, new Blob([zipBytes.buffer], { type: 'application/zip' }));
+      XLSX.writeFile(workbook, `dusk-tags-bulk-upload-${stamp}.xlsx`);
       toast({ tone: 'success', title: `${selectedTags.length} tag${selectedTags.length === 1 ? '' : 's'} downloaded.` });
     } catch (exportError: any) {
       toast({ tone: 'critical', title: exportError?.message ?? 'Failed to download selected tags.' });
@@ -598,7 +608,7 @@ export default function TagList() {
                     variant="secondary"
                     size="sm"
                   >
-                    {bulkExportLoading ? 'Downloading…' : 'Download tags'}
+                    {bulkExportLoading ? 'Preparing Excel…' : 'Download Excel'}
                   </Button>
                   <Button
                     onClick={() => void handleBulkStatus('active')}
