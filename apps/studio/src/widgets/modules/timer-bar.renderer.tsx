@@ -1,9 +1,13 @@
 // render-tokenized: brand/theme split enforced by lint-color-literals.mjs
+import gsap from 'gsap';
+import { CSSPlugin } from 'gsap/CSSPlugin';
 import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { playbackEngine } from '../../hooks/use-playback-engine';
 import { renderCollapsedIfNeeded } from './shared-styles';
+
+gsap.registerPlugin(CSSPlugin);
 
 const timerBarShellStyle: CSSProperties = {
   width: '100%',
@@ -58,9 +62,10 @@ function syncTimerBarProgress(
   durationMs: number,
 ): void {
   const nextTransform = buildTimerBarTransform(orientation, resolveTimerBarProgress(playheadMs, durationMs));
-  if (fillNode.style.transform !== nextTransform) {
-    fillNode.style.transform = nextTransform;
-  }
+  gsap.set(fillNode, {
+    transform: nextTransform,
+    force3D: true,
+  });
 }
 
 function TimerBarRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }) {
@@ -73,7 +78,22 @@ function TimerBarRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
   const thickness = Math.max(8, Number(node.props.thickness ?? 8));
   const progress = resolveTimerBarProgress(ctx.playheadMs, durationMs);
   const fillRef = useRef<HTMLDivElement | null>(null);
-  const animationRef = useRef<Animation | null>(null);
+  const tweenRef = useRef<gsap.core.Tween | null>(null);
+
+  useEffect(() => {
+    const fillNode = fillRef.current;
+    if (!fillNode) return undefined;
+    gsap.set(fillNode, {
+      force3D: true,
+      willChange: 'transform',
+      backfaceVisibility: 'hidden',
+      transformStyle: 'preserve-3d',
+    });
+    return () => {
+      tweenRef.current?.kill();
+      tweenRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const fillNode = fillRef.current;
@@ -84,8 +104,8 @@ function TimerBarRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
       syncTimerBarProgress(fillNode, orientation, playheadMs, durationMs);
     };
 
-    animationRef.current?.cancel();
-    animationRef.current = null;
+    tweenRef.current?.kill();
+    tweenRef.current = null;
     syncProgress(ctx.playheadMs);
     return playbackEngine.subscribeDom(syncProgress);
   }, [ctx.isReproducing, ctx.playheadMs, durationMs, orientation]);
@@ -94,29 +114,25 @@ function TimerBarRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
     const fillNode = fillRef.current;
     if (!fillNode || !ctx.isReproducing) return undefined;
 
-    animationRef.current?.cancel();
-    animationRef.current = null;
+    tweenRef.current?.kill();
+    tweenRef.current = null;
 
     const startPlayheadMs = playbackEngine.getCurrentMs() || ctx.playheadMs;
     const remainingMs = Math.max(0, durationMs - startPlayheadMs);
     syncTimerBarProgress(fillNode, orientation, startPlayheadMs, durationMs);
     if (!remainingMs) return undefined;
 
-    const animation = fillNode.animate(
-      [
-        { transform: buildTimerBarTransform(orientation, resolveTimerBarProgress(startPlayheadMs, durationMs)) },
-        { transform: buildTimerBarTransform(orientation, 0) },
-      ],
-      {
-        duration: remainingMs,
-        easing: 'linear',
-        fill: 'forwards',
-      },
-    );
-    animationRef.current = animation;
+    const tween = gsap.to(fillNode, {
+      transform: buildTimerBarTransform(orientation, 0),
+      duration: remainingMs / 1000,
+      ease: 'none',
+      overwrite: 'auto',
+      force3D: true,
+    });
+    tweenRef.current = tween;
     return () => {
-      animation.cancel();
-      animationRef.current = null;
+      tween.kill();
+      tweenRef.current = null;
     };
   }, [ctx.isReproducing, ctx.playheadMs, durationMs, orientation]);
 
