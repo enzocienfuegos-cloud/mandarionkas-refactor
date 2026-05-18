@@ -96,9 +96,9 @@ export function DynamicMapSearchBarStage({
       <style>{mapTooltipStyles}</style>
       <div style={dynamicMapUi.searchBarBaseLayerStyle}>
         <div style={buildHeroImageWrapStyle(viewModel.heroHeight, resolved.heroImage)}>
-          {resolved.heroImage ? <img src={resolved.heroImage} alt={resolved.headlineText} style={dynamicMapUi.mediaFillStyle} /> : null}
+          {resolved.heroImage ? <img src={resolved.heroImage} alt={resolved.headlineText} decoding="async" style={dynamicMapUi.mediaFillStyle} /> : null}
           <div style={buildHeroOverlayStyle(resolved.heroOverlayOpacity)} />
-          {resolved.logoImage ? <img src={resolved.logoImage} alt={resolved.brandText} style={buildHeroLogoStyle()} /> : null}
+          {resolved.logoImage ? <img src={resolved.logoImage} alt={resolved.brandText} decoding="async" style={buildHeroLogoStyle()} /> : null}
           <div style={dynamicMapUi.searchBarHeadlineWrapStyle}>
             <div style={dynamicMapUi.searchBarHeadlineStyle}>{resolved.headlineText}</div>
             <div style={dynamicMapUi.searchBarSubheadlineStyle}>{resolved.subheadlineText}</div>
@@ -130,7 +130,7 @@ export function DynamicMapSearchBarStage({
         {panelOpen ? (
           <div style={dynamicMapUi.searchPanelRootStyle}>
             <div style={searchPanelHeaderStyle}>
-              {resolved.logoImage ? <img src={resolved.logoImage} alt={resolved.brandText} style={dynamicMapUi.searchPanelLogoStyle} /> : null}
+              {resolved.logoImage ? <img src={resolved.logoImage} alt={resolved.brandText} decoding="async" style={dynamicMapUi.searchPanelLogoStyle} /> : null}
               <div style={dynamicMapUi.searchPanelTitleStyle}>{resolved.brandText}</div>
               <button type="button" onClick={(event) => { event.stopPropagation(); onClosePanel(); }} style={dynamicMapUi.searchPanelCloseStyle}>×</button>
             </div>

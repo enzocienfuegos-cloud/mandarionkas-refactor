@@ -60,7 +60,7 @@ export function AssetPickerModal({ assets, title, onSelect, onClose }: AssetPick
                       {asset.kind === 'video' ? (
                         <video src={previewUrl} muted playsInline preload="metadata" className="inspector-preview-media" />
                       ) : (
-                        <img src={previewUrl} alt={asset.name} className="inspector-preview-media" />
+                        <img src={previewUrl} alt={asset.name} decoding="async" loading="lazy" className="inspector-preview-media" />
                       )}
                     </div>
                     <div style={{ display: 'grid', gap: 2, textAlign: 'left' }}>

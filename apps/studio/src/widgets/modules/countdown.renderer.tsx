@@ -2,7 +2,7 @@
 import type { CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
-import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
+import { usePlaybackDerivedValue } from '../../hooks/use-playback-engine';
 import { getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded, StatChip } from './shared-styles';
 
 const countdownBodyStyle: CSSProperties = {
@@ -30,10 +30,11 @@ const countdownLabelStyle: CSSProperties = {
 
 function CountdownModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
-  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
-  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
   const totalSeconds = Number(node.props.totalSeconds ?? ((Number(node.props.days ?? 0) * 86400) + (Number(node.props.hours ?? 0) * 3600) + (Number(node.props.minutes ?? 0) * 60) + Number(node.props.seconds ?? 0)));
-  const remaining = Math.max(0, totalSeconds - Math.floor(playheadMs / 1000));
+  const remaining = usePlaybackDerivedValue(ctx.playheadMs, (nextMs) => {
+    const playheadMs = ctx.isReproducing ? nextMs : ctx.playheadMs;
+    return Math.max(0, totalSeconds - Math.floor(playheadMs / 1000));
+  });
   const days = Math.floor(remaining / 86400);
   const hours = Math.floor((remaining % 86400) / 3600);
   const minutes = Math.floor((remaining % 3600) / 60);

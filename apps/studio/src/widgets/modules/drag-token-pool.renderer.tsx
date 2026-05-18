@@ -269,6 +269,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                   <img
                     src={displayImageUrl}
                     alt={token.label}
+                    decoding="async"
                     draggable={false}
                     style={buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape, imageFit, imageScalePercent, focalX, focalY)}
                   />
@@ -305,6 +306,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                 <img
                   src={displayImageUrl}
                   alt={draggingToken.label}
+                  decoding="async"
                   draggable={false}
                   style={{
                     ...buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape, imageFit, imageScalePercent, focalX, focalY),

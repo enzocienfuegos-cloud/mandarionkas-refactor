@@ -53,6 +53,7 @@ export function renderVideoHeroWidget(node: WidgetNode, ctx: RenderContext): JSX
         muted={Boolean(node.props.muted ?? true)}
         loop={Boolean(node.props.loop ?? true)}
         controls={Boolean(node.props.controls ?? false)}
+        preload="metadata"
         style={buildVideoHeroMediaStyle(node, ctx, borderRadius)}
       />
     );

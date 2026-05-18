@@ -206,6 +206,7 @@ function TikTokVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderConte
           muted
           loop
           playsInline
+          preload="metadata"
           style={tiktokVideoUi.tiktokVideoFillStyle}
         />
       ) : (
@@ -248,7 +249,7 @@ function TikTokVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderConte
           <div style={tiktokVideoUi.tiktokAvatarRingStyle}>
             <div style={tiktokVideoUi.tiktokAvatarInnerStyle}>
               {viewModel.avatarSrc ? (
-                <img src={viewModel.avatarSrc} alt={viewModel.username} style={tiktokVideoUi.tiktokAvatarImageStyle} />
+                <img src={viewModel.avatarSrc} alt={viewModel.username} decoding="async" style={tiktokVideoUi.tiktokAvatarImageStyle} />
               ) : (
                 <div style={tiktokVideoUi.tiktokAvatarFallbackStyle}>?</div>
               )}

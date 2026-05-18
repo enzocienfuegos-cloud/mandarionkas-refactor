@@ -168,7 +168,7 @@ function TeadsLayout1Renderer({ node }: { node: WidgetNode; ctx: RenderContext }
       <div style={teadsLayout1HeaderStyle}>
         <div style={teadsLayout1LogoShellStyle}>
           {brandLogoSrc
-            ? <img src={brandLogoSrc} alt={brandName} style={teadsLayout1MediaStyle} />
+            ? <img src={brandLogoSrc} alt={brandName} decoding="async" style={teadsLayout1MediaStyle} />
             : <span style={teadsLayout1LogoFallbackStyle}>Logo</span>
           }
         </div>
@@ -187,8 +187,8 @@ function TeadsLayout1Renderer({ node }: { node: WidgetNode; ctx: RenderContext }
       <div style={teadsLayout1MediaWrapStyle}>
         {mediaSrc
           ? mediaKind === 'video'
-            ? <video src={mediaSrc} muted playsInline style={teadsLayout1MediaStyle} />
-            : <img src={mediaSrc} alt="" draggable={false} style={teadsLayout1MediaStyle} />
+            ? <video src={mediaSrc} muted playsInline preload="metadata" style={teadsLayout1MediaStyle} />
+            : <img src={mediaSrc} alt="" decoding="async" draggable={false} style={teadsLayout1MediaStyle} />
           : <ModuleMediaPlaceholder kind={mediaKind} />
         }
       </div>

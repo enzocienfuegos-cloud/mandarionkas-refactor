@@ -48,6 +48,19 @@
   box-shadow: var(--shadow-floating-base);
   backdrop-filter: blur(8px);
 }
+
+.workspace-shell.is-performance-mode .selection-mini-toolbar {
+  backdrop-filter: none;
+  box-shadow: 0 8px 20px var(--black-a-22);
+}
+
+.workspace-shell.is-performance-mode .selection-outline.is-primary {
+  box-shadow: 0 0 0 1px var(--accent-a-22);
+}
+
+.workspace-shell.is-performance-mode .selection-handle {
+  box-shadow: none;
+}
 .selection-mini-toolbar .ghost {
   min-height: 26px;
   padding-inline: 7px;

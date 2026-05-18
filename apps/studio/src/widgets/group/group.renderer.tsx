@@ -5,7 +5,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
 import { renderWidgetContents } from '../../canvas/stage/render-widget';
-import { playbackEngine, usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
+import { playbackEngine, usePlaybackMsVisual } from '../../hooks/use-playback-engine';
 import { MotionLayer } from '../../motion/react/MotionLayer';
 import { useLatestRef } from '../../shared/hooks';
 import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
@@ -329,14 +329,14 @@ function ScratchCoverWidget({
       isReproducing={Boolean(ctx.isReproducing)}
       style={{
         position: 'absolute',
-        left: liveFrame.x - rootFrame.x,
-        top: liveFrame.y - rootFrame.y,
+        left: 0,
+        top: 0,
         width: liveFrame.width,
         height: liveFrame.height,
         opacity: liveOpacity,
         zIndex: node.zIndex,
-        transform: `rotate(${liveFrame.rotation}deg)`,
-        transformOrigin: 'center',
+        transform: `translate3d(${liveFrame.x - rootFrame.x}px, ${liveFrame.y - rootFrame.y}px, 0) rotate(${liveFrame.rotation}deg)`,
+        transformOrigin: '0 0',
         pointerEvents: 'none',
       }}
     >
@@ -373,8 +373,8 @@ function GroupScratchCoverChildren({
 }
 
 function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
-  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
-  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
+  const visualPlayheadMs = usePlaybackMsVisual(ctx.playheadMs);
+  const playheadMs = ctx.isReproducing ? visualPlayheadMs : ctx.playheadMs;
   const previewMode = ctx.previewMode;
   const nodeId = node.id;
   const ctxRef = useLatestRef(ctx);

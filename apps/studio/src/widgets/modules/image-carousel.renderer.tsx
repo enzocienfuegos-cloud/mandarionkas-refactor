@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
-import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
+import { usePlaybackDerivedValue } from '../../hooks/use-playback-engine';
 import { clamp, getAccent, isFilenameLikeCaption, moduleBody, moduleHeader, moduleShell, parseCarouselSlides, renderCollapsedIfNeeded } from './shared-styles';
 import { resolveCornerRadius } from '../shared/corner-style';
 
@@ -123,8 +123,6 @@ function buildImageCarouselNextButtonStyle(accent: string): CSSProperties {
 
 function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
-  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
-  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
   const borderRadius = resolveCornerRadius(node, 20);
   const slides = useMemo(() => parseCarouselSlides(String(node.props.slides ?? '')), [node.props.slides]);
   const intervalMs = clamp(Number(node.props.intervalMs ?? 2600), 1000, 10000);
@@ -136,8 +134,12 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const [activeIndex, setActiveIndex] = useState(clamp(Number(node.props.activeIndex ?? 1), 1, Math.max(1, slides.length || 1)) - 1);
   const swipeStartRef = useRef<number | null>(null);
   const swipeLastRef = useRef<number | null>(null);
+  const autoplayActiveIndex = usePlaybackDerivedValue(ctx.playheadMs, (nextMs) => {
+    if (!autoplay || slides.length <= 1 || !ctx.previewMode) return activeIndex;
+    return Math.floor(Math.max(0, nextMs) / intervalMs) % slides.length;
+  });
   const effectiveActiveIndex = autoplay && slides.length > 1 && ctx.previewMode
-    ? Math.floor(playheadMs / intervalMs) % slides.length
+    ? autoplayActiveIndex
     : activeIndex;
   const activeSlide = slides[effectiveActiveIndex] ?? slides[0];
   const visibleCaption = activeSlide?.caption && !isFilenameLikeCaption(activeSlide.caption) ? activeSlide.caption : '';
@@ -186,7 +188,7 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
           onLostPointerCapture={resetSwipe}
         >
           {activeSlide ? (
-            <img src={activeSlide.src} alt={visibleCaption} style={imageCarouselMediaStyle} draggable={false} />
+            <img src={activeSlide.src} alt={visibleCaption} decoding="async" style={imageCarouselMediaStyle} draggable={false} />
           ) : (
             <div style={imageCarouselEmptyStyle}>Add slides</div>
           )}

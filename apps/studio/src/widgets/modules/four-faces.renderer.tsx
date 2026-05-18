@@ -91,7 +91,7 @@ function FacePanel({
 
       <div style={fourFacesUi.faceMediaWrapStyle}>
         {face.imageSrc ? (
-          <img src={face.imageSrc} alt={face.title} style={fourFacesUi.faceMediaStyle} />
+          <img src={face.imageSrc} alt={face.title} decoding="async" style={fourFacesUi.faceMediaStyle} />
         ) : (
           <span style={buildFaceMediaFallbackTextStyle(face.titleColor)}>No image</span>
         )}
@@ -211,7 +211,7 @@ function FourFacesRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext
         <>
           <div style={buildHomePanelStyle(viewModel.homeBg)}>
             {viewModel.logoSrc ? (
-              <img src={viewModel.logoSrc} alt={viewModel.brandName} style={fourFacesUi.homeLogoStyle} />
+              <img src={viewModel.logoSrc} alt={viewModel.brandName} decoding="async" style={fourFacesUi.homeLogoStyle} />
             ) : viewModel.brandName ? (
               <div style={buildHomeBrandStyle(viewModel.brandColor)}>
                 {viewModel.brandName}
@@ -229,7 +229,7 @@ function FourFacesRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext
             ) : null}
 
             {viewModel.heroSrc ? (
-              <img src={viewModel.heroSrc} alt="" style={buildHomeHeroStyle(viewModel.accentColor)} />
+              <img src={viewModel.heroSrc} alt="" decoding="async" style={buildHomeHeroStyle(viewModel.accentColor)} />
             ) : (
               <div style={fourFacesUi.homeHeroFallbackStyle}>
                 <span style={buildHomeHeroFallbackTextStyle(viewModel.homeTitleColor)}>Hero image</span>

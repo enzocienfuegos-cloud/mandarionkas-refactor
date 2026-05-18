@@ -5,6 +5,9 @@
   background: var(--surface-shell-sticky);
   backdrop-filter: blur(10px);
 }
+body.studio-performance-mode .premium-timeline-header {
+  backdrop-filter: none;
+}
 
 .timeline-header-strip--ux {
   min-height: 42px;
@@ -16,6 +19,9 @@
   gap: var(--space-5);
   flex-wrap: nowrap;
   background: var(--gradient-modal-surface);
+}
+body.studio-performance-mode .timeline-header-strip--ux {
+  background: var(--surface-shell-sticky);
 }
 
 .timeline-title-stack {
@@ -67,6 +73,11 @@
   flex: 1 1 220px;
   max-width: 280px;
   min-width: 0;
+}
+body.studio-performance-mode .timeline-scene-switcher,
+body.studio-performance-mode .timeline-duration-input,
+body.studio-performance-mode .timeline-resize-handle {
+  box-shadow: none;
 }
 
 .timeline-scene-switcher__nav {

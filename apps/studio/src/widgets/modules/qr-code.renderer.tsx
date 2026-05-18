@@ -72,6 +72,7 @@ function QrCodeModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
             <img
               src={qrUrl}
               alt={String(node.props.codeLabel ?? 'QR code')}
+              decoding="async"
               style={qrCodeImageStyle}
               onError={() => setErrored(true)}
             />

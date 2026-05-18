@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
-import { playbackEngine, usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
+import { playbackEngine, usePlaybackMsVisual } from '../../hooks/use-playback-engine';
 import { useLatestRef } from '../../shared/hooks';
 import { getAccent, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 
@@ -285,8 +285,8 @@ function eraseScratchProgress(
 }
 
 function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
-  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
-  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
+  const visualPlayheadMs = usePlaybackMsVisual(ctx.playheadMs);
+  const playheadMs = ctx.isReproducing ? visualPlayheadMs : ctx.playheadMs;
   const previewMode = ctx.previewMode;
   const ctxRef = useLatestRef(ctx);
   const accent = getAccent(node);
@@ -397,7 +397,7 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
 
   return (
     <div style={buildScratchRevealShellStyle(node, ctx, revealBackground ?? 'var(--neutral-slate-900)')}>
-      {afterImage ? <img ref={revealMediaRef} src={afterImage} alt={revealLabel} style={scratchRevealMediaStyle} /> : null}
+      {afterImage ? <img ref={revealMediaRef} src={afterImage} alt={revealLabel} decoding="async" style={scratchRevealMediaStyle} /> : null}
       <div style={scratchRevealTitleStyle}>{title}</div>
       <div style={scratchRevealLabelBaseStyle}>{revealLabel}</div>
       <canvas

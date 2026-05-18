@@ -141,7 +141,7 @@ function InteractiveGalleryModuleRenderer({ node, ctx }: { node: WidgetNode; ctx
       <div style={moduleBody}>
         <div style={buildInteractiveGalleryViewportStyle(accent)}>
           {activeItem?.src ? (
-            <img src={activeItem.src} alt={activeItem.title} style={interactiveGalleryImageStyle} />
+            <img src={activeItem.src} alt={activeItem.title} decoding="async" style={interactiveGalleryImageStyle} />
           ) : (
             <div style={interactiveGalleryFallbackStyle}>
               {activeIndex + 1} / {itemCount}

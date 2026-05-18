@@ -76,6 +76,20 @@
     border-color var(--motion-duration-base) var(--motion-ease-out),
     box-shadow var(--motion-duration-base) var(--motion-ease-out);
 }
+body.studio-performance-mode .top-bar.top-bar-ux,
+body.studio-performance-mode .status-popover {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+body.studio-performance-mode .top-bar.top-bar-ux {
+  background: var(--surface-shell-sticky);
+  box-shadow: 0 8px 20px var(--black-a-18);
+  transition: none;
+}
+body.studio-performance-mode .top-dirty-dot,
+body.studio-performance-mode .top-status-pill {
+  box-shadow: none;
+}
 .top-bar-ux.is-preview-mode {
   box-shadow: inset 0 -3px 0 var(--accent), var(--elevation-2);
 }

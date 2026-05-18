@@ -12,6 +12,20 @@
   backdrop-filter: var(--glass-blur-soft);
   -webkit-backdrop-filter: var(--glass-blur-soft);
   box-shadow: var(--elevation-1); }
+body.studio-performance-mode .left-rail,
+body.studio-performance-mode .left-rail-panel-head {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+body.studio-performance-mode .left-rail {
+  background: var(--surface-shell-panel);
+  box-shadow: 0 8px 18px var(--black-a-16);
+}
+body.studio-performance-mode .left-button:not(.btn, .surface-btn) {
+  background: var(--surface-shell-raised);
+  box-shadow: none;
+  transition: none;
+}
 .left-title { color: var(--muted); text-transform: uppercase;
   font-size: var(--font-size-2xs);
   letter-spacing: .1em; }

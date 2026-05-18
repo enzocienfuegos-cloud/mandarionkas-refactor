@@ -28,7 +28,7 @@ interface CompanionAdSlotProps {
 function renderResource(resource: VASTCompanionResource): JSX.Element {
   switch (resource.kind) {
     case 'static':
-      return <img src={resource.src} alt="" style={companionImageStyle} draggable={false} />;
+      return <img src={resource.src} alt="" decoding="async" style={companionImageStyle} draggable={false} />;
     case 'iframe':
       return <iframe title="companion-ad" src={resource.src} sandbox="allow-scripts allow-same-origin" scrolling="no" style={companionIframeStyle} />;
     case 'html':

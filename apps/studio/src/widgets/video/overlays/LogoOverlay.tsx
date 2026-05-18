@@ -31,6 +31,7 @@ export function LogoOverlay({ content, position }: LogoOverlayProps): JSX.Elemen
       <img
         src={resolveAssetUrl(content.assetId)}
         alt={content.altText ?? ''}
+        decoding="async"
         style={imageStyle}
         draggable={false}
       />

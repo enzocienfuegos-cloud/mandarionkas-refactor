@@ -95,6 +95,7 @@ export function ClientPreviewShell({
             className="cp-topbar-logo"
             src="/assets/mandarion-logo-white.svg"
             alt="MandaRion"
+            decoding="async"
           />
         </div>
         <div className="cp-topbar-center">

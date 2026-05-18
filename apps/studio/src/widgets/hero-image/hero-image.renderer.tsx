@@ -50,6 +50,7 @@ export function renderHeroImageWidget(node: WidgetNode, ctx: RenderContext): JSX
       <img
         src={src}
         alt={String(node.props.alt ?? node.name)}
+        decoding="async"
         draggable={false}
         style={buildHeroImageMediaStyle(node, ctx, borderRadius)}
       />

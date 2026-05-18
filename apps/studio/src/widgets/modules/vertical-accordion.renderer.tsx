@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import type { WidgetNode } from '../../domain/document/types';
-import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
+import { usePlaybackDerivedValue } from '../../hooks/use-playback-engine';
 import {
   buildAccordionRowChevronStyle,
   buildAccordionRowChipWrapStyle,
@@ -55,7 +55,7 @@ function AccordionRow({
     <div style={buildAccordionRowShellStyle(isExpanded, expandedHeight, stripHeight)}>
       <div style={buildAccordionRowHeroStyle(row.bg, heroHeight, isExpanded)}>
         {row.src ? (
-          <img src={row.src} alt={row.title} style={verticalAccordionUi.accordionRowImageStyle} draggable={false} />
+          <img src={row.src} alt={row.title} decoding="async" style={verticalAccordionUi.accordionRowImageStyle} draggable={false} />
         ) : (
           <div style={verticalAccordionUi.accordionRowImageFallbackStyle}>No image</div>
         )}
@@ -91,8 +91,6 @@ function AccordionRow({
 
 function VerticalAccordionRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const viewModel = buildVerticalAccordionViewModel(node);
-  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
-  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
   const skinVm = createModuleViewModel({
     type: node.type,
     props: {},
@@ -100,15 +98,15 @@ function VerticalAccordionRenderer({ node, ctx }: { node: WidgetNode; ctx: Rende
     surface: 'stage',
   }, () => ({}));
   const [expandedIndex, setExpandedIndex] = useState<number>(-1);
-  const autoplayDerivedIndex = (() => {
+  const autoplayDerivedIndex = usePlaybackDerivedValue<number | null>(ctx.playheadMs, (nextMs) => {
     if (!viewModel.autoplay || !ctx.previewMode || viewModel.rows.length === 0) return null;
     const startDelayMs = 400;
-    if (playheadMs < startDelayMs) return -1;
-    const elapsedMs = playheadMs - startDelayMs;
+    if (nextMs < startDelayMs) return -1;
+    const elapsedMs = nextMs - startDelayMs;
     const step = Math.floor(elapsedMs / viewModel.autoplayIntervalMs);
     if (step >= viewModel.rows.length) return -1;
     return step;
-  })();
+  });
   const effectiveExpandedIndex = autoplayDerivedIndex ?? expandedIndex;
   const autoplayActive = autoplayDerivedIndex !== null && autoplayDerivedIndex >= 0;
 
@@ -123,7 +121,7 @@ function VerticalAccordionRenderer({ node, ctx }: { node: WidgetNode; ctx: Rende
         <div style={buildVerticalAccordionTopbarStyle(viewModel.topbarHeight)}>
           <div style={verticalAccordionUi.verticalAccordionTopbarBrandRowStyle}>
             {viewModel.logoSrc ? (
-              <img src={viewModel.logoSrc} alt={viewModel.brandLine1} style={verticalAccordionUi.verticalAccordionTopbarLogoStyle} />
+              <img src={viewModel.logoSrc} alt={viewModel.brandLine1} decoding="async" style={verticalAccordionUi.verticalAccordionTopbarLogoStyle} />
             ) : null}
             <div style={verticalAccordionUi.verticalAccordionTopbarTitleStyle}>
               {viewModel.brandLine1}

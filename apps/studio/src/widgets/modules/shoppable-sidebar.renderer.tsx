@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
-import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
+import { usePlaybackDerivedValue } from '../../hooks/use-playback-engine';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { clamp, getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 import { parseShoppableProducts } from './shoppable-sidebar.shared';
@@ -173,8 +173,6 @@ function resolveCardSize(cardShape: string): { width: number; height: number } {
 
 function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
-  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
-  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
   const ctaBackgroundColor = String((node.style as Record<string, unknown>).ctaBackgroundColor ?? accent);
   const ctaTextColor = String((node.style as Record<string, unknown>).ctaTextColor ?? 'var(--neutral-slate-900)');
   const products = useMemo(() => parseShoppableProducts(node.props.products), [node.props.products]);
@@ -205,8 +203,12 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
     ? `calc((100% - ${gap * Math.max(0, visibleCount - 1)}px) / ${visibleCount})`
     : '100%';
 
+  const autoplayActiveIndex = usePlaybackDerivedValue(ctx.playheadMs, (nextMs) => {
+    if (!autoscroll || itemCount <= 1 || !ctx.previewMode) return activeIndex;
+    return Math.floor(Math.max(0, nextMs) / intervalMs) % itemCount;
+  });
   const effectiveActiveIndex = autoscroll && itemCount > 1 && ctx.previewMode
-    ? Math.floor(playheadMs / intervalMs) % itemCount
+    ? autoplayActiveIndex
     : activeIndex;
 
   const trackStyle = buildShoppableTrackStyle(orientation, gap, effectiveActiveIndex, cardSize);
@@ -231,7 +233,7 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
                 style={buildShoppableCardStyle(orientation, cardBasis)}
               >
                 <div style={buildShoppableMediaWrapStyle(product.src, mediaHeight)}>
-                  {product.src ? <img src={product.src} alt={product.title} style={shoppableMediaStyle} /> : null}
+                  {product.src ? <img src={product.src} alt={product.title} decoding="async" style={shoppableMediaStyle} /> : null}
                 </div>
                 <div style={shoppableCardBodyStyle}>
                   <div style={shoppableTitleStyle}>{product.title}</div>

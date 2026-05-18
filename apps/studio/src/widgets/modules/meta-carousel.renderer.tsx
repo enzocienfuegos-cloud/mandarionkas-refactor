@@ -25,7 +25,7 @@ function MetaHeader({ viewModel }: { viewModel: ReturnType<typeof buildMetaCarou
     <div style={metaCarouselUi.metaHeaderShellStyle}>
       <div style={buildMetaHeaderRowStyle(Boolean(viewModel.primaryText))}>
         <div style={metaCarouselUi.metaAvatarShellStyle}>
-          {viewModel.avatarSrc ? <img src={viewModel.avatarSrc} alt="" style={metaCarouselUi.metaAvatarImageStyle} /> : null}
+          {viewModel.avatarSrc ? <img src={viewModel.avatarSrc} alt="" decoding="async" style={metaCarouselUi.metaAvatarImageStyle} /> : null}
         </div>
         <div style={metaCarouselUi.metaHeaderTextWrapStyle}>
           <div style={metaCarouselUi.metaBrandNameStyle}>{viewModel.brandName}</div>
@@ -58,8 +58,8 @@ function CarouselCard({
       <div style={buildMetaCardMediaStyle(imageH)}>
         {slide.src
           ? slide.kind === 'video'
-            ? <video src={slide.src} muted playsInline style={metaCarouselUi.metaCardMediaFillStyle} />
-            : <img src={slide.src} alt={slide.title} draggable={false} style={metaCarouselUi.metaCardMediaFillStyle} />
+            ? <video src={slide.src} muted playsInline preload="metadata" style={metaCarouselUi.metaCardMediaFillStyle} />
+            : <img src={slide.src} alt={slide.title} decoding="async" draggable={false} style={metaCarouselUi.metaCardMediaFillStyle} />
           : <ModuleMediaPlaceholder kind={slide.kind} label={slide.kind === 'video' ? 'Video' : 'Image'} color={metaCarouselBrandPalette.placeholderTint} iconSize={20} />}
       </div>
 

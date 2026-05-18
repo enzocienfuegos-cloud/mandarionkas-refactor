@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
-import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
+import { usePlaybackDerivedValue } from '../../hooks/use-playback-engine';
 import { moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 import { InstagramStoryInspector } from './instagram-story.inspector';
 import { ModuleMediaPlaceholder } from './render-icons';
@@ -47,9 +47,11 @@ const storyProgressTrackStyle: CSSProperties = {
 };
 
 const storyProgressFillBaseStyle: CSSProperties = {
+  width: '100%',
   height: '100%',
   background: 'var(--text-on-media-strong)',
   borderRadius: 2,
+  transformOrigin: '0 50%',
 };
 
 const storyAccountRowStyle: CSSProperties = {
@@ -117,7 +119,7 @@ const instagramStorySlideLayerBaseStyle: CSSProperties = {
 function buildStoryProgressFillStyle(fill: number, isActive: boolean): CSSProperties {
   return {
     ...storyProgressFillBaseStyle,
-    width: `${fill * 100}%`,
+    transform: `scaleX(${fill})`,
     transition: isActive ? 'none' : undefined,
   };
 }
@@ -185,7 +187,7 @@ function StoryTopBar({
         {/* Avatar */}
         <div style={storyAvatarShellStyle}>
           {avatarSrc
-            ? <img src={avatarSrc} alt={username} style={storyMediaFillStyle} />
+            ? <img src={avatarSrc} alt={username} decoding="async" style={storyMediaFillStyle} />
             : <div style={storyAvatarFallbackStyle} />
           }
         </div>
@@ -252,6 +254,7 @@ function StorySlide({
         muted={muted}
         playsInline
         loop={false}
+        preload="metadata"
         style={storyMediaFillStyle}
         onLoadedMetadata={(e) => {
           const duration = (e.currentTarget.duration ?? 0) * 1000;
@@ -265,6 +268,7 @@ function StorySlide({
     <img
       src={slide.src}
       alt=""
+      decoding="async"
       draggable={false}
       style={storyMediaFillStyle}
     />
@@ -277,8 +281,11 @@ function InstagramStoryRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCo
   const slides = getSlides(node);
   const username = String(node.props.username ?? INSTAGRAM_STORY_DEFAULT_USERNAME);
   const avatarSrc = String(node.props.avatarSrc ?? '').trim();
-  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
-  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
+  const sampledPlayheadMs = usePlaybackDerivedValue(ctx.playheadMs, (nextMs) => {
+    if (!ctx.isReproducing) return ctx.playheadMs;
+    return Math.floor(Math.max(0, nextMs) / 33) * 33;
+  });
+  const playheadMs = ctx.isReproducing ? sampledPlayheadMs : ctx.playheadMs;
 
   const [muted, setMuted] = useState(Boolean(node.props.muted ?? true));
   const [videoDurations, setVideoDurations] = useState<Record<number, number>>({});

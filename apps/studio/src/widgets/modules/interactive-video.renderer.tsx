@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createDefaultVideoWidget, type OverlayConfig, type VideoWidgetData } from '@smx/contracts';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import type { WidgetNode } from '../../domain/document/types';
-import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
+import { usePlaybackDerivedValue } from '../../hooks/use-playback-engine';
 import { VASTVideoWidget } from '../video/VASTVideoWidget';
 import { VideoWidgetRenderer } from '../video/VideoWidgetRenderer';
 import { moduleShellEdit } from './shared-styles';
@@ -211,8 +211,11 @@ function buildVideoWidget(node: WidgetNode): VideoWidgetData {
 }
 
 function InteractiveVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
-  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
-  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
+  const sampledPlayheadMs = usePlaybackDerivedValue(ctx.playheadMs, (nextMs) => {
+    if (!ctx.isReproducing) return ctx.playheadMs;
+    return Math.floor(Math.max(0, nextMs) / 50) * 50;
+  });
+  const playheadMs = ctx.isReproducing ? sampledPlayheadMs : ctx.playheadMs;
   const [player, setPlayer] = useState<IVideoPlayer | null>(null);
   const [analyticsEvents, setAnalyticsEvents] = useState<Array<{
     id: string;
@@ -270,7 +273,7 @@ function InteractiveVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
     return (
       <div style={editorShellStyle}>
         {poster ? (
-          <img src={poster} alt="" style={interactiveVideoPosterStyle} />
+          <img src={poster} alt="" decoding="async" style={interactiveVideoPosterStyle} />
         ) : null}
         <div style={interactiveVideoEditorContentStyle}>
           <div style={interactiveVideoEditorEyebrowStyle}>Interactive Video</div>

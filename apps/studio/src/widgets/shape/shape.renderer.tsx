@@ -63,6 +63,7 @@ export function renderShapeWidget(node: WidgetNode, ctx: RenderContext): JSX.Ele
           <img
             src={maskSrc}
             alt=""
+            decoding="async"
             draggable={false}
             style={maskedImageStyle}
           />

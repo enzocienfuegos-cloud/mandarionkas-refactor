@@ -179,7 +179,6 @@ function buildStageWidgetStyle(
     cursor: interactiveInPreview ? 'pointer' : 'default',
     transform: `translate3d(${frame.x}px, ${frame.y}px, 0) rotate(${frame.rotation}deg)`,
     transformOrigin: '0 0',
-    willChange: 'transform',
     contain: 'layout paint',
     backfaceVisibility: 'hidden',
   };

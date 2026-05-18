@@ -29,6 +29,11 @@
   backdrop-filter: blur(10px);
 }
 
+.workspace-shell.is-performance-mode .stage-ruler-corner,
+.workspace-shell.is-performance-mode .stage-ruler {
+  backdrop-filter: none;
+}
+
 .stage-ruler-top {
   width: auto;
   top: 0;

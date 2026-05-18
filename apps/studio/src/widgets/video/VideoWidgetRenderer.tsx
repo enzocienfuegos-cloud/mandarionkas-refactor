@@ -172,6 +172,7 @@ export function VideoWidgetRenderer({
         className="video-js vjs-fill"
         aria-label={widget.ariaLabel ?? 'Video player'}
         playsInline
+        preload="metadata"
       />
       {videoRuntimeLoading && !player ? (
         <div style={loadingOverlayStyle}>

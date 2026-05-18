@@ -115,6 +115,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   const selectedWidget = !previewMode && selectedIds.length === 1 ? widgets.find((widget) => widget.id === selectedIds[0]) : undefined;
   const previewFrame = getPreviewFrame(previewContext);
   const activePreviewFrame = previewMode ? previewFrame : getPreviewFrame('none');
+  const performanceMode = (previewMode && isPlaying) || isPanning;
   const previewCanvasFitScale = previewMode ? getPreviewCanvasFitScale(activePreviewFrame, canvas) : 1;
   const effectiveStageZoom = zoom * previewCanvasFitScale;
   const stageWidth = canvas.width * effectiveStageZoom;
@@ -211,6 +212,13 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     if (!didRestoreWireframePreferenceRef.current) return;
     writeEditModeWireframePreference(editModeWireframe);
   }, [editModeWireframe]);
+
+  useEffect(() => {
+    document.body.classList.toggle('studio-performance-mode', performanceMode);
+    return () => {
+      document.body.classList.remove('studio-performance-mode');
+    };
+  }, [performanceMode]);
 
   useEffect(() => {
     if (previewMode || selectedIds.length > 0) {
@@ -362,7 +370,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   return (
     <PlayheadRefProvider>
       <div
-        className={`workspace-shell workspace-shell-backdrop-${stageBackdrop} ${showStageRulers ? 'has-workspace-rulers' : ''} ${panModeActive ? 'is-pan-mode' : ''} ${isPanning ? 'is-panning' : ''}`}
+        className={`workspace-shell workspace-shell-backdrop-${stageBackdrop} ${showStageRulers ? 'has-workspace-rulers' : ''} ${panModeActive ? 'is-pan-mode' : ''} ${isPanning ? 'is-panning' : ''} ${performanceMode ? 'is-performance-mode' : ''}`}
         ref={workspaceRef}
         onPointerDownCapture={(event) => {
           handleWorkspacePointerDownCapture(event);

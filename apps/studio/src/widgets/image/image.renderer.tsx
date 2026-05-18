@@ -52,6 +52,7 @@ export function renderImageWidget(node: WidgetNode, ctx: RenderContext): JSX.Ele
       <img
         src={src}
         alt={String(node.props.alt ?? node.name)}
+        decoding="async"
         draggable={false}
         style={buildImageMediaStyle(node, ctx, borderRadius)}
       />

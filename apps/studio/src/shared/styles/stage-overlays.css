@@ -13,6 +13,11 @@
   box-shadow: var(--shadow-floating-strong);
 }
 
+.workspace-shell.is-performance-mode .workspace-toolbar--ux {
+  backdrop-filter: none;
+  box-shadow: 0 10px 24px var(--black-a-22);
+}
+
 .workspace-shell::before {
   content: '';
   position: absolute;
@@ -23,6 +28,10 @@
     radial-gradient(circle at 50% 38%, var(--bg-focus-glow), transparent 42%),
     linear-gradient(180deg, var(--white-a-02), transparent 22%, transparent 78%, var(--black-a-12));
   z-index: var(--z-local-base);
+}
+
+.workspace-shell.is-performance-mode::before {
+  opacity: 0;
 }
 
 .stage-size-shell.has-rulers {
@@ -38,6 +47,10 @@
   filter: blur(18px);
   pointer-events: none;
   z-index: var(--z-local-base);
+}
+
+.workspace-shell.is-performance-mode .stage-size-shell::before {
+  opacity: 0;
 }
 
 .stage-surface::after {

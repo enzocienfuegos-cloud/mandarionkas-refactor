@@ -101,7 +101,7 @@ export function AssetPickerButton({
             {accept === 'video' ? (
               <video className="asset-detail-img" src={previewUrl} muted playsInline preload="metadata" />
             ) : (
-              <img className="asset-detail-img" src={previewUrl} alt={resolvedAsset?.name ?? label} />
+              <img className="asset-detail-img" src={previewUrl} alt={resolvedAsset?.name ?? label} decoding="async" />
             )}
           </div>
         </div>

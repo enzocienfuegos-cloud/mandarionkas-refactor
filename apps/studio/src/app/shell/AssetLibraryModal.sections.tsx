@@ -25,7 +25,7 @@ function buildAssetModalUploadProgressStyle(progress: number): CSSProperties {
 }
 
 function AssetThumb({ asset }: { asset: AssetRecord }): JSX.Element {
-  if (asset.kind === 'image') return <img src={resolveAssetPreviewUrl(asset)} alt={asset.name} className="asset-browser-thumb" draggable={false} />;
+  if (asset.kind === 'image') return <img src={resolveAssetPreviewUrl(asset)} alt={asset.name} className="asset-browser-thumb" decoding="async" loading="lazy" draggable={false} />;
   if (asset.kind === 'video') return <video src={resolveAssetPreviewUrl(asset)} poster={asset.posterSrc} className="asset-browser-thumb" muted playsInline preload="metadata" draggable={false} />;
   if (asset.kind === 'font') return <div className="asset-browser-thumb asset-browser-thumb--fallback" style={{ fontFamily: resolveFontAssetFamily(asset), fontSize: 24, fontWeight: 800 }}>Aa</div>;
   return <div className="asset-browser-thumb asset-browser-thumb--fallback">{asset.kind.toUpperCase()}</div>;
@@ -69,7 +69,7 @@ function AssetDetailMedia({
     );
   }
 
-  return <img className="asset-detail-img" src={previewUrl} alt={asset.name} />;
+  return <img className="asset-detail-img" src={previewUrl} alt={asset.name} decoding="async" />;
 }
 
 function FolderTreeItems({
