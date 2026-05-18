@@ -42,6 +42,16 @@ type GalleryItemSpec = {
   qualityPreference?: AssetQualityPreference;
 };
 
+type DragTokenSpec = {
+  id: string;
+  label: string;
+  assetId?: string;
+  imageUrl?: string;
+  accentColor?: string;
+  baseAssetId?: string;
+  baseImageUrl?: string;
+};
+
 type AssetPropBinding = {
   assetIdKey: string;
   srcKey: string;
@@ -137,6 +147,33 @@ function stringifyGalleryItems(items: Array<{ src: string; title: string; subtit
   return JSON.stringify(items);
 }
 
+function parseSelectedAssetIdsCsv(raw: unknown): string[] {
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  return raw.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+function parseDragTokenSpecs(raw: unknown): DragTokenSpec[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item): DragTokenSpec | null => {
+      if (!item || typeof item !== 'object') return null;
+      const token = item as Record<string, unknown>;
+      const id = typeof token.id === 'string' ? token.id.trim() : '';
+      const label = typeof token.label === 'string' ? token.label.trim() : '';
+      if (!id || !label) return null;
+      return {
+        id,
+        label,
+        assetId: readAssetId(token.assetId),
+        imageUrl: typeof token.imageUrl === 'string' ? token.imageUrl.trim() : undefined,
+        accentColor: typeof token.accentColor === 'string' ? token.accentColor.trim() : undefined,
+        baseAssetId: readAssetId(token.baseAssetId),
+        baseImageUrl: typeof token.baseImageUrl === 'string' ? token.baseImageUrl.trim() : undefined,
+      };
+    })
+    .filter((item): item is DragTokenSpec => Boolean(item));
+}
+
 function resolveAssetBoundProps(
   node: WidgetNode,
   assetById: Map<string, AssetRecord>,
@@ -186,13 +223,15 @@ function resolvePreparedCarouselProps(
   assetById: Map<string, AssetRecord>,
   targetChannel: StudioState['document']['metadata']['release']['targetChannel'],
 ): Record<string, unknown> {
+  const selectedAssetIds = parseSelectedAssetIdsCsv(node.props.assetIdsCsv);
   const resolvedSlides = parseCarouselSlideSpecs(node.props.slides)
     .map((slide, index) => {
-      if (!slide.assetId) {
+      const assetId = slide.assetId ?? selectedAssetIds[index];
+      if (!assetId) {
         const src = String(slide.src ?? '').trim();
         return src ? { src, caption: (slide.caption ?? `Slide ${index + 1}`).trim() } : null;
       }
-      const asset = assetById.get(slide.assetId);
+      const asset = assetById.get(assetId);
       if (!asset) return null;
       return {
         src: resolveAssetDeliveryUrl(asset, targetChannel, slide.qualityPreference ?? asset.qualityPreference ?? 'auto'),
@@ -263,6 +302,34 @@ function resolvePreparedShoppableProps(
   };
 }
 
+function resolvePreparedDragTokenPoolProps(
+  node: WidgetNode,
+  assetById: Map<string, AssetRecord>,
+  targetChannel: StudioState['document']['metadata']['release']['targetChannel'],
+): Record<string, unknown> {
+  const tokens = parseDragTokenSpecs(node.props.tokens);
+  if (!tokens.length) return node.props;
+
+  const resolvedTokens = tokens.map((token) => {
+    const imageAsset = token.assetId ? assetById.get(token.assetId) : undefined;
+    const baseImageAsset = token.baseAssetId ? assetById.get(token.baseAssetId) : undefined;
+    return {
+      ...token,
+      imageUrl: imageAsset
+        ? resolveAssetDeliveryUrl(imageAsset, targetChannel, imageAsset.qualityPreference ?? 'auto')
+        : token.imageUrl,
+      baseImageUrl: baseImageAsset
+        ? resolveAssetDeliveryUrl(baseImageAsset, targetChannel, baseImageAsset.qualityPreference ?? 'auto')
+        : token.baseImageUrl,
+    };
+  });
+
+  return {
+    ...node.props,
+    tokens: resolvedTokens,
+  };
+}
+
 export async function prepareExportStateWithResolvedAssets(state: StudioState): Promise<StudioState> {
   const targetChannel = state.document.metadata.release.targetChannel;
   const assetIds = [...new Set(
@@ -281,7 +348,19 @@ export async function prepareExportStateWithResolvedAssets(state: StudioState): 
         const shoppableAssetIds = typeof widget.props.products === 'string'
           ? parseShoppableProducts(widget.props.products).map((product) => product.assetId).filter((assetId): assetId is string => Boolean(assetId))
           : [];
-        return [...(directAssetId ? [directAssetId] : []), ...boundAssetIds, ...slideAssetIds, ...galleryAssetIds, ...shoppableAssetIds];
+        const selectedCarouselAssetIds = parseSelectedAssetIdsCsv(widget.props.assetIdsCsv);
+        const tokenAssetIds = widget.type === 'drag-token-pool'
+          ? parseDragTokenSpecs(widget.props.tokens).flatMap((token) => [token.assetId, token.baseAssetId]).filter((assetId): assetId is string => Boolean(assetId))
+          : [];
+        return [
+          ...(directAssetId ? [directAssetId] : []),
+          ...boundAssetIds,
+          ...slideAssetIds,
+          ...galleryAssetIds,
+          ...shoppableAssetIds,
+          ...selectedCarouselAssetIds,
+          ...tokenAssetIds,
+        ];
       }),
   )];
 
@@ -323,6 +402,15 @@ export async function prepareExportStateWithResolvedAssets(state: StudioState): 
           {
             ...assetBoundWidget,
             props: resolvePreparedShoppableProps(assetBoundWidget, assetById, targetChannel),
+          },
+        ];
+      }
+      if (widget.type === 'drag-token-pool') {
+        return [
+          widgetId,
+          {
+            ...assetBoundWidget,
+            props: resolvePreparedDragTokenPoolProps(assetBoundWidget, assetById, targetChannel),
           },
         ];
       }

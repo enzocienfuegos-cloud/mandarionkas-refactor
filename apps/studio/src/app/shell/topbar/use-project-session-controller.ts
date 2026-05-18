@@ -7,6 +7,7 @@ import { useStudioSessionActions } from '../../../hooks/use-studio-actions';
 import { getProjectRepositoryMode, setProjectRepositoryMode } from '../../../repositories/mode';
 import type { ProjectStarterId } from './project-starters';
 import { createPersistenceSignature, createPersistenceSnapshot } from '../../../core/persistence/persistence-snapshot';
+import { createInitialState } from '../../../domain/document/factories';
 
 export function useProjectSessionController(snapshot: TopBarStudioSnapshot, workspace: Pick<WorkspaceController, 'activeClientId' | 'clients' | 'canCreateProjects' | 'handleActiveClientChange'>): ProjectSessionController {
   const [projectTick, setProjectTick] = useState(0);
@@ -213,6 +214,14 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
   async function handleDeleteProject(): Promise<void> {
     if (!snapshot.activeProjectId) return;
     await getProjectRepository().delete(snapshot.activeProjectId);
+    const nextState = createInitialState({
+      name: snapshot.state.document.name,
+      canvasPresetId: snapshot.state.document.canvas.presetId,
+      backgroundColor: snapshot.state.document.canvas.backgroundColor,
+    });
+    nextState.document.metadata.platform = { ...snapshot.state.document.metadata.platform };
+    nextState.ui.activeProjectId = undefined;
+    sessionActions.replaceState(nextState);
     setVersions([]);
     setSelectedVersionId('');
     refreshProjects();

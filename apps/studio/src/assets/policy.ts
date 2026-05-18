@@ -126,6 +126,20 @@ export function resolveAssetDeliveryUrl(
   return absolutizeAssetUrl(derived?.src ?? asset.optimizedUrl ?? asset.publicUrl ?? asset.src);
 }
 
+export function resolveAssetPreviewUrl(
+  asset: AssetRecord,
+  targetChannel: ReleaseTarget = 'generic-html5',
+  preferredQuality: AssetQualityPreference = asset.qualityPreference ?? 'auto',
+): string {
+  return absolutizeAssetUrl(
+    asset.thumbnailUrl
+    ?? asset.derivatives?.thumbnail?.src
+    ?? asset.derivatives?.poster?.src
+    ?? asset.posterSrc
+    ?? resolveAssetDeliveryUrl(asset, targetChannel, preferredQuality),
+  );
+}
+
 export function assetHasSourceUrl(
   asset: AssetRecord,
   sourceUrl: string,

@@ -41,6 +41,20 @@ function createTextWidget(): WidgetNode {
   };
 }
 
+function createCarouselWidget(): WidgetNode {
+  return {
+    id: 'widget-carousel',
+    type: 'image-carousel',
+    name: 'Carousel',
+    sceneId: 'scene-1',
+    zIndex: 1,
+    frame: { x: 0, y: 0, width: 220, height: 116, rotation: 0 },
+    props: { slides: '[]' },
+    style: {},
+    timeline: { startMs: 0, endMs: 15000 },
+  };
+}
+
 function createScratchRevealWidget(props: Record<string, unknown> = {}): WidgetNode {
   return {
     id: 'widget-scratch',
@@ -112,6 +126,24 @@ describe('asset controller helpers', () => {
     });
     expect(updateWidgetStyle).toHaveBeenCalledWith('widget-text', {
       fontFamily: resolveFontAssetFamily(createFontAsset()),
+    });
+  });
+
+  it('stores resolved delivery URLs when appending carousel slides from the asset rail', () => {
+    const updateWidgetProps = vi.fn();
+
+    assignAssetToWidget({
+      asset: createImageAsset(),
+      primaryWidget: createCarouselWidget(),
+      widgetActions: { updateWidgetProps, updateWidgetStyle: vi.fn() },
+      resolveAssetPreviewUrl: () => 'https://pub.example.com/hero-mid.jpg',
+      getAssetQualityPreference: () => 'auto',
+    });
+
+    expect(updateWidgetProps).toHaveBeenCalledWith('widget-carousel', {
+      slides: JSON.stringify([{ src: 'https://pub.example.com/hero-mid.jpg', caption: 'Uploaded Hero', assetId: 'asset-image-1' }]),
+      itemCount: 1,
+      activeIndex: 1,
     });
   });
 });

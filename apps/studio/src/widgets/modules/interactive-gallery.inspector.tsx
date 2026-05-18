@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { resolveAssetQualityPreference } from '../../assets/policy';
+import { resolveAssetDeliveryUrl, resolveAssetPreviewUrl, resolveAssetQualityPreference } from '../../assets/policy';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import type { WidgetNode } from '../../domain/document/types';
@@ -121,7 +121,7 @@ export function InteractiveGalleryInspector({ widget }: { widget: WidgetNode }):
     commitItems([
       ...items,
       {
-        src: selectedAsset.src,
+        src: resolveAssetDeliveryUrl(selectedAsset, targetChannel, selectedAsset.qualityPreference ?? 'auto'),
         title: selectedAsset.name,
         subtitle: '',
         assetId: selectedAsset.id,
@@ -158,9 +158,7 @@ export function InteractiveGalleryInspector({ widget }: { widget: WidgetNode }):
   function resolveItemPreview(item: GalleryItemDraft): string {
     if (item.assetId) {
       const asset = assets.find((entry) => entry.id === item.assetId);
-      if (asset?.thumbnailUrl) return asset.thumbnailUrl;
-      if (asset?.derivatives?.thumbnail?.src) return asset.derivatives.thumbnail.src;
-      if (asset?.src) return asset.src;
+      if (asset) return resolveAssetPreviewUrl(asset, targetChannel, asset.qualityPreference ?? 'auto');
     }
     return item.src;
   }

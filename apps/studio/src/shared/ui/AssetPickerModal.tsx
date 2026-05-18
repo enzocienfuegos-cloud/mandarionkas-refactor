@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AssetRecord } from '../../assets/types';
+import { resolveAssetPreviewUrl } from '../../assets/policy';
 import { Button } from './Button';
 
 type AssetPickerModalProps = {
@@ -9,14 +10,6 @@ type AssetPickerModalProps = {
   onSelect: (asset: AssetRecord) => void;
   onClose: () => void;
 };
-
-function resolveAssetPreviewUrl(asset: AssetRecord): string {
-  return asset.thumbnailUrl
-    ?? asset.derivatives?.thumbnail?.src
-    ?? asset.posterSrc
-    ?? asset.derivatives?.poster?.src
-    ?? asset.src;
-}
 
 export function AssetPickerModal({ assets, title, onSelect, onClose }: AssetPickerModalProps): JSX.Element | null {
   const [query, setQuery] = useState('');

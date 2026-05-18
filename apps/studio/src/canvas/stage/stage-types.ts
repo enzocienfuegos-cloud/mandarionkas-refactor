@@ -5,6 +5,7 @@ export type GuideLine = { x?: number; y?: number; kind: 'snap' | 'center' };
 export type InteractionState = {
   widgetIds: string[];
   mode: 'drag' | 'resize';
+  dragActivated?: boolean;
   handle?: ResizeHandle;
   keepAspectRatio?: boolean;
   origin: { x: number; y: number };

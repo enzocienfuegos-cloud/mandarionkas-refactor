@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from 'react';
 import { useLeftRailController } from './left-rail/use-left-rail-controller';
 import { useAssetLibraryController, formatAssetMeta, type FolderTreeNode } from './left-rail/use-asset-library-controller';
 import type { AssetRecord } from '../../assets/types';
+import { resolveAssetPreviewUrl } from '../../assets/policy';
 import { resolveFontAssetFamily } from '../../assets/font-family';
 import type { AssetLibraryOpenRequest } from '../../shared/asset-library-events';
 import { Button } from '../../shared/ui/Button';
@@ -17,8 +18,8 @@ function buildAssetModalUploadProgressStyle(progress: number): CSSProperties {
 }
 
 function AssetThumb({ asset }: { asset: AssetRecord }): JSX.Element {
-  if (asset.kind === 'image') return <img src={asset.src} alt={asset.name} className="asset-browser-thumb" draggable={false} />;
-  if (asset.kind === 'video') return <video src={asset.src} poster={asset.posterSrc} className="asset-browser-thumb" muted playsInline preload="metadata" draggable={false} />;
+  if (asset.kind === 'image') return <img src={resolveAssetPreviewUrl(asset)} alt={asset.name} className="asset-browser-thumb" draggable={false} />;
+  if (asset.kind === 'video') return <video src={resolveAssetPreviewUrl(asset)} poster={asset.posterSrc} className="asset-browser-thumb" muted playsInline preload="metadata" draggable={false} />;
   if (asset.kind === 'font') return <div className="asset-browser-thumb asset-browser-thumb--fallback" style={{ fontFamily: resolveFontAssetFamily(asset), fontSize: 24, fontWeight: 800 }}>Aa</div>;
   return <div className="asset-browser-thumb asset-browser-thumb--fallback">{asset.kind.toUpperCase()}</div>;
 }

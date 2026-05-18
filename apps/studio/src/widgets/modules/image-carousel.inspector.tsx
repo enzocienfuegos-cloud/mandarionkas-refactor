@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { resolveAssetQualityPreference } from '../../assets/policy';
+import { resolveAssetDeliveryUrl, resolveAssetPreviewUrl, resolveAssetQualityPreference } from '../../assets/policy';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import type { WidgetNode } from '../../domain/document/types';
@@ -105,7 +105,7 @@ export function ImageCarouselInspector({ widget }: { widget: WidgetNode }): JSX.
     const nextSlides = [
       ...slides,
       {
-        src: selectedAsset.src,
+        src: resolveAssetDeliveryUrl(selectedAsset, targetChannel, selectedAsset.qualityPreference ?? 'auto'),
         caption: selectedAsset.name,
         assetId: selectedAsset.id,
       },
@@ -142,9 +142,7 @@ export function ImageCarouselInspector({ widget }: { widget: WidgetNode }): JSX.
   function resolveSlidePreview(slide: CarouselSlideDraft): string {
     if (slide.assetId) {
       const asset = assets.find((item) => item.id === slide.assetId);
-      if (asset?.thumbnailUrl) return asset.thumbnailUrl;
-      if (asset?.derivatives?.thumbnail?.src) return asset.derivatives.thumbnail.src;
-      if (asset?.src) return asset.src;
+      if (asset) return resolveAssetPreviewUrl(asset, targetChannel, asset.qualityPreference ?? 'auto');
     }
     return slide.src;
   }

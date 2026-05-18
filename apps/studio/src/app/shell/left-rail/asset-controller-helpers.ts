@@ -128,7 +128,7 @@ export function assignAssetToWidget({
   if (primaryWidget.type === 'image-carousel') {
     const currentSlides = parseLinkedCarouselSlides(primaryWidget.props.slides);
     widgetActions.updateWidgetProps(primaryWidget.id, {
-      slides: JSON.stringify([...currentSlides, { src: asset.src, caption: asset.name, assetId: asset.id }]),
+      slides: JSON.stringify([...currentSlides, { src: resolvedSrc, caption: asset.name, assetId: asset.id }]),
       itemCount: currentSlides.length + 1,
       activeIndex: 1,
     });
@@ -138,7 +138,7 @@ export function assignAssetToWidget({
   if (primaryWidget.type === 'interactive-gallery') {
     const currentItems = parseInteractiveGalleryItems(primaryWidget.props.items);
     widgetActions.updateWidgetProps(primaryWidget.id, {
-      items: JSON.stringify([...currentItems, { src: asset.src, title: asset.name, subtitle: '', assetId: asset.id }]),
+      items: JSON.stringify([...currentItems, { src: resolvedSrc, title: asset.name, subtitle: '', assetId: asset.id }]),
       itemCount: currentItems.length + 1,
       activeIndex: 1,
     });
@@ -150,7 +150,7 @@ export function assignAssetToWidget({
       .split(';')
       .map((item) => item.trim())
       .filter(Boolean);
-    const nextProducts = [...currentProducts, `${asset.src}|${asset.name}||$0|4|Shop now|`].join(';');
+    const nextProducts = [...currentProducts, `${resolvedSrc}|${asset.name}||$0|4|Shop now|`].join(';');
     const currentAssetIds = String(primaryWidget.props.assetIdsCsv ?? '')
       .split(',')
       .map((item) => item.trim())
@@ -165,7 +165,7 @@ export function assignAssetToWidget({
   }
 
   if (getCapability(definition, 'acceptsFontAsset')) {
-    widgetActions.updateWidgetProps(primaryWidget.id, { fontAssetId: asset.id, fontAssetSrc: asset.publicUrl ?? asset.src });
+    widgetActions.updateWidgetProps(primaryWidget.id, { fontAssetId: asset.id, fontAssetSrc: resolvedSrc });
     widgetActions.updateWidgetStyle(primaryWidget.id, { fontFamily: resolveFontAssetFamily(asset) });
   }
 }

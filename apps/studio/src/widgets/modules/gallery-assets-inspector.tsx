@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { AssetRecord } from '../../assets/types';
+import { resolveAssetDeliveryUrl } from '../../assets/policy';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
+import { useStudioStore } from '../../core/store/use-studio-store';
 import { Button } from '../../shared/ui/Button';
 import { getCapability } from '../registry/widget-definition';
 import { getWidgetDefinition } from '../registry/widget-registry';
@@ -49,6 +51,7 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
   const platform = usePlatformSnapshot();
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [pendingAssetIds, setPendingAssetIds] = useState<string[]>([]);
+  const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
 
   useEffect(() => {
     if (!platform.session.isAuthenticated || !platform.session.sessionId) {
@@ -83,7 +86,10 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
       .filter((asset): asset is AssetRecord => Boolean(asset))
       .filter((asset) => !selectedAssetIds.includes(asset.id));
     if (!pickedAssets.length) return;
-    const nextSlides = [...slides, ...pickedAssets.map((asset) => ({ src: asset.src, caption: '' }))];
+    const nextSlides = [...slides, ...pickedAssets.map((asset) => ({
+      src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+      caption: '',
+    }))];
     const nextIds = [...selectedAssetIds, ...pickedAssets.map((asset) => asset.id)];
     widgetActions.updateWidgetProps(widget.id, {
       slides: buildSlidesValue(nextSlides),

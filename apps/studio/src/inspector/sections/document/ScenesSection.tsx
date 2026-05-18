@@ -78,11 +78,6 @@ function SceneList({
         return (
           <li
             key={scene.id}
-            draggable
-            onDragStart={(event) => {
-              setDraggedIndex(index);
-              event.dataTransfer.effectAllowed = 'move';
-            }}
             onDragEnd={() => {
               setDraggedIndex(null);
               setDragOverIndex(null);
@@ -101,53 +96,65 @@ function SceneList({
             }}
             style={{
               display: 'grid',
-              gridTemplateColumns: 'auto minmax(0, 1fr) minmax(220px, auto) auto',
+              gridTemplateColumns: 'auto minmax(0, 1fr) auto',
               gap: 8,
-              alignItems: 'center',
+              alignItems: 'start',
               padding: '8px 10px',
               border: `1px ${isDropTarget ? 'dashed' : 'solid'} ${isActive || isDropTarget ? 'var(--accent-color)' : 'var(--border-subtle)'}`,
               borderRadius: 8,
               background: 'var(--surface-card)',
-              cursor: 'grab',
             }}
           >
-            <span aria-hidden="true" style={{ color: 'var(--text-muted)', userSelect: 'none' }}>⋮⋮</span>
-            <div style={{ display: 'grid', gap: 6 }}>
+            <button
+              type="button"
+              draggable
+              aria-label={`Reorder ${scene.name}`}
+              onDragStart={(event) => {
+                setDraggedIndex(index);
+                event.dataTransfer.effectAllowed = 'move';
+              }}
+              onClick={() => onSelect(scene.id)}
+              className="button-unstyled"
+              style={{ color: 'var(--text-muted)', userSelect: 'none', cursor: 'grab', paddingTop: 4 }}
+            >
+              ⋮⋮
+            </button>
+            <div style={{ display: 'grid', gap: 8 }}>
               <button type="button" className="button-unstyled" onClick={() => onSelect(scene.id)} style={{ textAlign: 'left', fontWeight: 600 }}>
                 {index + 1}. {scene.name}
               </button>
               <input value={scene.name} onChange={(event) => onUpdateName(scene.id, event.target.value)} />
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'end' }}>
-              <label style={{ display: 'grid', gap: 4 }}>
-                <span>Transition</span>
-                <select
-                  value={scene.transition?.type ?? 'fade'}
-                  onChange={(event) => onUpdateTransition(scene.id, { ...(scene.transition ?? { durationMs: 450 }), type: event.target.value as TransitionType })}
-                >
-                  {TRANSITION_TYPES.map((transitionType) => (
-                    <option key={transitionType} value={transitionType}>{transitionType}</option>
-                  ))}
-                </select>
-              </label>
-              <label style={{ display: 'grid', gap: 4 }}>
-                <span>Transition ms</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={scene.transition?.durationMs ?? 450}
-                  onChange={(event) => onUpdateTransition(scene.id, { ...(scene.transition ?? { type: 'fade' }), durationMs: Number(event.target.value) })}
-                />
-              </label>
-              <label style={{ display: 'grid', gap: 4 }}>
-                <span>Duration ms</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={scene.durationMs}
-                  onChange={(event) => onUpdateDuration(scene.id, Number(event.target.value))}
-                />
-              </label>
+              <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
+                <label style={{ display: 'grid', gap: 4 }}>
+                  <span>Transition</span>
+                  <select
+                    value={scene.transition?.type ?? 'fade'}
+                    onChange={(event) => onUpdateTransition(scene.id, { ...(scene.transition ?? { durationMs: 450 }), type: event.target.value as TransitionType })}
+                  >
+                    {TRANSITION_TYPES.map((transitionType) => (
+                      <option key={transitionType} value={transitionType}>{transitionType}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'grid', gap: 4 }}>
+                  <span>Transition ms</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={scene.transition?.durationMs ?? 450}
+                    onChange={(event) => onUpdateTransition(scene.id, { ...(scene.transition ?? { type: 'fade' }), durationMs: Number(event.target.value) })}
+                  />
+                </label>
+                <label style={{ display: 'grid', gap: 4 }}>
+                  <span>Duration ms</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={scene.durationMs}
+                    onChange={(event) => onUpdateDuration(scene.id, Number(event.target.value))}
+                  />
+                </label>
+              </div>
             </div>
             <Button variant="danger" size="sm" onClick={() => onDelete(scene.id)} disabled={!canDelete}>×</Button>
           </li>

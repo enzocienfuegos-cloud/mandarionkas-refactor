@@ -11,7 +11,7 @@ describe('asset resolution', () => {
     resetRepositoryServices();
   });
 
-  it('resolves public-preview asset URLs for direct widgets, bound props, and shoppable products', async () => {
+  it('resolves public-preview asset URLs for direct widgets, bound props, token pools, galleries, and shoppable products', async () => {
     const state = createInitialState();
     const sceneId = state.document.scenes[0].id;
     state.document.metadata.release.targetChannel = 'generic-html5';
@@ -71,7 +71,43 @@ describe('asset resolution', () => {
       },
       timeline: { startMs: 0, endMs: 1000, keyframes: [] },
     } as any;
-    state.document.scenes[0].widgetIds.push('hero_1', 'dynamic_map', 'scratch_1', 'shop_1');
+    state.document.widgets.carousel_1 = {
+      id: 'carousel_1',
+      type: 'image-carousel',
+      name: 'Carousel',
+      sceneId,
+      zIndex: 5,
+      frame: { x: 0, y: 480, width: 220, height: 120, rotation: 0 },
+      style: {},
+      props: {
+        slides: 'blob:carousel-1|First slide',
+        assetIdsCsv: 'asset_carousel_1',
+      },
+      timeline: { startMs: 0, endMs: 1000, keyframes: [] },
+    } as any;
+    state.document.widgets.pool_1 = {
+      id: 'pool_1',
+      type: 'drag-token-pool',
+      name: 'Token Pool',
+      sceneId,
+      zIndex: 6,
+      frame: { x: 0, y: 610, width: 220, height: 120, rotation: 0 },
+      style: {},
+      props: {
+        tokens: [
+          {
+            id: 'tok_1',
+            label: 'Token 1',
+            assetId: 'asset_token_1',
+            imageUrl: 'blob:token-image',
+            baseAssetId: 'asset_token_base_1',
+            baseImageUrl: 'blob:token-base',
+          },
+        ],
+      },
+      timeline: { startMs: 0, endMs: 1000, keyframes: [] },
+    } as any;
+    state.document.scenes[0].widgetIds.push('hero_1', 'dynamic_map', 'scratch_1', 'shop_1', 'carousel_1', 'pool_1');
 
     getAssetMock.mockImplementation(async (assetId?: string) => {
       const srcById: Record<string, string> = {
@@ -81,6 +117,9 @@ describe('asset resolution', () => {
         asset_before: 'https://cdn.example.com/before-mid.jpg',
         asset_after: 'https://cdn.example.com/after-mid.jpg',
         asset_shop_1: 'https://cdn.example.com/shop-1-mid.jpg',
+        asset_carousel_1: 'https://cdn.example.com/carousel-1-mid.jpg',
+        asset_token_1: 'https://cdn.example.com/token-1-mid.png',
+        asset_token_base_1: 'https://cdn.example.com/token-base-1-mid.png',
       };
       if (!assetId || !(assetId in srcById)) return undefined;
       return {
@@ -149,5 +188,10 @@ describe('asset resolution', () => {
     expect(prepared.document.widgets.scratch_1?.props.beforeImage).toBe('https://cdn.example.com/before-mid.jpg');
     expect(prepared.document.widgets.scratch_1?.props.afterImage).toBe('https://cdn.example.com/after-mid.jpg');
     expect(String(prepared.document.widgets.shop_1?.props.products ?? '')).toContain('https://cdn.example.com/shop-1-mid.jpg');
+    expect(String(prepared.document.widgets.carousel_1?.props.slides ?? '')).toContain('https://cdn.example.com/carousel-1-mid.jpg');
+    expect((prepared.document.widgets.pool_1?.props.tokens as Array<{ imageUrl?: string; baseImageUrl?: string }>)?.[0]).toMatchObject({
+      imageUrl: 'https://cdn.example.com/token-1-mid.png',
+      baseImageUrl: 'https://cdn.example.com/token-base-1-mid.png',
+    });
   });
 });

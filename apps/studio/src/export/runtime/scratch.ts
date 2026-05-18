@@ -25,7 +25,7 @@ function createScratchProgressCanvas(width: number, height: number): HTMLCanvasE
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(16, Math.min(96, Math.round(width / 4)));
   canvas.height = Math.max(16, Math.min(96, Math.round(height / 4)));
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
   ctx.fillStyle = 'black';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -133,7 +133,7 @@ function eraseScratchProgress(
   sourceWidth: number,
   sourceHeight: number,
 ): number {
-  const ctx = progressCanvas.getContext('2d');
+  const ctx = progressCanvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return 0;
   const scaleX = progressCanvas.width / Math.max(1, sourceWidth);
   const scaleY = progressCanvas.height / Math.max(1, sourceHeight);

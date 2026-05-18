@@ -5,6 +5,8 @@ import type { InteractionState, ResizeHandle } from '../stage-types';
 import { applyEdgeAutoScroll } from './stage-viewport';
 import { clamp, expandStageSelection, getCanvasPoint, getResizedFrame } from './stage-geometry';
 
+const DRAG_ACTIVATION_DISTANCE_PX = 4;
+
 export function useStageTransformController(args: {
   workspaceRef: React.RefObject<HTMLDivElement>;
   stageRef: React.RefObject<HTMLDivElement>;
@@ -33,6 +35,7 @@ export function useStageTransformController(args: {
       if (interaction.mode === 'drag') {
         const dx = point.x - interaction.origin.x;
         const dy = point.y - interaction.origin.y;
+        if (!interaction.dragActivated && Math.hypot(dx, dy) < DRAG_ACTIVATION_DISTANCE_PX) return;
         const liveFrames: Record<string, import('../../../domain/document/types').WidgetFrame> = {};
         interaction.widgetIds.forEach((widgetId) => {
           const startFrame = interaction.startFrames[widgetId];
@@ -42,13 +45,17 @@ export function useStageTransformController(args: {
             y: clamp(startFrame.y + dy, 0, canvas.height - startFrame.height),
           };
         });
-        setInteraction((current) => current ? { ...current, liveFrames } : current);
+        setInteraction((current) => current ? { ...current, dragActivated: true, liveFrames } : current);
         return;
       }
       const resized = getResizedFrame(primaryFrame, interaction.origin, point, interaction.handle ?? 'se', canvas, interaction.keepAspectRatio);
       setInteraction((current) => current ? { ...current, liveFrames: { ...current.liveFrames, [primaryId]: resized } } : current);
     };
     const handlePointerUp = () => {
+      if (interaction.mode === 'drag' && !interaction.dragActivated) {
+        setInteraction(null);
+        return;
+      }
       updateWidgetFrames(interaction.widgetIds.map((widgetId) => ({ widgetId, patch: interaction.liveFrames[widgetId] })));
       setInteraction(null);
     };
@@ -78,7 +85,15 @@ export function useStageTransformController(args: {
     const startFrames = Object.fromEntries(
       interactionIds.map((id) => [id, getLiveWidgetFrame(widgetsById[id] ?? fallbackWidget, playheadMs)]),
     );
-    setInteraction({ widgetIds: interactionIds, mode: 'drag', origin: point, startFrames, liveFrames: startFrames, guides: [] });
+    setInteraction({
+      widgetIds: interactionIds,
+      mode: 'drag',
+      dragActivated: false,
+      origin: point,
+      startFrames,
+      liveFrames: startFrames,
+      guides: [],
+    });
   }, [fullStateRef, playheadMs, previewMode, selectWidget, stageRef, widgetsById, zoom]);
 
   const beginWidgetResize = useCallback((event: PointerEvent | MouseEvent, widgetId: string, locked: boolean, handle: ResizeHandle) => {

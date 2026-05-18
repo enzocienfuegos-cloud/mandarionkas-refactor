@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { resolveAssetDeliveryUrl } from '../../assets/policy';
 import { ColorControl } from '../../shared/ui/ColorControl';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import type { WidgetNode } from '../../domain/document/types';
@@ -6,6 +7,7 @@ import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import type { AssetRecord } from '../../assets/types';
 import { resolveFontAssetFamily } from '../../assets/font-family';
+import { useStudioStore } from '../../core/store/use-studio-store';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { Button } from '../../shared/ui/Button';
 import { badgeStateFromInheritance, useWidgetInheritance, type InheritanceBadgeState } from '../use-widget-inheritance';
@@ -45,6 +47,7 @@ export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
     localScenePropsOverrideKeys,
   } = useWidgetInheritance(widget);
   const [assets, setAssets] = useState<AssetRecord[]>([]);
+  const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
 
   useEffect(() => {
     if (!platform.session.isAuthenticated || !platform.session.sessionId) {
@@ -325,7 +328,10 @@ export function TextSection({ widget }: { widget: WidgetNode }): JSX.Element {
                 updateWidgetProps(widget.id, { fontAssetId: '', fontAssetSrc: '' });
                 return;
               }
-              updateWidgetProps(widget.id, { fontAssetId: asset.id, fontAssetSrc: asset.publicUrl ?? asset.src });
+              updateWidgetProps(widget.id, {
+                fontAssetId: asset.id,
+                fontAssetSrc: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+              });
               updateWidgetStyle(widget.id, { fontFamily: resolveFontAssetFamily(asset) });
             }}>
               <option value="">No linked font</option>

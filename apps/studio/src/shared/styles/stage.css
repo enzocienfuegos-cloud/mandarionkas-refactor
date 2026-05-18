@@ -137,6 +137,9 @@
   overflow: hidden;
   border-radius: inherit;
 }
+.stage-widget.stage-widget--text .stage-widget-content {
+  overflow: visible;
+}
 .stage-widget-content button,
 .stage-widget-content input,
 .stage-widget-content select,

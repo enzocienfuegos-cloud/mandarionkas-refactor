@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AssetRecord, AssetKind } from '../../assets/types';
+import { resolveAssetDeliveryUrl, resolveAssetPreviewUrl } from '../../assets/policy';
+import { useStudioStore } from '../../core/store/use-studio-store';
 import { listAssets } from '../../repositories/asset';
 import { AssetPickerModal } from './AssetPickerModal';
 import { Button } from './Button';
@@ -21,14 +23,6 @@ function matchesAccept(asset: AssetRecord, accept: AssetPickerAccept): boolean {
   return accept === 'any' || asset.kind === accept;
 }
 
-function resolveAssetPreviewUrl(asset: AssetRecord): string {
-  return asset.thumbnailUrl
-    ?? asset.derivatives?.thumbnail?.src
-    ?? asset.posterSrc
-    ?? asset.derivatives?.poster?.src
-    ?? asset.src;
-}
-
 export function AssetPickerButton({
   label,
   assetId,
@@ -41,6 +35,7 @@ export function AssetPickerButton({
 }: AssetPickerButtonProps): JSX.Element {
   const [open, setOpen] = useState(false);
   const [localAssets, setLocalAssets] = useState<AssetRecord[]>([]);
+  const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
 
   useEffect(() => {
     if (assets) return undefined;
@@ -65,7 +60,7 @@ export function AssetPickerButton({
     () => availableAssets.find((asset) => asset.id === assetId),
     [availableAssets, assetId],
   );
-  const previewUrl = imageUrl || (resolvedAsset ? resolveAssetPreviewUrl(resolvedAsset) : '');
+  const previewUrl = imageUrl || (resolvedAsset ? resolveAssetPreviewUrl(resolvedAsset, targetChannel) : '');
   const hasPreview = previewUrl.trim().length > 0;
 
   return (
@@ -103,7 +98,11 @@ export function AssetPickerButton({
           assets={availableAssets}
           title={label}
           onSelect={(asset) => {
-            onChange(asset);
+            onChange({
+              ...asset,
+              src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+              posterSrc: asset.derivatives?.poster?.src ?? asset.posterSrc,
+            });
             setOpen(false);
           }}
           onClose={() => setOpen(false)}

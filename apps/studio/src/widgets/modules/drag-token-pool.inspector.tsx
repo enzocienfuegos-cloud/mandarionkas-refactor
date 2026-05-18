@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { resolveAssetDeliveryUrl } from '../../assets/policy';
 import type { AssetRecord } from '../../assets/types';
 import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
+import { useStudioStore } from '../../core/store/use-studio-store';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
@@ -23,6 +25,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const platform = usePlatformSnapshot();
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
   const tokens: DragTokenItem[] = Array.isArray(node.props.tokens) ? node.props.tokens as DragTokenItem[] : [];
   const disabledIds = Array.isArray(node.props.disabledIds) ? node.props.disabledIds.map((value) => String(value)) : [];
   const tokenSize = Math.max(TOKEN_SIZE_MIN, Math.min(TOKEN_SIZE_MAX, Number(node.props.tokenSize ?? 72)));
@@ -154,7 +157,10 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 assets={assets}
                 accept="image"
                 emptyLabel="No token image selected."
-                onChange={(asset) => updateToken(token.id, { assetId: asset.id, imageUrl: asset.src })}
+                onChange={(asset) => updateToken(token.id, {
+                  assetId: asset.id,
+                  imageUrl: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+                })}
                 onClear={() => updateToken(token.id, { assetId: undefined, imageUrl: undefined })}
               />
               <AssetPickerButton
@@ -164,7 +170,10 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 assets={assets}
                 accept="image"
                 emptyLabel="No base image selected."
-                onChange={(asset) => updateToken(token.id, { baseAssetId: asset.id, baseImageUrl: asset.src })}
+                onChange={(asset) => updateToken(token.id, {
+                  baseAssetId: asset.id,
+                  baseImageUrl: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+                })}
                 onClear={() => updateToken(token.id, { baseAssetId: undefined, baseImageUrl: undefined })}
               />
             </li>
