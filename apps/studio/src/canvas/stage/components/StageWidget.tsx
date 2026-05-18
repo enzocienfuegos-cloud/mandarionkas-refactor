@@ -166,6 +166,7 @@ function buildStageWidgetContentStyle(previewMode: boolean): CSSProperties {
 }
 
 function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProps): boolean {
+  const playbackIndependent = previous.node.type === 'timer-bar' && next.node.type === 'timer-bar';
   return previous.node === next.node
     && previous.stateRef === next.stateRef
     && previous.widgetsById === next.widgetsById
@@ -177,7 +178,7 @@ function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProp
     && previous.previewMode === next.previewMode
     && previous.isReproducing === next.isReproducing
     && previous.editModeWireframe === next.editModeWireframe
-    && previous.playheadMs === next.playheadMs
+    && (playbackIndependent || previous.playheadMs === next.playheadMs)
     && previous.sceneDurationMs === next.sceneDurationMs
     && previous.hovered === next.hovered
     && previous.active === next.active

@@ -18,6 +18,7 @@ export function buildWidgetPropertyClipboardPayload(widget: WidgetNode): WidgetP
     },
     props: JSON.parse(JSON.stringify(widget.props ?? {})) as Record<string, unknown>,
     style: JSON.parse(JSON.stringify(widget.style ?? {})) as Record<string, unknown>,
+    bindings: widget.bindings ? JSON.parse(JSON.stringify(widget.bindings)) as WidgetNode['bindings'] : undefined,
     motion: widget.motion ? JSON.parse(JSON.stringify(widget.motion)) as WidgetNode['motion'] : undefined,
     hoverMotion: widget.hoverMotion ? JSON.parse(JSON.stringify(widget.hoverMotion)) as WidgetNode['hoverMotion'] : undefined,
     copiedAt: new Date().toISOString(),

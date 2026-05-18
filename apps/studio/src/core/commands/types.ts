@@ -8,6 +8,7 @@ export type WidgetPropertyClipboardPayload = {
   frame?: Pick<WidgetNode['frame'], 'x' | 'y'>;
   props: Record<string, unknown>;
   style: Record<string, unknown>;
+  bindings?: Record<string, WidgetBinding>;
   motion?: WidgetMotion;
   hoverMotion?: WidgetHoverMotion;
   copiedAt: string;

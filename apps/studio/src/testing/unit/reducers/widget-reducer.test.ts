@@ -367,6 +367,9 @@ describe('widget reducer slices', () => {
         frame: { x: originalFrame.x + 80, y: originalFrame.y + 36 },
         props: { src: 'https://cdn.example.com/hero.png', assetId: 'asset_1' },
         style: { borderRadius: 24, opacity: 0.6, animationPreset: 'appear' },
+        bindings: {
+          src: { source: 'product', field: 'heroImage', fallback: 'fallback.png' },
+        },
         copiedAt: '2026-05-15T00:00:00.000Z',
       },
     });
@@ -377,6 +380,9 @@ describe('widget reducer slices', () => {
     expect(state.document.widgets[widgetId]?.props.assetId).toBe('asset_1');
     expect(state.document.widgets[widgetId]?.style.borderRadius).toBe(24);
     expect(state.document.widgets[widgetId]?.style.animationPreset).toBe('appear');
+    expect(state.document.widgets[widgetId]?.bindings).toEqual({
+      src: { source: 'product', field: 'heroImage', fallback: 'fallback.png' },
+    });
   });
 
   it('pastes only shared style when the clipboard comes from a different widget type', () => {
@@ -395,6 +401,9 @@ describe('widget reducer slices', () => {
         frame: { x: originalFrame.x + 140, y: originalFrame.y + 22 },
         props: { src: 'https://cdn.example.com/hero.png', assetId: 'asset_2' },
         style: { opacity: 0.45, color: '#ffcc00' },
+        bindings: {
+          src: { source: 'product', field: 'image', fallback: 'fallback.png' },
+        },
         copiedAt: '2026-05-15T00:00:00.000Z',
       },
     });
@@ -404,6 +413,47 @@ describe('widget reducer slices', () => {
     expect(state.document.widgets[widgetId]?.props).toEqual(originalProps);
     expect(state.document.widgets[widgetId]?.style.opacity).toBe(0.45);
     expect(state.document.widgets[widgetId]?.style.color).toBe('#ffcc00');
+    expect(state.document.widgets[widgetId]?.bindings).toBeUndefined();
     expect((state.document.widgets[widgetId]?.props as Record<string, unknown>).src).toBeUndefined();
+  });
+
+  it('clears copied motion and bindings when the source widget does not have them', () => {
+    let state = createInitialState();
+    state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'image' });
+    const widgetId = Object.keys(state.document.widgets)[0];
+    state.document.widgets[widgetId] = {
+      ...state.document.widgets[widgetId],
+      bindings: {
+        src: { source: 'product', field: 'heroImage', fallback: 'current.png' },
+      },
+      motion: {
+        enter: {
+          templateId: 'appear',
+          config: { durationMs: 600 },
+          trigger: 'load',
+        },
+      },
+      hoverMotion: {
+        templateId: 'float',
+        config: { distancePx: 8 },
+      },
+    };
+
+    state = reduceBySlices(state, {
+      type: 'APPLY_WIDGET_PROPERTY_CLIPBOARD',
+      widgetId,
+      clipboard: {
+        widgetType: 'image',
+        widgetName: 'Source without motion',
+        frame: { x: 40, y: 20 },
+        props: { src: 'https://cdn.example.com/fresh.png' },
+        style: { opacity: 0.9 },
+        copiedAt: '2026-05-18T00:00:00.000Z',
+      },
+    });
+
+    expect(state.document.widgets[widgetId]?.bindings).toBeUndefined();
+    expect(state.document.widgets[widgetId]?.motion).toBeUndefined();
+    expect(state.document.widgets[widgetId]?.hoverMotion).toBeUndefined();
   });
 });

@@ -238,8 +238,13 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
       const sameType = target.type === command.clipboard.widgetType;
       const nextProps = sameType ? { ...command.clipboard.props } : target.props;
       const nextStyle = sameType ? { ...command.clipboard.style } : { ...target.style, ...command.clipboard.style };
-      const nextMotion = sameType && command.clipboard.motion ? cloneWidgetMotion(command.clipboard.motion) : rawTarget?.motion;
-      const nextHoverMotion = sameType && command.clipboard.hoverMotion ? { ...command.clipboard.hoverMotion, config: { ...command.clipboard.hoverMotion.config } } : rawTarget?.hoverMotion;
+      const nextBindings = sameType
+        ? (command.clipboard.bindings ? JSON.parse(JSON.stringify(command.clipboard.bindings)) as typeof rawTarget.bindings : undefined)
+        : rawTarget?.bindings;
+      const nextMotion = sameType ? cloneWidgetMotion(command.clipboard.motion) : rawTarget?.motion;
+      const nextHoverMotion = sameType
+        ? (command.clipboard.hoverMotion ? { ...command.clipboard.hoverMotion, config: { ...command.clipboard.hoverMotion.config } } : undefined)
+        : rawTarget?.hoverMotion;
       const nextFrame = command.clipboard.frame
         ? {
             ...target.frame,
@@ -289,6 +294,7 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
                 frame: nextFrame,
                 props: sameType ? nextProps : baseTarget.props,
                 style: nextStyle,
+                bindings: nextBindings,
                 motion: nextMotion,
                 hoverMotion: nextHoverMotion,
                 timeline: {
@@ -331,6 +337,7 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
                 ...frameState.document.widgets,
                 [rawTarget.id]: {
                   ...rawTarget,
+                  bindings: nextBindings,
                   motion: nextMotion,
                   hoverMotion: nextHoverMotion,
                   timeline: {
