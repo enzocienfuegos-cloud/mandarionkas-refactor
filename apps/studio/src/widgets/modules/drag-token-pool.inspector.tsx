@@ -37,7 +37,7 @@ import {
 } from './drag-token-pool.types';
 
 export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Element {
-  const { updateWidgetProps } = useWidgetActions();
+  const { updateWidgetFrame, updateWidgetProps, selectWidget } = useWidgetActions();
   const platform = usePlatformSnapshot();
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -170,8 +170,31 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
         </div>
         {activeDropZone ? (
           <>
-            <strong>Drag area</strong>
+            <div className="meta-line inspector-spread-row">
+              <strong>Drag area</strong>
+              <Button variant="ghost" size="sm" onClick={() => selectWidget(activeDropZone.id)}>
+                Select area
+              </Button>
+            </div>
             <div className="fields-grid">
+              <div>
+                <label>X</label>
+                <input
+                  type="number"
+                  step={1}
+                  value={Number(activeDropZone.frame.x ?? 0)}
+                  onChange={(event) => updateWidgetFrame(activeDropZone.id, { x: Number(event.target.value) })}
+                />
+              </div>
+              <div>
+                <label>Y</label>
+                <input
+                  type="number"
+                  step={1}
+                  value={Number(activeDropZone.frame.y ?? 0)}
+                  onChange={(event) => updateWidgetFrame(activeDropZone.id, { y: Number(event.target.value) })}
+                />
+              </div>
               <div>
                 <label>Width</label>
                 <input
@@ -179,8 +202,8 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                   min={20}
                   max={400}
                   step={4}
-                  value={Number(activeDropZone.props.width ?? 120)}
-                  onChange={(event) => updateWidgetProps(activeDropZone.id, { width: Number(event.target.value) })}
+                  value={Number(activeDropZone.frame.width ?? activeDropZone.props.width ?? 120)}
+                  onChange={(event) => updateWidgetFrame(activeDropZone.id, { width: Number(event.target.value) })}
                 />
               </div>
               <div>
@@ -190,8 +213,8 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                   min={20}
                   max={400}
                   step={4}
-                  value={Number(activeDropZone.props.height ?? 120)}
-                  onChange={(event) => updateWidgetProps(activeDropZone.id, { height: Number(event.target.value) })}
+                  value={Number(activeDropZone.frame.height ?? activeDropZone.props.height ?? 120)}
+                  onChange={(event) => updateWidgetFrame(activeDropZone.id, { height: Number(event.target.value) })}
                 />
               </div>
               <div>

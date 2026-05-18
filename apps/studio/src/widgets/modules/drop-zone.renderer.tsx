@@ -102,8 +102,8 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
   const zoneRef = useRef<HTMLDivElement | null>(null);
   const cachedRectRef = useRef<DOMRect | null>(null);
   const lastIsOverRef = useRef(false);
-  const width = Math.max(20, Number(node.props.width ?? 120));
-  const height = Math.max(20, Number(node.props.height ?? 120));
+  const width = Math.max(20, Number(node.frame.width ?? node.props.width ?? 120));
+  const height = Math.max(20, Number(node.frame.height ?? node.props.height ?? 120));
   const hitPadding = Math.max(0, Number(node.props.hitPadding ?? 16));
   const debugOutline = Boolean(node.props.debugOutline ?? true);
   useEffect(() => {
