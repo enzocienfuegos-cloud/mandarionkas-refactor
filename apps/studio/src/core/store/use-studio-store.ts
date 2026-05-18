@@ -17,30 +17,33 @@ export function useStudioStore<T>(selector: (state: StudioState) => T, equalityF
 export { shallowEqual };
 
 export function useStudioStoreRef<T>(selector: (state: StudioState) => T, equalityFn: (a: T, b: T) => boolean = Object.is): React.MutableRefObject<T> {
-  const value = useStudioStore(selector, equalityFn);
-  const ref = useRef(value);
-
-  useEffect(() => {
-    if (!equalityFn(ref.current, value)) {
-      ref.current = value;
-    }
-  }, [value, equalityFn]);
-
-  return ref;
-}
-
-export function useStudioStoreValueRef<T>(selector: (state: StudioState) => T): React.MutableRefObject<T> {
   const selectorRef = useRef(selector);
+  const equalityRef = useRef(equalityFn);
   const valueRef = useRef(selector(studioStore.getState()));
 
   useEffect(() => {
     selectorRef.current = selector;
-    valueRef.current = selector(studioStore.getState());
-  }, [selector]);
+    equalityRef.current = equalityFn;
+    const next = selector(studioStore.getState());
+    if (!equalityFn(valueRef.current, next)) {
+      valueRef.current = next;
+    }
+  }, [equalityFn, selector]);
 
   useEffect(() => studioStore.subscribe(() => {
-    valueRef.current = selectorRef.current(studioStore.getState());
+    const next = selectorRef.current(studioStore.getState());
+    if (!equalityRef.current(valueRef.current, next)) {
+      valueRef.current = next;
+    }
   }), []);
 
   return valueRef;
+}
+
+export function useStudioStoreValueRef<T>(selector: (state: StudioState) => T): React.MutableRefObject<T> {
+  return useStudioStoreRef(selector);
+}
+
+export function useStudioStoreSnapshot(): StudioState {
+  return studioStore.getState();
 }

@@ -5,7 +5,9 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
 import { renderWidgetContents } from '../../canvas/stage/render-widget';
+import { playbackEngine, usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
 import { MotionLayer } from '../../motion/react/MotionLayer';
+import { useLatestRef } from '../../shared/hooks';
 import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
 import { isScratchGroupActive } from './group-scratch-activation';
 import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
@@ -197,12 +199,14 @@ function resolveScratchCoverLiveFrame({
   node,
   rootGroupId,
   ctx,
+  playheadMs,
 }: {
   node: WidgetNode;
   rootGroupId: string;
   ctx: RenderContext;
+  playheadMs: number;
 }): WidgetNode['frame'] {
-  const liveFrame = getLiveWidgetFrame(node, ctx.playheadMs);
+  const liveFrame = getLiveWidgetFrame(node, playheadMs);
   let nextX = liveFrame.x;
   let nextY = liveFrame.y;
   let currentParentId = node.parentId;
@@ -212,7 +216,7 @@ function resolveScratchCoverLiveFrame({
     visited.add(currentParentId);
     const parent = ctx.widgetsById[currentParentId];
     if (!parent) break;
-    const parentLiveFrame = getLiveWidgetFrame(parent, ctx.playheadMs);
+    const parentLiveFrame = getLiveWidgetFrame(parent, playheadMs);
     nextX += parentLiveFrame.x - parent.frame.x;
     nextY += parentLiveFrame.y - parent.frame.y;
     currentParentId = parent.parentId;
@@ -229,12 +233,14 @@ function resolveScratchCoverOpacity({
   node,
   rootGroupId,
   ctx,
+  playheadMs,
 }: {
   node: WidgetNode;
   rootGroupId: string;
   ctx: RenderContext;
+  playheadMs: number;
 }): number {
-  let opacity = getLiveWidgetOpacity(node, ctx.playheadMs);
+  let opacity = getLiveWidgetOpacity(node, playheadMs);
   let currentParentId = node.parentId;
   const visited = new Set<string>([node.id]);
 
@@ -242,7 +248,7 @@ function resolveScratchCoverOpacity({
     visited.add(currentParentId);
     const parent = ctx.widgetsById[currentParentId];
     if (!parent) break;
-    opacity *= getLiveWidgetOpacity(parent, ctx.playheadMs);
+    opacity *= getLiveWidgetOpacity(parent, playheadMs);
     currentParentId = parent.parentId;
   }
 
@@ -254,9 +260,10 @@ function renderScratchCoverNode(
   rootFrame: WidgetNode['frame'],
   rootGroupId: string,
   ctx: RenderContext,
+  playheadMs: number,
   visited = new Set<string>(),
 ): JSX.Element[] {
-  if (visited.has(node.id) || !isWidgetVisibleAt(node, ctx.playheadMs)) return [];
+  if (visited.has(node.id) || !isWidgetVisibleAt(node, playheadMs)) return [];
   visited.add(node.id);
 
   if (node.type === 'group' && node.childIds?.length) {
@@ -264,7 +271,7 @@ function renderScratchCoverNode(
       .map((childId) => ctx.widgetsById[childId])
       .filter((child): child is WidgetNode => Boolean(child))
       .sort((left, right) => left.zIndex - right.zIndex)
-      .flatMap((child) => renderScratchCoverNode(child, rootFrame, rootGroupId, ctx, visited));
+      .flatMap((child) => renderScratchCoverNode(child, rootFrame, rootGroupId, ctx, playheadMs, visited));
   }
 
   return [
@@ -275,6 +282,7 @@ function renderScratchCoverNode(
         rootFrame={rootFrame}
         rootGroupId={rootGroupId}
         ctx={ctx}
+        playheadMs={playheadMs}
       />
     ),
   ];
@@ -285,18 +293,20 @@ function ScratchCoverWidget({
   rootFrame,
   rootGroupId,
   ctx,
+  playheadMs,
 }: {
   node: WidgetNode;
   rootFrame: WidgetNode['frame'];
   rootGroupId: string;
   ctx: RenderContext;
+  playheadMs: number;
 }): JSX.Element {
   const liveFrame = ctx.previewMode && ctx.isReproducing
     ? node.frame
-    : resolveScratchCoverLiveFrame({ node, rootGroupId, ctx });
+    : resolveScratchCoverLiveFrame({ node, rootGroupId, ctx, playheadMs });
   const liveOpacity = ctx.previewMode && ctx.isReproducing
     ? Math.max(0, Math.min(1, Number(node.style.opacity ?? 1)))
-    : resolveScratchCoverOpacity({ node, rootGroupId, ctx });
+    : resolveScratchCoverOpacity({ node, rootGroupId, ctx, playheadMs });
   const contentNode: WidgetNode = {
     ...node,
     frame: {
@@ -315,7 +325,6 @@ function ScratchCoverWidget({
     <MotionLayer
       widget={node}
       widgetsById={ctx.widgetsById}
-      playheadMs={ctx.playheadMs}
       previewMode={ctx.previewMode}
       isReproducing={Boolean(ctx.isReproducing)}
       style={{
@@ -346,22 +355,29 @@ function ScratchCoverWidget({
 function GroupScratchCoverChildren({
   node,
   ctx,
+  playheadMs,
 }: {
   node: WidgetNode;
   ctx: RenderContext;
+  playheadMs: number;
 }): JSX.Element | null {
   const childWidgets = (node.childIds ?? [])
     .map((childId) => ctx.widgetsById[childId])
     .filter((child): child is WidgetNode => Boolean(child))
     .sort((left, right) => left.zIndex - right.zIndex);
 
-  const scratchNodes = childWidgets.flatMap((child) => renderScratchCoverNode(child, node.frame, node.id, ctx));
+  const scratchNodes = childWidgets.flatMap((child) => renderScratchCoverNode(child, node.frame, node.id, ctx, playheadMs));
   if (!scratchNodes.length) return null;
 
   return <>{scratchNodes}</>;
 }
 
 function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
+  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
+  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
+  const previewMode = ctx.previewMode;
+  const nodeId = node.id;
+  const ctxRef = useLatestRef(ctx);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const progressCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -369,8 +385,6 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const scratchCompletedRef = useRef(false);
   const lastScratchPointRef = useRef<{ x: number; y: number } | null>(null);
   const maskSizeRef = useRef({ width: 0, height: 0 });
-  const previousPreviewModeRef = useRef(ctx.previewMode);
-  const previousPlayheadRef = useRef(ctx.playheadMs);
   const pendingResizeResetRef = useRef(false);
   const [maskUrl, setMaskUrl] = useState('');
   const [scratchCompleted, setScratchCompleted] = useState(false);
@@ -418,7 +432,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
 
   useLayoutEffect(() => {
     resetScratchMask({ force: true });
-  }, [node.frame.width, node.frame.height, ctx.previewMode]);
+  }, [node.frame.width, node.frame.height, previewMode]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -433,16 +447,25 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     });
     observer.observe(shell);
     return () => observer.disconnect();
-  }, [ctx.previewMode, node.id]);
+  }, [nodeId, previewMode]);
 
   useEffect(() => {
-    const enteredPreview = ctx.previewMode && !previousPreviewModeRef.current;
-    const rewoundToStart = ctx.previewMode && ctx.playheadMs === 0 && previousPlayheadRef.current > 0;
-    previousPreviewModeRef.current = ctx.previewMode;
-    previousPlayheadRef.current = ctx.playheadMs;
-    if (!enteredPreview && !rewoundToStart) return;
-    resetScratchMask({ force: true });
-  }, [ctx.playheadMs, ctx.previewMode]);
+    let previousPlayheadMs = playbackEngine.getCurrentMs();
+    let previousPreviewMode = ctxRef.current.previewMode;
+
+    const checkRewind = (nextMs: number) => {
+      const previewMode = ctxRef.current.previewMode;
+      const enteredPreview = previewMode && !previousPreviewMode;
+      const rewoundToStart = previewMode && nextMs === 0 && previousPlayheadMs > 0;
+      previousPlayheadMs = nextMs;
+      previousPreviewMode = previewMode;
+      if (enteredPreview || rewoundToStart) {
+        resetScratchMask({ force: true });
+      }
+    };
+
+    return playbackEngine.subscribeDom(checkRewind);
+  }, [ctxRef]);
 
   const scratchAtEvent = (event: ReactPointerEvent<HTMLDivElement>) => {
     const canvas = maskCanvasRef.current;
@@ -459,7 +482,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     if (!progressCanvas || autoRevealThresholdPercent <= 0) return;
     const clearedPercent = eraseScratchProgress(progressCanvas, previousPoint, point, scratchRadius, canvas.width, canvas.height);
     if (clearedPercent < autoRevealThresholdPercent) return;
-    const completedAtMs = ctx.playheadMs;
+    const completedAtMs = playbackEngine.getCurrentMs();
     pointerActiveRef.current = false;
     scratchCompletedRef.current = true;
     lastScratchPointRef.current = null;
@@ -472,7 +495,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     });
   };
 
-  const scratchContent = <GroupScratchCoverChildren node={node} ctx={ctx} />;
+  const scratchContent = <GroupScratchCoverChildren node={node} ctx={ctx} playheadMs={playheadMs} />;
 
   return (
     <div ref={shellRef} style={{ ...scratchShellStyle, borderRadius: Number(node.style.borderRadius ?? 18), boxShadow }}>
@@ -532,12 +555,61 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   );
 }
 
+function useScratchGroupActiveState(node: WidgetNode, ctx: RenderContext): boolean {
+  const ctxRef = useLatestRef(ctx);
+  const nodeRef = useLatestRef(node);
+  const [active, setActive] = useState(() => isScratchGroupActive({
+    group: node,
+    widgetsById: ctx.widgetsById,
+    playheadMs: ctx.playheadMs,
+  }));
+
+  useEffect(() => {
+    if (!node.props.scratchEnabled) {
+      setActive(false);
+      return undefined;
+    }
+
+    const sync = (nextMs: number) => {
+      const nextActive = isScratchGroupActive({
+        group: nodeRef.current,
+        widgetsById: ctxRef.current.widgetsById,
+        playheadMs: nextMs,
+      });
+      setActive((current) => (current === nextActive ? current : nextActive));
+    };
+
+    if (!ctx.previewMode || !ctx.isReproducing) {
+      sync(ctx.playheadMs);
+      return undefined;
+    }
+
+    sync(playbackEngine.getCurrentMs());
+    return playbackEngine.subscribeDom(sync);
+  }, [
+    ctx.previewMode,
+    ctx.isReproducing,
+    ctx.playheadMs,
+    ctx.widgetsById,
+    ctxRef,
+    node.id,
+    node.props.scratchEnabled,
+    node.props.scratchActivationMode,
+    node.props.scratchActivationDelayMs,
+    node.timeline.startMs,
+    nodeRef,
+  ]);
+
+  return active;
+}
+
 export function renderGroupWidget(node: WidgetNode, ctx: RenderContext): JSX.Element {
   if (node.props.scratchEnabled) {
+    const scratchGroupActive = useScratchGroupActiveState(node, ctx);
     if (!ctx.previewMode) {
       return <div style={scratchEditorOverlayStyle} />;
     }
-    if (!isScratchGroupActive({ group: node, widgetsById: ctx.widgetsById, playheadMs: ctx.playheadMs })) {
+    if (!scratchGroupActive) {
       return renderDefaultGroup(node, ctx);
     }
     return <ScratchGroupRenderer node={node} ctx={ctx} />;

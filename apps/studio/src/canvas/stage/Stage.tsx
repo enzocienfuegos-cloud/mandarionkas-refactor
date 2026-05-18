@@ -36,6 +36,8 @@ import {
 import { getPreviewFrame, type PreviewFrame } from '../../domain/preview/preview-frames';
 import { useStageToolbarDrag } from './use-stage-toolbar-drag';
 import { useAnimationEngine } from '../../motion/animation-engine';
+import { useLatestRef } from '../../shared/hooks';
+import { PlayheadRefProvider } from './playhead-ref-context';
 
 const stageWrap: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '100%' };
 
@@ -63,7 +65,8 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
   const canCreateAssets = usePlatformPermission('assets:create');
   const documentActions = useDocumentActions();
   const {
-    stageState,
+    stageDocument,
+    stageUi,
     playheadMs,
     fullStateRef,
     marquee,
@@ -96,6 +99,8 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     widgets,
     widgetsById,
     selectedIds,
+  } = stageDocument;
+  const {
     zoom,
     isPlaying,
     previewMode,
@@ -106,7 +111,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     stageBackdrop,
     showStageRulers,
     showWidgetBadges,
-  } = stageState;
+  } = stageUi;
   const selectedWidget = !previewMode && selectedIds.length === 1 ? widgets.find((widget) => widget.id === selectedIds[0]) : undefined;
   const previewFrame = getPreviewFrame(previewContext);
   const activePreviewFrame = previewMode ? previewFrame : getPreviewFrame('none');
@@ -217,6 +222,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     const workspace = workspaceRef.current;
     const stage = stageRef.current;
     if (!workspace || !stage || !selectedWidget) return null;
+    if (previewMode) return null;
     const workspaceRect = workspace.getBoundingClientRect();
     const stageRect = stage.getBoundingClientRect();
     const frame = liveFrameById[selectedWidget.id] ?? getLiveWidgetFrame(selectedWidget, playheadMs);
@@ -227,7 +233,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
       workspaceViewport,
       selectionToolbarBounds,
     );
-  }, [liveFrameById, playheadMs, selectedWidget, selectionToolbarBounds, workspaceViewport, zoom]);
+  }, [liveFrameById, playheadMs, previewMode, selectedWidget, selectionToolbarBounds, workspaceViewport, zoom]);
 
   const { beginToolbarDrag, endToolbarDrag, onToolbarPointerMove, toolbarStyle } = useStageToolbarDrag(workspaceViewport, toolbarBounds);
 
@@ -273,7 +279,37 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     beginWidgetResize(event.nativeEvent, widgetId, locked, handle);
   };
 
-  const stageSurfaceProps: StageSurfaceProps = {
+  const handlersRef = useLatestRef({
+    onStagePointerDown: handleStagePointerDown,
+    onStageDragOver: handleStageDragOver,
+    onStageDragLeave: handleStageDragLeave,
+    onStageDrop: handleStageDrop,
+    onWidgetPointerDown: handleWidgetPointerDown,
+    onResizePointerDown: handleResizePointerDown,
+    onSetActiveWidget: widgetActions.setActiveWidget,
+    onSetHoveredWidget: widgetActions.setHoveredWidget,
+    onExecuteAction: widgetActions.executeAction,
+    onGoToScene: sceneActions.selectScene,
+  });
+
+  const stableHandlers = useMemo(() => ({
+    onStagePointerDown: ((event: ReactPointerEvent<HTMLDivElement>) => handlersRef.current.onStagePointerDown(event)) as typeof handleStagePointerDown,
+    onStageDragOver: ((event: React.DragEvent<HTMLDivElement>) => handlersRef.current.onStageDragOver(event)) as typeof handleStageDragOver,
+    onStageDragLeave: (() => handlersRef.current.onStageDragLeave()) as typeof handleStageDragLeave,
+    onStageDrop: ((event: React.DragEvent<HTMLDivElement>) => handlersRef.current.onStageDrop(event)) as typeof handleStageDrop,
+    onWidgetPointerDown: ((event: ReactPointerEvent<HTMLDivElement>, widgetId: string, locked: boolean) => (
+      handlersRef.current.onWidgetPointerDown(event, widgetId, locked)
+    )) as typeof handleWidgetPointerDown,
+    onResizePointerDown: ((event: ReactPointerEvent<HTMLButtonElement>, widgetId: string, locked: boolean, handle: ResizeHandle) => (
+      handlersRef.current.onResizePointerDown(event, widgetId, locked, handle)
+    )) as typeof handleResizePointerDown,
+    onSetActiveWidget: ((widgetId?: string) => handlersRef.current.onSetActiveWidget(widgetId)) as typeof widgetActions.setActiveWidget,
+    onSetHoveredWidget: ((widgetId?: string) => handlersRef.current.onSetHoveredWidget(widgetId)) as typeof widgetActions.setHoveredWidget,
+    onExecuteAction: ((actionId: string) => handlersRef.current.onExecuteAction(actionId)) as typeof widgetActions.executeAction,
+    onGoToScene: ((sceneId: string) => handlersRef.current.onGoToScene(sceneId)) as typeof sceneActions.selectScene,
+  }), [handlersRef, widgetActions.executeAction, widgetActions.setActiveWidget, widgetActions.setHoveredWidget, sceneActions.selectScene]);
+
+  const stageSurfaceProps = useMemo<StageSurfaceProps>(() => ({
     stageRef,
     sceneId: scene.id,
     canvas,
@@ -284,7 +320,6 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     isPlaying,
     editModeWireframe,
     zoom: effectiveStageZoom,
-    playheadMs,
     sceneDurationMs: scene.durationMs,
     sceneTransitionType: scene.transition?.type ?? 'cut',
     sceneTransitionDurationMs: scene.transition?.durationMs ?? 450,
@@ -297,100 +332,116 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     showStageRulers,
     showWidgetBadges,
     stateRef: fullStateRef,
-    isWidgetVisible,
-    onStagePointerDown: handleStagePointerDown,
-    onStageDragOver: handleStageDragOver,
-    onStageDragLeave: handleStageDragLeave,
-    onStageDrop: handleStageDrop,
-    onWidgetPointerDown: handleWidgetPointerDown,
-    onResizePointerDown: handleResizePointerDown,
-    onSetActiveWidget: widgetActions.setActiveWidget,
-    onSetHoveredWidget: widgetActions.setHoveredWidget,
-    onExecuteAction: widgetActions.executeAction,
-    onGoToScene: sceneActions.selectScene,
-  };
+    ...stableHandlers,
+  }), [
+    stageRef,
+    scene.id,
+    scene.durationMs,
+    scene.transition?.type,
+    scene.transition?.durationMs,
+    canvas,
+    widgets,
+    widgetsById,
+    selectedIds,
+    previewMode,
+    isPlaying,
+    editModeWireframe,
+    effectiveStageZoom,
+    sceneTransitionActive,
+    marquee,
+    dropPreview,
+    liveFrameById,
+    hoveredWidgetId,
+    activeWidgetId,
+    showStageRulers,
+    showWidgetBadges,
+    fullStateRef,
+    stableHandlers,
+  ]);
 
   return (
-    <div
-      className={`workspace-shell workspace-shell-backdrop-${stageBackdrop} ${showStageRulers ? 'has-workspace-rulers' : ''} ${panModeActive ? 'is-pan-mode' : ''} ${isPanning ? 'is-panning' : ''}`}
-      ref={workspaceRef}
-      onPointerDownCapture={(event) => {
-        handleWorkspacePointerDownCapture(event);
-        const target = event.target as HTMLElement | null;
-        const insidePanel = isWithinCanvasQuickPanelTarget(target);
-        const insideStage = isWithinStageSurfaceTarget(target);
-        const insideToolbar = isWithinStageToolbarTarget(target);
-        if (!insidePanel && !insideStage && !insideToolbar) {
-          widgetActions.selectWidget(null);
-          setShowCanvasQuickPanel(false);
-        }
-      }}
-      onPointerMove={handleWorkspacePointerMove}
-      onPointerUp={handleWorkspacePointerUp}
-      onPointerCancel={handleWorkspacePointerCancel}
-    >
-      {showStageRulers ? <StageRulers workspaceWidth={workspaceViewport.width} workspaceHeight={workspaceViewport.height} /> : null}
-      <div className="workspace-inner">
-        <div style={stageWrap}>
-          <StagePreviewShell
-            activePreviewFrame={activePreviewFrame}
-            previewShellWidth={previewShellWidth}
-            previewShellHeight={previewShellHeight}
-            previewFrameStyle={previewFrameStyle}
-            previewPlacementStyle={previewPlacementStyle}
-            stageSurface={<StageSurface {...stageSurfaceProps} />}
-          >
-            {showCanvasQuickPanel ? (
-              <StageCanvasQuickPanel
-                canvas={canvas}
-                onUpdateBackground={documentActions.updateCanvasBackground}
-              />
-            ) : null}
-          </StagePreviewShell>
+    <PlayheadRefProvider>
+      <div
+        className={`workspace-shell workspace-shell-backdrop-${stageBackdrop} ${showStageRulers ? 'has-workspace-rulers' : ''} ${panModeActive ? 'is-pan-mode' : ''} ${isPanning ? 'is-panning' : ''}`}
+        ref={workspaceRef}
+        onPointerDownCapture={(event) => {
+          handleWorkspacePointerDownCapture(event);
+          const target = event.target as HTMLElement | null;
+          const insidePanel = isWithinCanvasQuickPanelTarget(target);
+          const insideStage = isWithinStageSurfaceTarget(target);
+          const insideToolbar = isWithinStageToolbarTarget(target);
+          if (!insidePanel && !insideStage && !insideToolbar) {
+            widgetActions.selectWidget(null);
+            setShowCanvasQuickPanel(false);
+          }
+        }}
+        onPointerMove={handleWorkspacePointerMove}
+        onPointerUp={handleWorkspacePointerUp}
+        onPointerCancel={handleWorkspacePointerCancel}
+      >
+        {showStageRulers ? <StageRulers workspaceWidth={workspaceViewport.width} workspaceHeight={workspaceViewport.height} /> : null}
+        <div className="workspace-inner">
+          <div style={stageWrap}>
+            <StagePreviewShell
+              activePreviewFrame={activePreviewFrame}
+              previewShellWidth={previewShellWidth}
+              previewShellHeight={previewShellHeight}
+              previewFrameStyle={previewFrameStyle}
+              previewPlacementStyle={previewPlacementStyle}
+              stageSurface={<StageSurface {...stageSurfaceProps} />}
+            >
+              {showCanvasQuickPanel ? (
+                <StageCanvasQuickPanel
+                  canvas={canvas}
+                  onUpdateBackground={documentActions.updateCanvasBackground}
+                />
+              ) : null}
+            </StagePreviewShell>
+          </div>
         </div>
-      </div>
-      {selectedWidget && selectionToolbarPosition ? (
-        <StageSelectionToolbar
-          ref={selectionToolbarRef}
-          widget={selectedWidget}
-          position={selectionToolbarPosition}
-          uploadDisabled={!canCreateAssets}
-          onToggleVisibility={() => widgetActions.toggleWidgetHidden(selectedWidget.id)}
-          onToggleLock={() => widgetActions.toggleWidgetLocked(selectedWidget.id)}
-          onUngroup={() => widgetActions.ungroupSelected()}
-          onDuplicate={() => widgetActions.duplicateSelected()}
-          onMoveBackward={() => widgetActions.reorderWidget(selectedWidget.id, 'back')}
-          onMoveForward={() => widgetActions.reorderWidget(selectedWidget.id, 'front')}
-          onUploadAsset={() => openAssetPicker(selectedWidget)}
-          onOpenAssetLibrary={onOpenAssetLibrary}
-          onDelete={() => widgetActions.deleteSelected()}
+        {selectedWidget && selectionToolbarPosition ? (
+          <StageSelectionToolbar
+            ref={selectionToolbarRef}
+            widget={selectedWidget}
+            position={selectionToolbarPosition}
+            uploadDisabled={!canCreateAssets}
+            onToggleVisibility={() => widgetActions.toggleWidgetHidden(selectedWidget.id)}
+            onToggleLock={() => widgetActions.toggleWidgetLocked(selectedWidget.id)}
+            onUngroup={() => widgetActions.ungroupSelected()}
+            onDuplicate={() => widgetActions.duplicateSelected()}
+            onMoveBackward={() => widgetActions.reorderWidget(selectedWidget.id, 'back')}
+            onMoveForward={() => widgetActions.reorderWidget(selectedWidget.id, 'front')}
+            onUploadAsset={() => openAssetPicker(selectedWidget)}
+            onOpenAssetLibrary={onOpenAssetLibrary}
+            onDelete={() => widgetActions.deleteSelected()}
+          />
+        ) : null}
+        <StageFloatingToolbar
+          toolbarRef={toolbarRef}
+          toolbarCollapsed={toolbarCollapsed}
+          toolbarStyle={toolbarStyle}
+          sceneName={scene.name}
+          previewMode={previewMode}
+          stageBackdrop={stageBackdrop}
+          showStageRulers={showStageRulers}
+          editModeWireframe={editModeWireframe}
+          zoom={zoom}
+          onPointerDown={beginToolbarDrag}
+          onPointerMove={onToolbarPointerMove}
+          onPointerUp={endToolbarDrag}
+          onPointerCancel={endToolbarDrag}
+          onToggleCollapsed={() => setToolbarCollapsed((current) => !current)}
+          onPreviousScene={() => sceneActions.previousScene()}
+          onNextScene={() => sceneActions.nextScene()}
+          onToggleRulers={() => uiActions.setStageRulers(!showStageRulers)}
+          onToggleWireframe={() => uiActions.setEditModeWireframe(!editModeWireframe)}
+          onSetBackdrop={(tone) => uiActions.setStageBackdrop(tone)}
+          onZoomOut={() => uiActions.setZoom(Math.max(ZOOM_MIN, zoom - 0.1))}
+          onZoomIn={() => uiActions.setZoom(Math.min(ZOOM_MAX, zoom + 0.1))}
+          onFitToViewport={fitToViewport}
+          onResetInteractions={() => animationEngine.resetEventClocks()}
         />
-      ) : null}
-      <StageFloatingToolbar
-        toolbarRef={toolbarRef}
-        toolbarCollapsed={toolbarCollapsed}
-        toolbarStyle={toolbarStyle}
-        sceneName={scene.name}
-        previewMode={previewMode}
-        stageBackdrop={stageBackdrop}
-        showStageRulers={showStageRulers}
-        editModeWireframe={editModeWireframe}
-        zoom={zoom}
-        onPointerDown={beginToolbarDrag}
-        onPointerMove={onToolbarPointerMove}
-        onPointerUp={endToolbarDrag}
-        onPointerCancel={endToolbarDrag}
-        onToggleCollapsed={() => setToolbarCollapsed((current) => !current)}
-        onPreviousScene={() => sceneActions.previousScene()}
-        onNextScene={() => sceneActions.nextScene()}
-        onToggleRulers={() => uiActions.setStageRulers(!showStageRulers)}
-        onToggleWireframe={() => uiActions.setEditModeWireframe(!editModeWireframe)}
-        onSetBackdrop={(tone) => uiActions.setStageBackdrop(tone)}
-        onZoomOut={() => uiActions.setZoom(Math.max(ZOOM_MIN, zoom - 0.1))}
-        onZoomIn={() => uiActions.setZoom(Math.min(ZOOM_MAX, zoom + 0.1))}
-        onFitToViewport={fitToViewport}
-        onResetInteractions={() => animationEngine.resetEventClocks()}
-      />
-    </div>
+      </div>
+    </PlayheadRefProvider>
   );
 }

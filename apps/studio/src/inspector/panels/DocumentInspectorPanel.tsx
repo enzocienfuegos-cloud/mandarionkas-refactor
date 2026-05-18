@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useStudioStore } from '../../core/store/use-studio-store';
+import { shallowEqual, useStudioStore, useStudioStoreSnapshot } from '../../core/store/use-studio-store';
 import {
   getDocumentInspectorPanelsForTab,
   getDocumentInspectorTabs,
@@ -8,8 +8,17 @@ import { useDocumentInspectorTab } from '../sections/document/document-inspector
 import { Tabs, type TabDefinition } from '../../shared/ui/Tabs';
 
 export function DocumentInspectorPanel(): JSX.Element {
-  const state = useStudioStore((value) => value);
-  const tabs = useMemo(() => getDocumentInspectorTabs(state), [state]);
+  const state = useStudioStoreSnapshot();
+  const stateVersion = useStudioStore((current) => ({
+    document: current.document,
+    inspectorFocus: current.ui.inspectorFocus,
+    playheadMs: current.ui.playheadMs,
+    isPlaying: current.ui.isPlaying,
+    activeVariant: current.ui.activeVariant,
+    activeFeedSource: current.ui.activeFeedSource,
+    activeFeedRecordId: current.ui.activeFeedRecordId,
+  }), shallowEqual);
+  const tabs = useMemo(() => getDocumentInspectorTabs(state), [stateVersion]);
   const [activeId, setActiveId] = useDocumentInspectorTab(tabs[0]?.id ?? 'overview');
 
   const activeTab = tabs.find((tab) => tab.id === activeId) ?? tabs[0];
@@ -19,7 +28,7 @@ export function DocumentInspectorPanel(): JSX.Element {
   );
   const panels = useMemo(
     () => (activeTab ? getDocumentInspectorPanelsForTab(activeTab, state) : []),
-    [activeTab, state],
+    [activeTab, stateVersion],
   );
 
   useEffect(() => {

@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
+import { resolveAssetDeliveryUrl } from '../../assets/policy';
 import type { WidgetNode } from '../../domain/document/types';
+import type { AssetRecord } from '../../assets/types';
+import { useStudioStore } from '../../core/store/use-studio-store';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import { Button } from '../../shared/ui/Button';
@@ -8,6 +11,7 @@ import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
 
 export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): JSX.Element {
   const widgetActions = useWidgetActions();
+  const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
   const products = useMemo(() => parseShoppableProducts(widget.props.products), [widget.props.products]);
   const ctaBackgroundColor = String((widget.style as Record<string, unknown>).ctaBackgroundColor ?? widget.style.accentColor ?? '#9a3412');
   const ctaTextColor = String((widget.style as Record<string, unknown>).ctaTextColor ?? '#111827');
@@ -36,6 +40,22 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
       {
         src: '',
         title: `Product ${products.length + 1}`,
+        subtitle: '',
+        price: '$0',
+        rating: 4,
+        ctaLabel: 'Shop now',
+        url: '',
+      },
+    ]);
+  };
+
+  const appendProductFromAsset = (asset: AssetRecord) => {
+    updateProducts([
+      ...products,
+      {
+        assetId: asset.id,
+        src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+        title: asset.name,
         subtitle: '',
         price: '$0',
         rating: 4,
@@ -103,7 +123,17 @@ export function ShoppableSidebarInspector({ widget }: { widget: WidgetNode }): J
           <div className="field-stack">
             <small className="muted">Add product images from the asset library. This module no longer shows a preloaded image list here.</small>
             <div className="rail-action-grid">
-              <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
+              <Button
+                size="sm"
+                className="left-button compact-action"
+                onClick={() => requestOpenAssetLibrary({
+                  accept: 'image',
+                  title: 'Add product image from library',
+                  onSelect: appendProductFromAsset,
+                })}
+              >
+                Open library
+              </Button>
               <Button size="sm" className="left-button compact-action" onClick={addBlankProduct}>Add blank product</Button>
             </div>
           </div>

@@ -16,9 +16,19 @@ const reactSubscribers = new Set<ReactSubscriber>();
 let currentPlayheadMs = 0;
 let syncIntervalMs = 250;
 let lastReactSyncMs = 0;
+let pendingDomNotificationRaf: number | null = null;
 
 function notifyDomSubscribers(): void {
-  domSubscribers.forEach((subscriber) => subscriber(currentPlayheadMs));
+  if (typeof requestAnimationFrame !== 'function') {
+    domSubscribers.forEach((subscriber) => subscriber(currentPlayheadMs));
+    return;
+  }
+  if (pendingDomNotificationRaf !== null) return;
+  pendingDomNotificationRaf = requestAnimationFrame(() => {
+    pendingDomNotificationRaf = null;
+    const ms = currentPlayheadMs;
+    domSubscribers.forEach((subscriber) => subscriber(ms));
+  });
 }
 
 function notifyReactSubscribers(): void {
@@ -58,6 +68,11 @@ export const playbackEngine = {
     notifyReactIfThrottleAllows();
   },
   flushReact() {
+    if (pendingDomNotificationRaf !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(pendingDomNotificationRaf);
+      pendingDomNotificationRaf = null;
+    }
+    domSubscribers.forEach((subscriber) => subscriber(currentPlayheadMs));
     lastReactSyncMs = currentPlayheadMs;
     notifyReactSubscribers();
   },

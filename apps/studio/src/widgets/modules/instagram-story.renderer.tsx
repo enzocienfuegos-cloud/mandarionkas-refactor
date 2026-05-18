@@ -2,11 +2,11 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
+import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
 import { moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 import { InstagramStoryInspector } from './instagram-story.inspector';
 import { ModuleMediaPlaceholder } from './render-icons';
 import { INSTAGRAM_STORY_DEFAULT_USERNAME } from './instagram-story.shared';
-import { useWidgetPlayheadMs } from '../shared/use-widget-playhead';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -277,7 +277,8 @@ function InstagramStoryRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCo
   const slides = getSlides(node);
   const username = String(node.props.username ?? INSTAGRAM_STORY_DEFAULT_USERNAME);
   const avatarSrc = String(node.props.avatarSrc ?? '').trim();
-  const playheadMs = useWidgetPlayheadMs(ctx.playheadMs, ctx.isReproducing);
+  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
+  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
 
   const [muted, setMuted] = useState(Boolean(node.props.muted ?? true));
   const [videoDurations, setVideoDurations] = useState<Record<number, number>>({});

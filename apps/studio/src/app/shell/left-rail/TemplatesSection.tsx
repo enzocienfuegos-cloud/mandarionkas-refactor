@@ -8,7 +8,7 @@ import { readScopedStorageItem, writeScopedStorageItem } from '../../../shared/b
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { createInitialUiState } from '../../../domain/document/factories';
 import { normalizeStudioState } from '../../../domain/document/normalize-state';
-import { useStudioStore } from '../../../core/store/use-studio-store';
+import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
 import { useStudioSessionActions, useUiActions } from '../../../hooks/use-studio-actions';
 import { useToast } from '../../../shared/ui/ToastProvider';
 
@@ -37,7 +37,7 @@ export function TemplatesSection(): JSX.Element {
     const stored = readScopedStorageItem(TEMPLATE_VIEW_STORAGE_KEY, 'cards');
     return stored === 'list' ? 'list' : 'cards';
   });
-  const state = useStudioStore((value) => value);
+  const state = useStudioStoreSnapshot();
   const { replaceState } = useStudioSessionActions();
   const uiActions = useUiActions();
   const { pushToast } = useToast();

@@ -92,3 +92,39 @@ Cerrado el residual WAAPI declarado pendiente en `animation-engine-followups.md`
 - `widgets/modules/drag-token-pool.renderer.tsx` y `widgets/modules/drop-zone.renderer.tsx`: drag del template BocaDeli/WC 2026 refactorizado para sacar React state del hot path, mover el ghost con `transform: translate3d(...)`, cachear rects de drop-zones y reemplazar feedback no-compositeable por overlay con `opacity`.
 
 Tras este cleanup, `grep -rn "\\.animate(" apps/studio/src --include="*.ts" --include="*.tsx" | grep -v test | grep -v __generated__` no debe devolver resultados en codigo de produccion.
+
+## Preview fluidity architecture (Sprint S52)
+
+Despues del cleanup WAAPI -> GSAP, el siguiente problema de fluidez del editor
+quedo en como el playhead se propagaba a traves de React. La solucion:
+
+Principio rector: React es para estructura, DOM es para playback.
+
+- React re-renderiza solo en cambios estructurales: mount/unmount de widgets,
+  seleccion, hover, zoom, cambio de escena y edicion.
+- El playhead durante playback no atraviesa el arbol React del Stage.
+- Componentes que necesitan reaccionar al playhead leen
+  `playbackEngine.subscribeDom(...)` o `usePlayheadRef()` y aplican cambios
+  directo al DOM o a subtrees puntuales.
+- `usePlaybackMsThrottled()` sigue reservado para timeline UI e inspectors.
+- `usePlaybackMsLive()` queda prohibido en codigo productivo por
+  `npm run lint:playback-live -w @smx/studio`.
+
+APIs nuevas:
+
+- `canvas/stage/playhead-ref-context.tsx`
+  - `PlayheadRefProvider`
+  - `usePlayheadRef()`
+- `shared/hooks/use-latest-ref.ts`
+  - helper para handlers y effects estables sin resuscribir por valores calientes
+
+Hot path actual:
+
+- `useStageController` ya no consume `usePlaybackMsLive()`.
+- `selectStageDocument(...)` y `selectStageUi(...)` separan datos frios del
+  document y estado transient de UI.
+- `StageSurface` ya no recibe `playheadMs` como prop y sincroniza playback via
+  `subscribeDom(...)`, aplicando visibilidad, frame y opacity al DOM de cada
+  widget por `data-stage-widget-id`.
+- `StageWidget` ya no fuerza rerenders playback-reactive por tipo; el contexto
+  de render usa un getter de `playheadMs` apoyado en `usePlayheadRef()`.

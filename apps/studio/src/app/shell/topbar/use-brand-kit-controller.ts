@@ -5,7 +5,7 @@ import type { StudioDocument } from '../../../domain/document/types';
 import { useStudioSessionActions } from '../../../hooks/use-studio-actions';
 import { usePlatformPermission, usePlatformSnapshot } from '../../../platform/runtime';
 import { deleteBrandKit, listBrandKits, saveBrandKit } from '../../../repositories/brand-kit';
-import { useStudioStore } from '../../../core/store/use-studio-store';
+import { useStudioStore, useStudioStoreRef } from '../../../core/store/use-studio-store';
 import { useToast } from '../../../shared/ui/ToastProvider';
 
 function cloneDraft(input: BrandKitDraft): BrandKitDraft {
@@ -78,20 +78,21 @@ export type BrandKitController = {
 };
 
 export function useBrandKitController(): BrandKitController {
-  const state = useStudioStore((value) => value);
+  const document = useStudioStore((state) => state.document);
+  const stateRef = useStudioStoreRef((state) => state);
   const { replaceState } = useStudioSessionActions();
   const platform = usePlatformSnapshot();
   const { pushToast } = useToast();
   const canManageBrandkits = usePlatformPermission('brandkits:manage');
   const [brandKitsState, setBrandKitsState] = useState<BrandKit[]>([]);
   const [selectedBrandKitId, setSelectedBrandKitId] = useState('');
-  const [draft, setDraft] = useState<BrandKitDraft>(() => buildDraftFromDocument(state.document));
+  const [draft, setDraft] = useState<BrandKitDraft>(() => buildDraftFromDocument(document));
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>();
 
-  const activeBrandKitId = state.document.metadata.platform?.brandKitId;
+  const activeBrandKitId = document.metadata.platform?.brandKitId;
   const selectedBrandKit = useMemo(
     () => brandKitsState.find((item) => item.id === selectedBrandKitId),
     [brandKitsState, selectedBrandKitId],
@@ -126,11 +127,11 @@ export function useBrandKitController(): BrandKitController {
     }
     if (!selectedBrandKitId) {
       setDraft(cloneDraft(buildDraftFromDocument(
-        state.document,
+        document,
         platform.clients.find((client) => client.id === platform.session.activeClientId)?.name,
       )));
     }
-  }, [platform.clients, platform.session.activeClientId, selectedBrandKit, selectedBrandKitId, state.document]);
+  }, [document, platform.clients, platform.session.activeClientId, selectedBrandKit, selectedBrandKitId]);
 
   function updateDraft(patch: Partial<BrandKitDraft>): void {
     setDraft((current) => cloneDraft({ ...current, ...patch }));
@@ -155,7 +156,7 @@ export function useBrandKitController(): BrandKitController {
   function startNewDraft(): void {
     setSelectedBrandKitId('');
     setDraft(cloneDraft(buildDraftFromDocument(
-      state.document,
+      document,
       platform.clients.find((client) => client.id === platform.session.activeClientId)?.name,
     )));
   }
@@ -169,9 +170,10 @@ export function useBrandKitController(): BrandKitController {
       });
       return;
     }
-    const nextDocument = applyBrandKitToDocument(state.document, selectedBrandKit, { mode });
+    const currentState = stateRef.current;
+    const nextDocument = applyBrandKitToDocument(currentState.document, selectedBrandKit, { mode });
     replaceState({
-      ...state,
+      ...currentState,
       document: nextDocument,
     });
     pushToast({

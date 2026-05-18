@@ -1,12 +1,27 @@
-import type { AssetRecord } from '../assets/types';
-
 const OPEN_ASSET_LIBRARY_EVENT = 'studio:open-asset-library';
+
+export type AssetLibrarySelectableAsset = {
+  id: string;
+  name: string;
+  kind: 'image' | 'video' | 'font' | 'other';
+  src: string;
+  mimeType?: string;
+  publicUrl?: string;
+  optimizedUrl?: string;
+  posterSrc?: string;
+  thumbnailUrl?: string;
+  fontFamily?: string;
+  qualityPreference?: 'auto' | 'low' | 'mid' | 'high';
+  derivatives?: {
+    poster?: { src: string };
+  };
+};
 
 export type AssetLibraryOpenRequest = {
   target?: 'scratch-cover' | 'scratch-reveal' | 'group-scratch-cover';
   accept?: 'image' | 'video' | 'font' | 'any';
   title?: string;
-  onSelect?: (asset: AssetRecord) => void;
+  onSelect?: (asset: AssetLibrarySelectableAsset) => void;
 };
 
 function isAssetLibraryOpenRequest(value: unknown): value is AssetLibraryOpenRequest {

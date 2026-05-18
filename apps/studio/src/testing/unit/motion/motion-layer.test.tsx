@@ -97,7 +97,7 @@ describe('MotionLayer', () => {
 
     await act(async () => {
       root.render(
-        <MotionLayer widget={widget} playheadMs={120} isReproducing previewMode>
+        <MotionLayer widget={widget} isReproducing previewMode>
           <div>Child</div>
         </MotionLayer>,
       );
@@ -109,7 +109,6 @@ describe('MotionLayer', () => {
       root.render(
         <MotionLayer
           widget={{ ...widget, props: { ...widget.props, text: 'Hello again' } }}
-          playheadMs={240}
           isReproducing
           previewMode
         >
@@ -139,7 +138,7 @@ describe('MotionLayer', () => {
 
     await act(async () => {
       root.render(
-        <MotionLayer widget={createWidget()} playheadMs={120} isReproducing previewMode>
+        <MotionLayer widget={createWidget()} isReproducing previewMode>
           <div>Child</div>
         </MotionLayer>,
       );
@@ -186,7 +185,7 @@ describe('MotionLayer', () => {
 
     await act(async () => {
       root.render(
-        <MotionLayer widget={createWidget({ timeline: { startMs: 500, endMs: 1500 } })} playheadMs={120} isReproducing previewMode>
+        <MotionLayer widget={createWidget({ timeline: { startMs: 500, endMs: 1500 } })} isReproducing previewMode>
           <div>Child</div>
         </MotionLayer>,
       );

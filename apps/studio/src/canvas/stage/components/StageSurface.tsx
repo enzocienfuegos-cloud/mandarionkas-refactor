@@ -1,7 +1,7 @@
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import type { CSSProperties } from 'react';
 import { getLiveWidgetFrame, getLiveWidgetOpacity, isWidgetVisibleAt } from '../../../domain/document/timeline';
-import type { WidgetFrame, WidgetNode } from '../../../domain/document/types';
+import type { ActionNode, WidgetNode } from '../../../domain/document/types';
 import type { ResizeHandle } from '../use-stage-controller';
 import { StageWidget } from './StageWidget';
 import { StageDropPreviewOverlay } from './StageDropPreviewOverlay';
@@ -12,8 +12,10 @@ import { createEventClock } from '../../../motion/animation-engine';
 import { useAnimationEngine } from '../../../motion/animation-engine';
 import { buildScratchRevealMetadata } from '../../../motion/animation-engine/reveal-replay';
 import { isScratchGroupActive } from '../../../widgets/group/group-scratch-activation';
-import { getScratchRevealTargetId, getScratchRevealTargetMode, isWidgetDescendantOf, resolveScratchRevealTargets } from '../../../widgets/group/group-reveal-target';
+import { resolveScratchRevealTargets } from '../../../widgets/group/group-reveal-target';
 import { playbackEngine } from '../../../hooks/use-playback-engine';
+import { useLatestRef } from '../../../shared/hooks';
+import { usePlayheadRef } from '../playhead-ref-context';
 
 export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
@@ -26,7 +28,6 @@ export type StageSurfaceProps = {
   isPlaying: boolean;
   editModeWireframe: boolean;
   zoom: number;
-  playheadMs: number;
   sceneDurationMs: number;
   sceneTransitionType: 'cut' | 'fade' | 'slide-left' | 'slide-right';
   sceneTransitionDurationMs: number;
@@ -39,7 +40,6 @@ export type StageSurfaceProps = {
   showStageRulers: boolean;
   showWidgetBadges: boolean;
   stateRef: React.MutableRefObject<import('../../../domain/document/types').StudioState>;
-  isWidgetVisible: (widgetId: string) => boolean;
   onStagePointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onStageDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
   onStageDragLeave: (event: React.DragEvent<HTMLDivElement>) => void;
@@ -63,7 +63,6 @@ export function StageSurface({
   isPlaying,
   editModeWireframe,
   zoom,
-  playheadMs,
   sceneDurationMs,
   sceneTransitionType,
   sceneTransitionDurationMs,
@@ -76,7 +75,6 @@ export function StageSurface({
   showStageRulers,
   showWidgetBadges,
   stateRef,
-  isWidgetVisible,
   onStagePointerDown,
   onStageDragOver,
   onStageDragLeave,
@@ -88,35 +86,64 @@ export function StageSurface({
   onExecuteAction,
   onGoToScene,
 }: StageSurfaceProps): JSX.Element {
+  const playheadRef = usePlayheadRef();
   const engine = useAnimationEngine();
   const stageDropActive = Boolean(dropPreview);
   const isReproducing = previewMode && isPlaying;
   const transitionDuration = Math.max(120, sceneTransitionDurationMs);
-  const previousPlayheadRef = useRef(playheadMs);
   const previousSceneIdRef = useRef<string | undefined>(undefined);
   const widgetsRef = useRef(widgets);
-  const sceneWidgets = Object.values(widgetsById).filter((widget) => widget.sceneId === sceneId);
+  const playheadOverlayRef = useRef<HTMLDivElement | null>(null);
+  const sceneWidgets = useMemo(
+    () => Object.values(widgetsById).filter((widget) => widget.sceneId === sceneId),
+    [sceneId, widgetsById],
+  );
+  const widgetTriggerDepsRef = useLatestRef({
+    engine,
+    widgetsById,
+    sceneWidgets,
+    playheadRef,
+  });
 
-  function isVisuallyCoveredByScratchShell(scratchGroup: WidgetNode, widget: WidgetNode): boolean {
-    if (scratchGroup.id === widget.id) return false;
-    if (isWidgetDescendantOf(widget.id, scratchGroup.id, widgetsById)) return false;
-    if (Number(scratchGroup.zIndex ?? 0) <= Number(widget.zIndex ?? 0)) return false;
-    return Number(scratchGroup.frame.x ?? 0) < Number(widget.frame.x ?? 0) + Number(widget.frame.width ?? 0)
-      && Number(scratchGroup.frame.x ?? 0) + Number(scratchGroup.frame.width ?? 0) > Number(widget.frame.x ?? 0)
-      && Number(scratchGroup.frame.y ?? 0) < Number(widget.frame.y ?? 0) + Number(widget.frame.height ?? 0)
-      && Number(scratchGroup.frame.y ?? 0) + Number(scratchGroup.frame.height ?? 0) > Number(widget.frame.y ?? 0);
-  }
+  const stableWidgetTrigger = useCallback((widgetId: string, trigger: ActionNode['trigger'], metadata?: Record<string, unknown>) => {
+    const deps = widgetTriggerDepsRef.current;
+    const nowMs = performance.now();
+    const sceneTimeMs = deps.playheadRef.current;
 
-  function isSuppressedByExplicitScratchTarget(widget: WidgetNode): boolean {
-    return sceneWidgets.some((candidate) => {
-      if (candidate.type !== 'group' || !candidate.props.scratchEnabled) return false;
-      if (!isScratchGroupActive({ group: candidate, widgetsById, playheadMs })) return false;
-      if (getScratchRevealTargetMode(candidate) !== 'widget' || !getScratchRevealTargetId(candidate)) return false;
-      if (!isVisuallyCoveredByScratchShell(candidate, widget)) return false;
-      const targetIds = new Set(resolveScratchRevealTargets(candidate, sceneWidgets, widgetsById).map((target) => target.id));
-      return !targetIds.has(widget.id);
+    if (trigger === 'click' || trigger === 'hover-enter' || trigger === 'hover-exit') {
+      deps.engine.emit({
+        trigger,
+        sourceId: widgetId,
+        targetId: widgetId,
+        sceneTimeMs,
+        realTimeMs: nowMs,
+        clock: createEventClock(trigger, nowMs),
+        metadata,
+      });
+      return;
+    }
+    if (trigger !== 'scratch-complete') return;
+
+    const scratchWidget = deps.widgetsById[widgetId];
+    if (!scratchWidget) return;
+    const revealTargets = resolveScratchRevealTargets(scratchWidget, deps.sceneWidgets, deps.widgetsById);
+    const clock = createEventClock('reveal', nowMs);
+    const metadataWithReplay = {
+      ...(metadata ?? {}),
+      ...(buildScratchRevealMetadata(scratchWidget.props.replayTargetMotionOnReveal !== false) ?? {}),
+    };
+    revealTargets.forEach((targetWidget) => {
+      deps.engine.emit({
+        trigger: 'reveal',
+        sourceId: widgetId,
+        targetId: targetWidget.id,
+        sceneTimeMs: Number(metadata?.completedAtMs ?? sceneTimeMs),
+        realTimeMs: nowMs,
+        clock,
+        metadata: metadataWithReplay,
+      });
     });
-  }
+  }, [widgetTriggerDepsRef]);
 
   useEffect(() => {
     widgetsRef.current = widgets;
@@ -125,22 +152,19 @@ export function StageSurface({
   useEffect(() => {
     if (!previewMode) {
       engine.resetEventClocks();
-      previousPlayheadRef.current = playheadMs;
-      return;
     }
-    previousPlayheadRef.current = playheadMs;
-  }, [engine, playheadMs, previewMode]);
+  }, [engine, previewMode]);
 
   useEffect(() => {
     if (!isReproducing) {
-      engine.seekScene(playheadMs);
+      engine.seekScene(playbackEngine.getCurrentMs());
       return undefined;
     }
-    engine.seekScene(playbackEngine.getCurrentMs() || playheadMs);
+    engine.seekScene(playbackEngine.getCurrentMs());
     return playbackEngine.subscribeDom((nextMs) => {
       engine.seekScene(nextMs);
     });
-  }, [engine, isReproducing, playheadMs]);
+  }, [engine, isReproducing]);
 
   useEffect(() => {
     if (!isReproducing) {
@@ -166,52 +190,66 @@ export function StageSurface({
     });
   }, [engine, isReproducing, sceneId]);
 
-  function isCoveredByScratchGroup(widget: WidgetNode): boolean {
-    if (!previewMode) return false;
-    let currentParentId = widget.parentId;
-    while (currentParentId) {
-      const parent = widgetsById[currentParentId];
-      if (!parent) return false;
-      if (parent.type === 'group' && parent.props.scratchEnabled) return true;
-      currentParentId = parent.parentId;
-    }
-    return false;
-  }
+  useLayoutEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const apply = (ms: number) => {
+      widgets.forEach((widget) => {
+        const element = document.querySelector<HTMLElement>(`[data-stage-widget-id="${widget.id}"]`);
+        if (!element) return;
 
-  function isWidgetVisibleAtBaseTime(widget: WidgetNode): boolean {
-    if (widget.hidden) return false;
-    return isWidgetVisibleAt(widget, playheadMs);
-  }
+        const visible = !widget.hidden && isWidgetVisibleAt(widget, ms) && isVisibleWithinParentTimeline({
+          widget,
+          widgetsById,
+          isWidgetVisible: (widgetId) => {
+            const target = widgetsById[widgetId];
+            if (!target || target.hidden) return false;
+            return isWidgetVisibleAt(target, ms);
+          },
+        });
 
-  function resolveScratchGroupFrame(widget: WidgetNode, visited = new Set<string>()): WidgetFrame {
-    if (visited.has(widget.id)) {
-      return liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
-    }
-    visited.add(widget.id);
-    const baseFrame = liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs);
-    const childFrames = (widget.childIds ?? [])
-      .map((childId) => widgetsById[childId])
-      .filter((child): child is WidgetNode => Boolean(child) && isWidgetVisibleAtBaseTime(child))
-      .map((child) => {
-        if (child.childIds?.length) return resolveScratchGroupFrame(child, visited);
-        return liveFrameById[child.id] ?? getLiveWidgetFrame(child, playheadMs);
+        element.style.display = visible ? '' : 'none';
+        if (!visible) return;
+
+        const liveFrame = isReproducing
+          ? widget.frame
+          : (liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, ms));
+        const frame = isReproducing
+          ? liveFrame
+          : resolveInheritedMotionFrame({
+              widget,
+              widgetsById,
+              liveFrameById,
+              playheadMs: ms,
+              getLiveFrame: (target, targetPlayheadMs) => getLiveWidgetFrame(target, targetPlayheadMs),
+              ownFrame: liveFrame,
+            });
+
+        element.style.left = `${frame.x}px`;
+        element.style.top = `${frame.y}px`;
+        element.style.width = `${frame.width}px`;
+        element.style.height = `${frame.height}px`;
+        element.style.transform = `rotate(${frame.rotation}deg)`;
+
+        const opacity = isReproducing
+          ? Number(widget.style.opacity ?? 1)
+          : resolveInheritedOpacity({
+              widget,
+              widgetsById,
+              playheadMs: ms,
+              ownOpacity: getLiveWidgetOpacity(widget, ms),
+              getLiveOpacity: (target, targetPlayheadMs) => getLiveWidgetOpacity(target, targetPlayheadMs),
+            });
+        element.style.opacity = String(opacity);
       });
 
-    if (!childFrames.length) return baseFrame;
-
-    const minX = Math.min(baseFrame.x, ...childFrames.map((frame) => frame.x));
-    const minY = Math.min(baseFrame.y, ...childFrames.map((frame) => frame.y));
-    const maxX = Math.max(baseFrame.x + baseFrame.width, ...childFrames.map((frame) => frame.x + frame.width));
-    const maxY = Math.max(baseFrame.y + baseFrame.height, ...childFrames.map((frame) => frame.y + frame.height));
-
-    return {
-      ...baseFrame,
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
+      if (playheadOverlayRef.current) {
+        playheadOverlayRef.current.style.left = `${Math.round((ms / sceneDurationMs) * canvas.width)}px`;
+      }
     };
-  }
+
+    apply(playbackEngine.getCurrentMs());
+    return playbackEngine.subscribeDom(apply);
+  }, [canvas.width, isReproducing, liveFrameById, sceneDurationMs, widgets, widgetsById]);
 
   function buildStageSurfaceStyle(): CSSProperties {
     return {
@@ -234,7 +272,7 @@ export function StageSurface({
   }
 
   function buildPlayheadOverlayStyle(): CSSProperties {
-    return { left: Math.round((playheadMs / sceneDurationMs) * canvas.width) };
+    return { left: 0 };
   }
 
   return (
@@ -249,107 +287,38 @@ export function StageSurface({
       style={buildStageSurfaceStyle()}
     >
       {widgets.map((widget) => {
-        if (!isWidgetVisibleAtBaseTime(widget) || !isVisibleWithinParentTimeline({
-          widget,
-          widgetsById,
-          isWidgetVisible: (widgetId) => {
-            const target = widgetsById[widgetId];
-            return target ? isWidgetVisibleAtBaseTime(target) : false;
-          },
-        })) return null;
-        if (isSuppressedByExplicitScratchTarget(widget)) return null;
-        if (isCoveredByScratchGroup(widget)) return null;
-        const scratchGroupActive = widget.type === 'group' && isScratchGroupActive({ group: widget, widgetsById, playheadMs });
+        const scratchGroupActive = widget.type === 'group' && isScratchGroupActive({ group: widget, widgetsById, playheadMs: playheadRef.current });
         const isPassThroughGroup = widget.type === 'group'
           && Boolean(widget.childIds?.length)
           && (!Boolean(widget.props.scratchEnabled) || !scratchGroupActive);
         const groupSelectedInEditor = !previewMode && selectedIds.includes(widget.id);
         if (isPassThroughGroup && !groupSelectedInEditor) return null;
 
-        const liveFrame = isReproducing ? widget.frame : (liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, playheadMs));
-        const baseFrame = previewMode && widget.type === 'group' && Boolean(widget.props.scratchEnabled)
-          ? resolveScratchGroupFrame(widget)
-          : liveFrame;
-        const frame = isReproducing
-          ? baseFrame
-          : resolveInheritedMotionFrame({
-              widget,
-              widgetsById,
-              liveFrameById,
-              playheadMs,
-              getLiveFrame: (target, targetPlayheadMs) => getLiveWidgetFrame(target, targetPlayheadMs),
-              ownFrame: baseFrame,
-            });
-        const renderNode = frame === widget.frame ? widget : { ...widget, frame };
-        const opacity = isReproducing
-          ? Number(widget.style.opacity ?? 1)
-          : resolveInheritedOpacity({
-              widget,
-              widgetsById,
-              playheadMs,
-              ownOpacity: getLiveWidgetOpacity(widget, playheadMs),
-              getLiveOpacity: (target, targetPlayheadMs) => getLiveWidgetOpacity(target, targetPlayheadMs),
-            });
+        const baseFrame = liveFrameById[widget.id] ?? widget.frame;
 
         return (
           <StageWidget
             key={widget.id}
-            node={renderNode}
+            node={widget}
             stateRef={stateRef}
             widgetsById={widgetsById}
             selected={selectedIds.includes(widget.id) && !previewMode}
             primary={selectedIds[0] === widget.id && !previewMode}
-            frame={frame}
-            opacity={opacity}
+            frame={baseFrame}
             showBadge={showWidgetBadges}
             previewMode={previewMode}
             isReproducing={isReproducing}
             editModeWireframe={editModeWireframe}
-            playheadMs={playheadMs}
             sceneDurationMs={sceneDurationMs}
-            hovered={hoveredWidgetId === renderNode.id}
-            active={activeWidgetId === renderNode.id}
+            hovered={hoveredWidgetId === widget.id}
+            active={activeWidgetId === widget.id}
             onSetActiveWidget={onSetActiveWidget}
             onSetHoveredWidget={onSetHoveredWidget}
             onExecuteAction={onExecuteAction}
             onGoToScene={onGoToScene}
-            onWidgetTrigger={(widgetId, trigger, metadata) => {
-              const nowMs = performance.now();
-              if (trigger === 'click' || trigger === 'hover-enter' || trigger === 'hover-exit') {
-                engine.emit({
-                  trigger,
-                  sourceId: widgetId,
-                  targetId: widgetId,
-                  sceneTimeMs: playheadMs,
-                  realTimeMs: nowMs,
-                  clock: createEventClock(trigger, nowMs),
-                  metadata,
-                });
-                return;
-              }
-              if (trigger !== 'scratch-complete') return;
-              const scratchWidget = widgetsById[widgetId];
-              if (!scratchWidget) return;
-              const revealTargets = resolveScratchRevealTargets(scratchWidget, sceneWidgets, widgetsById);
-              const clock = createEventClock('reveal', nowMs);
-              const metadataWithReplay = {
-                ...(metadata ?? {}),
-                ...(buildScratchRevealMetadata(scratchWidget.props.replayTargetMotionOnReveal !== false) ?? {}),
-              };
-              revealTargets.forEach((targetWidget) => {
-                engine.emit({
-                  trigger: 'reveal',
-                  sourceId: widgetId,
-                  targetId: targetWidget.id,
-                  sceneTimeMs: Number(metadata?.completedAtMs ?? playheadMs),
-                  realTimeMs: nowMs,
-                  clock,
-                  metadata: metadataWithReplay,
-                });
-              });
-            }}
-            onWidgetPointerDown={(event) => onWidgetPointerDown(event, renderNode.id, Boolean(renderNode.locked))}
-            onResizePointerDown={(event, handle) => onResizePointerDown(event, renderNode.id, Boolean(renderNode.locked), handle)}
+            onWidgetTrigger={stableWidgetTrigger}
+            onWidgetPointerDown={(event) => onWidgetPointerDown(event, widget.id, Boolean(widget.locked))}
+            onResizePointerDown={(event, handle) => onResizePointerDown(event, widget.id, Boolean(widget.locked), handle)}
           />
         );
       })}
@@ -361,7 +330,7 @@ export function StageSurface({
           <div className="stage-guide stage-guide-vertical" {...createStageInteractionProps(STAGE_INTERACTION.systemOverlay)} style={buildVerticalGuideStyle()} />
         </>
       ) : null}
-      <div className="playhead-overlay" {...createStageInteractionProps(STAGE_INTERACTION.systemOverlay)} style={buildPlayheadOverlayStyle()} />
+      <div ref={playheadOverlayRef} className="playhead-overlay" {...createStageInteractionProps(STAGE_INTERACTION.systemOverlay)} style={buildPlayheadOverlayStyle()} />
     </div>
   );
 }

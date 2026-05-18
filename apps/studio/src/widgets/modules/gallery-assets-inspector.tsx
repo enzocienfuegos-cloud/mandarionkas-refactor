@@ -86,18 +86,24 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
       .filter((asset): asset is AssetRecord => Boolean(asset))
       .filter((asset) => !selectedAssetIds.includes(asset.id));
     if (!pickedAssets.length) return;
-    const nextSlides = [...slides, ...pickedAssets.map((asset) => ({
+    appendAssetsToGallery(pickedAssets);
+    setPendingAssetIds([]);
+  };
+
+  const appendAssetsToGallery = (pickedAssets: AssetRecord[]) => {
+    const freshAssets = pickedAssets.filter((asset) => !selectedAssetIds.includes(asset.id));
+    if (!freshAssets.length) return;
+    const nextSlides = [...slides, ...freshAssets.map((asset) => ({
       src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
       caption: '',
     }))];
-    const nextIds = [...selectedAssetIds, ...pickedAssets.map((asset) => asset.id)];
+    const nextIds = [...selectedAssetIds, ...freshAssets.map((asset) => asset.id)];
     widgetActions.updateWidgetProps(widget.id, {
       slides: buildSlidesValue(nextSlides),
       assetIdsCsv: buildSelectedAssetIds(nextIds),
       itemCount: nextSlides.length,
       activeIndex: 1,
     });
-    setPendingAssetIds([]);
   };
 
   const removeSlide = (index: number) => {
@@ -144,7 +150,17 @@ export function GalleryAssetsInspector({ widget, title }: { widget: WidgetNode; 
               ))}
             </select>
             <Button size="sm" className="left-button compact-action" onClick={addSelectedAssets} disabled={!pendingAssetIds.length}>Add images</Button>
-            <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
+            <Button
+              size="sm"
+              className="left-button compact-action"
+              onClick={() => requestOpenAssetLibrary({
+                accept: 'image',
+                title: `Add images to ${title}`,
+                onSelect: (asset: AssetRecord) => appendAssetsToGallery([asset]),
+              })}
+            >
+              Open library
+            </Button>
           </div>
         </div>
         <div>

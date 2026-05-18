@@ -2,10 +2,10 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
+import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { clamp, getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 import { parseShoppableProducts } from './shoppable-sidebar.shared';
-import { useWidgetPlayheadMs } from '../shared/use-widget-playhead';
 
 const shoppableViewportStyle: CSSProperties = {
   position: 'relative',
@@ -173,7 +173,8 @@ function resolveCardSize(cardShape: string): { width: number; height: number } {
 
 function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
-  const playheadMs = useWidgetPlayheadMs(ctx.playheadMs, ctx.isReproducing);
+  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
+  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
   const ctaBackgroundColor = String((node.style as Record<string, unknown>).ctaBackgroundColor ?? accent);
   const ctaTextColor = String((node.style as Record<string, unknown>).ctaTextColor ?? 'var(--neutral-slate-900)');
   const products = useMemo(() => parseShoppableProducts(node.props.products), [node.props.products]);

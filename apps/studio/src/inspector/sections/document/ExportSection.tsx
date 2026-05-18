@@ -1,4 +1,4 @@
-import { useStudioStore } from '../../../core/store/use-studio-store';
+import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
 import { buildExportHandoff, buildExportManifest, buildExportPreflight, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
 import { ExportPreflightPanel } from '../../../export/ExportPreflightPanel';
 import { validateExport } from '../../../domain/document/export-validation';
@@ -14,7 +14,7 @@ export function ExportSection(): JSX.Element {
     return `pill pill--${kind}`;
   }
 
-  const state = useStudioStore((value) => value);
+  const state = useStudioStoreSnapshot();
   const exportController = useExportReadinessController(useTopBarStudioSnapshot());
   const manifest = buildExportManifest(state);
   const readiness = buildExportReadiness(state);

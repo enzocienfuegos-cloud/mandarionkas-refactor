@@ -118,16 +118,20 @@ export function InteractiveGalleryInspector({ widget }: { widget: WidgetNode }):
 
   function addAssetItem(): void {
     if (!selectedAsset) return;
+    appendAssetItem(selectedAsset);
+    setSelectedAssetId('');
+  }
+
+  function appendAssetItem(asset: AssetRecord): void {
     commitItems([
       ...items,
       {
-        src: resolveAssetDeliveryUrl(selectedAsset, targetChannel, selectedAsset.qualityPreference ?? 'auto'),
-        title: selectedAsset.name,
+        src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+        title: asset.name,
         subtitle: '',
-        assetId: selectedAsset.id,
+        assetId: asset.id,
       },
     ]);
-    setSelectedAssetId('');
   }
 
   function updateItem(index: number, patch: Partial<GalleryItemDraft>): void {
@@ -193,7 +197,17 @@ export function InteractiveGalleryInspector({ widget }: { widget: WidgetNode }):
               ))}
             </select>
             <Button size="sm" className="left-button compact-action" onClick={addAssetItem} disabled={!selectedAsset}>Add item</Button>
-            <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
+            <Button
+              size="sm"
+              className="left-button compact-action"
+              onClick={() => requestOpenAssetLibrary({
+                accept: 'image',
+                title: 'Add gallery item from library',
+                onSelect: appendAssetItem,
+              })}
+            >
+              Open library
+            </Button>
           </div>
         </div>
 

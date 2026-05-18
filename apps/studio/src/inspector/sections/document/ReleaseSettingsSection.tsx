@@ -1,4 +1,4 @@
-import { useStudioStore } from '../../../core/store/use-studio-store';
+import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
 import { buildExportHandoff, buildExportReadiness } from '../../../export/engine';
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
 import { createInspectorField } from '../../contract-driven';
@@ -9,7 +9,7 @@ export function ReleaseSettingsSection(): JSX.Element {
     return `pill pill--${kind}`;
   }
 
-  const state = useStudioStore((value) => value);
+  const state = useStudioStoreSnapshot();
   const { updateReleaseSettings } = useDocumentActions();
   const release = state.document.metadata.release;
   const readiness = buildExportReadiness(state);

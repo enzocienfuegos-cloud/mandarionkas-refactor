@@ -1,4 +1,4 @@
-import { useStudioStore } from '../../../core/store/use-studio-store';
+import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
 import { buildExportPreflight, triggerExportPreflight, triggerExportReviewPackage } from '../../../export/engine';
 import { ExportPreflightPanel } from '../../../export/ExportPreflightPanel';
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
@@ -9,7 +9,7 @@ import { Button } from '../../../shared/ui/Button';
 import { useToast } from '../../../shared/ui/ToastProvider';
 
 export function ShareHandoffSection(): JSX.Element {
-  const state = useStudioStore((value) => value);
+  const state = useStudioStoreSnapshot();
   const topBarSnapshot = useTopBarStudioSnapshot();
   const exportController = useExportReadinessController(topBarSnapshot);
   const { setShareLink } = useDocumentActions();

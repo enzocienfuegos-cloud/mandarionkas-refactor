@@ -1,18 +1,34 @@
 import type { StudioState } from '../../../domain/document/types';
 import { buildResolvedWidgetsById } from '../../../domain/document/canvas-variants';
 
-type StageDocumentSlice = {
+type ResolvedWidgetsById = ReturnType<typeof buildResolvedWidgetsById>;
+
+export type StageDocumentSlice = {
   canvas: StudioState['document']['canvas'];
   scene: StudioState['document']['scenes'][number];
-  widgets: ReturnType<typeof buildResolvedWidgetsById>[string][];
-  widgetsById: ReturnType<typeof buildResolvedWidgetsById>;
+  widgets: ResolvedWidgetsById[string][];
+  widgetsById: ResolvedWidgetsById;
   selectedIds: StudioState['document']['selection']['widgetIds'];
+};
+
+export type StageUiSlice = {
+  zoom: number;
+  isPlaying: boolean;
+  previewMode: boolean;
+  previewContext: StudioState['ui']['previewContext'];
+  editModeWireframe: boolean;
+  hoveredWidgetId: StudioState['ui']['hoveredWidgetId'];
+  activeWidgetId: StudioState['ui']['activeWidgetId'];
+  stageBackdrop: StudioState['ui']['stageBackdrop'];
+  showStageRulers: boolean;
+  showWidgetBadges: boolean;
 };
 
 let cachedDocument: StudioState['document'] | null = null;
 let cachedStageDocumentSlice: StageDocumentSlice | null = null;
 
-function getStageDocumentSlice(document: StudioState['document']): StageDocumentSlice {
+export function selectStageDocument(state: StudioState): StageDocumentSlice {
+  const document = state.document;
   if (cachedDocument === document && cachedStageDocumentSlice) {
     return cachedStageDocumentSlice;
   }
@@ -35,10 +51,8 @@ function getStageDocumentSlice(document: StudioState['document']): StageDocument
   return cachedStageDocumentSlice;
 }
 
-export function selectStageState(state: StudioState) {
-  const documentSlice = getStageDocumentSlice(state.document);
+export function selectStageUi(state: StudioState): StageUiSlice {
   return {
-    ...documentSlice,
     zoom: state.ui.zoom,
     isPlaying: state.ui.isPlaying,
     previewMode: state.ui.previewMode,
@@ -49,5 +63,13 @@ export function selectStageState(state: StudioState) {
     stageBackdrop: state.ui.stageBackdrop,
     showStageRulers: state.ui.showStageRulers,
     showWidgetBadges: state.ui.showWidgetBadges,
+  };
+}
+
+/** @deprecated Use selectStageDocument + selectStageUi instead. */
+export function selectStageState(state: StudioState) {
+  return {
+    ...selectStageDocument(state),
+    ...selectStageUi(state),
   };
 }

@@ -5,6 +5,7 @@ import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
 import type { DragTokenItem } from './drag-token-pool.types';
 import { subscribeTokenDrag } from './token-drag-runtime';
+import { useLatestRef } from '../../shared/hooks';
 
 function parseActionMap(raw: unknown): Record<string, string> {
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
@@ -99,6 +100,8 @@ function acceptsTokenSource(
 }
 
 function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }) {
+  const ctxRef = useLatestRef(ctx);
+  const nodeRef = useLatestRef(node);
   const [isOver, setIsOver] = useState(false);
   const zoneRef = useRef<HTMLDivElement | null>(null);
   const cachedRectRef = useRef<DOMRect | null>(null);
@@ -153,16 +156,16 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
 
       const rect = element.getBoundingClientRect();
       const inside = detail.clientX >= rect.left && detail.clientX <= rect.right && detail.clientY >= rect.top && detail.clientY <= rect.bottom;
-      if (detail.phase === 'end' && inside && acceptsTokenSource(ctx, node.id, detail.sourceWidgetId)) {
-        const targetSceneId = resolveTokenTargetSceneId(ctx, detail.sourceWidgetId, detail.tokenId);
+      if (detail.phase === 'end' && inside && acceptsTokenSource(ctxRef.current, nodeRef.current.id, detail.sourceWidgetId)) {
+        const targetSceneId = resolveTokenTargetSceneId(ctxRef.current, detail.sourceWidgetId, detail.tokenId);
         if (targetSceneId) {
-          ctx.goToScene?.(targetSceneId);
+          ctxRef.current.goToScene?.(targetSceneId);
         } else {
-          const actionId = resolveFallbackActionId(node, detail.tokenId);
+          const actionId = resolveFallbackActionId(nodeRef.current, detail.tokenId);
           if (actionId) {
-            ctx.executeAction?.(actionId);
+            ctxRef.current.executeAction?.(actionId);
           } else {
-            ctx.triggerWidgetAction('click');
+            ctxRef.current.triggerWidgetAction('click');
           }
         }
       }
@@ -177,7 +180,7 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
       unsubscribe();
       removeInvalidationListeners();
     };
-  }, [ctx, node]);
+  }, [node.id]);
 
   return (
     <div style={dropZoneShellStyle}>

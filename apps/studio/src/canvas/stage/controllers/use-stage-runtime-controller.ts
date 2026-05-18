@@ -68,7 +68,6 @@ export function useStageRuntimeController(args: {
       timelineEnterActions.forEach((action) => widgetActionsRef.current.executeAction(action.id));
       previousActionPlayheadMs = nextTime;
       if (nextTime - lastSyncedMs >= playbackEngine.getSyncIntervalMs()) {
-        timelineActionsRef.current.setPlayhead(nextTime);
         lastSyncedMs = nextTime;
       }
       rafId = requestAnimationFrame(tick);

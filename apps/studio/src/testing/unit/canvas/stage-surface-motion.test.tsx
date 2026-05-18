@@ -1,6 +1,8 @@
 import { act, create } from 'react-test-renderer';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WidgetNode } from '../../../domain/document/types';
+import { PlayheadRefProvider } from '../../../canvas/stage/playhead-ref-context';
+import { playbackEngine } from '../../../hooks/use-playback-engine';
 
 const engine = {
   resetEventClocks: vi.fn(),
@@ -32,6 +34,14 @@ vi.mock('../../../canvas/stage/components/StageDropPreviewOverlay', () => ({
 
 import { StageSurface, type StageSurfaceProps } from '../../../canvas/stage/components/StageSurface';
 
+function renderSurface(props: StageSurfaceProps) {
+  return create(
+    <PlayheadRefProvider>
+      <StageSurface {...props} />
+    </PlayheadRefProvider>,
+  );
+}
+
 function createWidget(id: string): WidgetNode {
   return {
     id,
@@ -59,7 +69,6 @@ function buildProps(overrides: Partial<StageSurfaceProps> = {}): StageSurfacePro
     isPlaying: false,
     editModeWireframe: false,
     zoom: 1,
-    playheadMs: 100,
     sceneDurationMs: 2000,
     sceneTransitionType: 'cut',
     sceneTransitionDurationMs: 450,
@@ -72,7 +81,6 @@ function buildProps(overrides: Partial<StageSurfaceProps> = {}): StageSurfacePro
     showStageRulers: false,
     showWidgetBadges: false,
     stateRef: { current: {} as never },
-    isWidgetVisible: () => true,
     onStagePointerDown: vi.fn(),
     onStageDragOver: vi.fn(),
     onStageDragLeave: vi.fn(),
@@ -82,6 +90,7 @@ function buildProps(overrides: Partial<StageSurfaceProps> = {}): StageSurfacePro
     onSetActiveWidget: vi.fn(),
     onSetHoveredWidget: vi.fn(),
     onExecuteAction: vi.fn(),
+    onGoToScene: vi.fn(),
     ...overrides,
   };
 }
@@ -92,23 +101,30 @@ describe('StageSurface motion behavior', () => {
     engine.resetEventClocks.mockReset();
     engine.seekScene.mockReset();
     engine.emit.mockReset();
+    playbackEngine.setCurrentMs(100);
+    playbackEngine.flushReact();
   });
 
   it('does not reset interaction clocks when scrubbing backwards in preview mode', () => {
-    const root = create(<StageSurface {...buildProps()} />);
+    const root = renderSurface(buildProps());
 
     act(() => {
-      root.update(<StageSurface {...buildProps({ playheadMs: 40 })} />);
+      playbackEngine.setCurrentMs(40);
+      playbackEngine.flushReact();
     });
 
     expect(engine.resetEventClocks).not.toHaveBeenCalled();
   });
 
   it('still resets interaction clocks when preview mode turns off', () => {
-    const root = create(<StageSurface {...buildProps()} />);
+    const root = renderSurface(buildProps());
 
     act(() => {
-      root.update(<StageSurface {...buildProps({ previewMode: false })} />);
+      root.update(
+        <PlayheadRefProvider>
+          <StageSurface {...buildProps({ previewMode: false })} />
+        </PlayheadRefProvider>,
+      );
     });
 
     expect(engine.resetEventClocks).toHaveBeenCalledTimes(1);
@@ -119,21 +135,22 @@ describe('StageSurface motion behavior', () => {
     let root: ReturnType<typeof create>;
 
     act(() => {
-      root = create(<StageSurface {...buildProps({ isPlaying: true, widgets: [widget], widgetsById: { [widget.id]: widget } })} />);
+      root = renderSurface(buildProps({ isPlaying: true, widgets: [widget], widgetsById: { [widget.id]: widget } }));
     });
 
     expect(engine.emit).toHaveBeenCalledTimes(1);
 
     act(() => {
       root!.update(
-        <StageSurface
-          {...buildProps({
-            isPlaying: true,
-            playheadMs: 180,
-            widgets: [{ ...widget }],
-            widgetsById: { [widget.id]: { ...widget } },
-          })}
-        />,
+        <PlayheadRefProvider>
+          <StageSurface
+            {...buildProps({
+              isPlaying: true,
+              widgets: [{ ...widget }],
+              widgetsById: { [widget.id]: { ...widget } },
+            })}
+          />
+        </PlayheadRefProvider>,
       );
     });
 
@@ -163,17 +180,19 @@ describe('StageSurface motion behavior', () => {
     let scratchRoot: ReturnType<typeof create>;
     act(() => {
       scratchRoot = create(
-        <StageSurface
-          {...buildProps({
-            widgets: [scratchGroup, targetGroup],
-            widgetsById: {
-              scratch_group: scratchGroup,
-              cover_text: coverText,
-              target_group: targetGroup,
-              target_image: targetImage,
-            },
-          })}
-        />,
+        <PlayheadRefProvider>
+          <StageSurface
+            {...buildProps({
+              widgets: [scratchGroup, targetGroup],
+              widgetsById: {
+                scratch_group: scratchGroup,
+                cover_text: coverText,
+                target_group: targetGroup,
+                target_image: targetImage,
+              },
+            })}
+          />
+        </PlayheadRefProvider>,
       );
     });
 
@@ -221,17 +240,19 @@ describe('StageSurface motion behavior', () => {
     let scratchRoot: ReturnType<typeof create>;
     act(() => {
       scratchRoot = create(
-        <StageSurface
-          {...buildProps({
-            widgets: [scratchGroup, targetGroup],
-            widgetsById: {
-              scratch_group: scratchGroup,
-              cover_text: coverText,
-              target_group: targetGroup,
-              target_image: targetImage,
-            },
-          })}
-        />,
+        <PlayheadRefProvider>
+          <StageSurface
+            {...buildProps({
+              widgets: [scratchGroup, targetGroup],
+              widgetsById: {
+                scratch_group: scratchGroup,
+                cover_text: coverText,
+                target_group: targetGroup,
+                target_image: targetImage,
+              },
+            })}
+          />
+        </PlayheadRefProvider>,
       );
     });
 

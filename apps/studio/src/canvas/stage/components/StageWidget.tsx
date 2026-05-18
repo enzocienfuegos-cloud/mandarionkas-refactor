@@ -1,4 +1,4 @@
-import { memo, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { memo, useCallback, useMemo, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { getWidgetActions } from '../../../actions/runtime';
 import { renderWidgetContents } from '../render-widget';
 import type { ActionNode, WidgetFrame, WidgetNode, StudioState } from '../../../domain/document/types';
@@ -6,13 +6,11 @@ import type { ResizeHandle } from '../use-stage-controller';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
 import { isNativeStageDragWidgetType } from '../../../domain/document/widget-type-groups';
 import { MotionLayer } from '../../../motion/react/MotionLayer';
+import { useLatestRef } from '../../../shared/hooks';
+import { usePlayheadRef } from '../playhead-ref-context';
 
 const HANDLE_SIZE = 10;
 const showDebugWidgetTags = import.meta.env.DEV && import.meta.env.VITE_SHOW_WIDGET_TAGS === 'true';
-const PLAYBACK_REACTIVE_WIDGET_TYPES = new Set<WidgetNode['type']>([
-  'group',
-  'scratch-reveal',
-]);
 
 type StageWidgetProps = {
   node: WidgetNode;
@@ -21,14 +19,12 @@ type StageWidgetProps = {
   frame: WidgetFrame;
   selected: boolean;
   primary: boolean;
-  opacity: number;
   showBadge: boolean;
   onWidgetPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onResizePointerDown: (event: ReactPointerEvent<HTMLButtonElement>, handle: ResizeHandle) => void;
   previewMode: boolean;
   isReproducing: boolean;
   editModeWireframe: boolean;
-  playheadMs: number;
   sceneDurationMs: number;
   hovered: boolean;
   active: boolean;
@@ -46,14 +42,12 @@ export const StageWidget = memo(function StageWidget({
   frame,
   selected,
   primary,
-  opacity,
   showBadge,
   onWidgetPointerDown,
   onResizePointerDown,
   previewMode,
   isReproducing,
   editModeWireframe,
-  playheadMs,
   sceneDurationMs,
   hovered,
   active,
@@ -63,29 +57,65 @@ export const StageWidget = memo(function StageWidget({
   onGoToScene,
   onWidgetTrigger,
 }: StageWidgetProps): JSX.Element {
+  const playheadRef = usePlayheadRef();
   const managesNativeDrag = isNativeStageDragWidgetType(node.type);
   const useWireframe = !previewMode && editModeWireframe && !selected && !active && !hovered;
-  const triggerWidgetAction = (trigger: ActionNode['trigger'], _metadata?: Record<string, unknown>) => {
-    if (!previewMode) return;
-    onWidgetTrigger?.(node.id, trigger, _metadata);
-    const actions = getWidgetActions(stateRef.current, node.id, trigger);
-    actions.forEach((action) => onExecuteAction(action.id));
-  };
-  const widgetStyle = buildStageWidgetStyle(node, frame, opacity, node.zIndex, {
+  const triggerDepsRef = useLatestRef({
+    previewMode,
+    onWidgetTrigger,
+    onExecuteAction,
+    stateRef,
+    nodeId: node.id,
+  });
+  const triggerWidgetAction = useCallback((trigger: ActionNode['trigger'], metadata?: Record<string, unknown>) => {
+    const deps = triggerDepsRef.current;
+    if (!deps.previewMode) return;
+    deps.onWidgetTrigger?.(deps.nodeId, trigger, metadata);
+    const actions = getWidgetActions(deps.stateRef.current, deps.nodeId, trigger);
+    actions.forEach((action) => deps.onExecuteAction(action.id));
+  }, [triggerDepsRef]);
+  const widgetStyle = buildStageWidgetStyle(node, frame, node.zIndex, {
     interactiveInPreview: previewMode && !managesNativeDrag,
     previewMode,
     hovered,
     active,
   });
   const widgetContentStyle = buildStageWidgetContentStyle(previewMode);
+  const widgetRenderCtx = useMemo(() => ({
+    previewMode,
+    isReproducing,
+    get playheadMs() {
+      return playheadRef.current;
+    },
+    sceneDurationMs,
+    hovered,
+    active,
+    widgetsById,
+    state: stateRef.current,
+    triggerWidgetAction,
+    executeAction: onExecuteAction,
+    goToScene: onGoToScene,
+  }), [
+    previewMode,
+    isReproducing,
+    sceneDurationMs,
+    hovered,
+    active,
+    widgetsById,
+    stateRef,
+    playheadRef,
+    triggerWidgetAction,
+    onExecuteAction,
+    onGoToScene,
+  ]);
 
   return (
     <MotionLayer
       widget={node}
       widgetsById={widgetsById}
-      playheadMs={playheadMs}
       previewMode={previewMode}
       isReproducing={isReproducing}
+      data-stage-widget-id={node.id}
       className={`stage-widget stage-widget--${node.type} ${selected ? 'is-selected' : ''} ${primary ? 'is-primary' : ''} ${hovered ? 'is-hovered' : ''} ${active ? 'is-active' : ''} ${previewMode ? 'is-preview-mode' : 'is-edit-mode'} ${useWireframe ? 'is-wireframe-mode' : ''}`}
       {...createStageInteractionProps(STAGE_INTERACTION.widget)}
       onPointerDown={(event) => {
@@ -114,19 +144,7 @@ export const StageWidget = memo(function StageWidget({
       <div className="stage-widget-content" style={widgetContentStyle}>
         {renderWidgetContents(
           node,
-          {
-            previewMode,
-            isReproducing,
-            playheadMs,
-            sceneDurationMs,
-            hovered,
-            active,
-            widgetsById,
-            state: stateRef.current,
-            triggerWidgetAction,
-            executeAction: onExecuteAction,
-            goToScene: onGoToScene,
-          },
+          widgetRenderCtx,
           { wireframe: useWireframe },
         )}
       </div>
@@ -139,7 +157,6 @@ export const StageWidget = memo(function StageWidget({
 function buildStageWidgetStyle(
   node: WidgetNode,
   frame: WidgetFrame,
-  opacity: number,
   zIndex: number,
   {
     interactiveInPreview,
@@ -158,7 +175,6 @@ function buildStageWidgetStyle(
     top: frame.y,
     width: frame.width,
     height: frame.height,
-    opacity,
     zIndex,
     cursor: interactiveInPreview ? 'pointer' : 'default',
     transform: `rotate(${frame.rotation}deg)`,
@@ -173,22 +189,22 @@ function buildStageWidgetContentStyle(previewMode: boolean): CSSProperties {
 }
 
 function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProps): boolean {
-  const playbackReactive = PLAYBACK_REACTIVE_WIDGET_TYPES.has(next.node.type);
   return previous.node === next.node
     && previous.stateRef === next.stateRef
     && previous.widgetsById === next.widgetsById
     && previous.frame === next.frame
     && previous.selected === next.selected
     && previous.primary === next.primary
-    && previous.opacity === next.opacity
     && previous.showBadge === next.showBadge
     && previous.previewMode === next.previewMode
     && previous.isReproducing === next.isReproducing
     && previous.editModeWireframe === next.editModeWireframe
-    && (!playbackReactive || previous.playheadMs === next.playheadMs)
     && previous.sceneDurationMs === next.sceneDurationMs
     && previous.hovered === next.hovered
     && previous.active === next.active
+    && previous.onSetActiveWidget === next.onSetActiveWidget
+    && previous.onSetHoveredWidget === next.onSetHoveredWidget
+    && previous.onExecuteAction === next.onExecuteAction
     && previous.onGoToScene === next.onGoToScene
     && previous.onWidgetTrigger === next.onWidgetTrigger;
 }

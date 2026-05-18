@@ -128,6 +128,7 @@ function TikTokVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderConte
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
   const [hearts, setHearts] = useState<Heart[]>([]);
+  const previewMode = ctx.previewMode;
   const viewModel = buildTikTokVideoViewModel(node);
   const skinVm = createModuleViewModel({
     type: node.type,
@@ -151,7 +152,7 @@ function TikTokVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderConte
   }, []);
 
   useEffect(() => {
-    if (!viewModel.showHearts || !ctx.previewMode) return;
+    if (!viewModel.showHearts || !previewMode) return;
     ensureHeartStyle();
 
     function burst(): void {
@@ -164,7 +165,7 @@ function TikTokVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderConte
     burst();
     const interval = window.setInterval(burst, 3000);
     return () => window.clearInterval(interval);
-  }, [ctx.previewMode, viewModel.showHearts]);
+  }, [previewMode, viewModel.showHearts]);
 
   function handlePointerDown(): void {
     if (!ctx.previewMode || !videoRef.current) return;

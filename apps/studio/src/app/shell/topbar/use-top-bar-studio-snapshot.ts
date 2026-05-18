@@ -1,33 +1,36 @@
 import { useMemo } from 'react';
-import { useStudioStore } from '../../../core/store/use-studio-store';
+import { shallowEqual, useStudioStore, useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
 import type { TopBarStudioSnapshot } from './top-bar-types';
 
 export function useTopBarStudioSnapshot(): TopBarStudioSnapshot {
-  const state = useStudioStore((value) => value);
+  const state = useStudioStoreSnapshot();
+  const snapshot = useStudioStore((current) => ({
+    name: current.document.name,
+    dirty: current.document.metadata.dirty,
+    selectionCount: current.document.selection.widgetIds.length,
+    zoom: current.ui.zoom,
+    playhead: current.ui.playheadMs,
+    isPlaying: current.ui.isPlaying,
+    previewMode: current.ui.previewMode,
+    previewContext: current.ui.previewContext,
+    editModeWireframe: current.ui.editModeWireframe,
+    lastAction: current.ui.lastTriggeredActionLabel,
+    activeVariant: current.ui.activeVariant,
+    activeFeedSource: current.ui.activeFeedSource,
+    activeFeedRecordId: current.ui.activeFeedRecordId,
+    activeProjectId: current.ui.activeProjectId,
+    activeSceneId: current.document.selection.activeSceneId,
+    scenes: current.document.scenes,
+    canvasPresetId: current.document.canvas.presetId ?? 'custom',
+    release: current.document.metadata.release,
+    lastSavedAt: current.document.metadata.lastSavedAt,
+    lastAutosavedAt: current.document.metadata.lastAutosavedAt,
+    platformMeta: current.document.metadata.platform,
+    documentVersion: current.document.version,
+  }), shallowEqual);
 
   return useMemo(() => ({
     state,
-    name: state.document.name,
-    dirty: state.document.metadata.dirty,
-    selectionCount: state.document.selection.widgetIds.length,
-    zoom: state.ui.zoom,
-    playhead: state.ui.playheadMs,
-    isPlaying: state.ui.isPlaying,
-    previewMode: state.ui.previewMode,
-    previewContext: state.ui.previewContext,
-    editModeWireframe: state.ui.editModeWireframe,
-    lastAction: state.ui.lastTriggeredActionLabel,
-    activeVariant: state.ui.activeVariant,
-    activeFeedSource: state.ui.activeFeedSource,
-    activeFeedRecordId: state.ui.activeFeedRecordId,
-    activeProjectId: state.ui.activeProjectId,
-    activeSceneId: state.document.selection.activeSceneId,
-    scenes: state.document.scenes,
-    canvasPresetId: state.document.canvas.presetId ?? 'custom',
-    release: state.document.metadata.release,
-    lastSavedAt: state.document.metadata.lastSavedAt,
-    lastAutosavedAt: state.document.metadata.lastAutosavedAt,
-    platformMeta: state.document.metadata.platform,
-    documentVersion: state.document.version,
-  }), [state]);
+    ...snapshot,
+  }), [snapshot, state]);
 }

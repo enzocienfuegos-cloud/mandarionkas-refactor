@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useStudioStore } from '../../core/store/use-studio-store';
+import { useStudioStore, useStudioStoreSnapshot } from '../../core/store/use-studio-store';
 import { useTimelineActions, useWidgetActions } from '../../hooks/use-studio-actions';
 import { Tabs } from '../../shared/ui/Tabs';
 import { getAccordionOpenState, setAccordionOpenState } from '../inspector-preferences';
@@ -64,7 +64,7 @@ function WidgetInspectorAccordion({
 }
 
 export function WidgetInspectorPanel({ widgetId }: { widgetId: string }): JSX.Element {
-  const state = useStudioStore((current) => current);
+  const state = useStudioStoreSnapshot();
   const widget = useStudioStore((current) => resolveWidgetForCanvasVariant(current.document, current.document.widgets[widgetId]));
   const storePlayheadMs = useStudioStore((state) => state.ui.playheadMs);
   const inspectorFocus = useStudioStore((state) => state.ui.inspectorFocus);

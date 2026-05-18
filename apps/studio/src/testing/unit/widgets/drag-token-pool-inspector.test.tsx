@@ -119,7 +119,9 @@ describe('DragTokenPoolInspector', () => {
     })} />);
     expect(screen.getByText('Tokens (2/12)')).toBeTruthy();
     expect(screen.getAllByText('Base image')).toHaveLength(2);
-    expect(screen.getAllByText('Target scene')).toHaveLength(2);
+    expect(screen.getByText('Each token can trigger a different scene after a successful drop inside the linked drag area.')).toBeTruthy();
+    expect(screen.getAllByText('On drop, go to scene')).toHaveLength(2);
+    expect(screen.getAllByText('This scene change runs after this token is dropped into the linked drag area.')).toHaveLength(2);
     expect(screen.getAllByText('Base image fit')).toHaveLength(2);
     expect(screen.getAllByText('Base image scale (%)')).toHaveLength(2);
     expect(screen.getAllByText('Base image focal X')).toHaveLength(2);

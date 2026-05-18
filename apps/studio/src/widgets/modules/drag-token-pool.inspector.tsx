@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { studioStore } from '../../core/store/studio-store';
+import { useRef } from 'react';
 import { resolveAssetDeliveryUrl } from '../../assets/policy';
 import type { AssetRecord } from '../../assets/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
@@ -45,6 +45,8 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
   const scenes = useStudioStore((state) => state.document.scenes);
   const sceneWidgets = useStudioStore((state) => Object.values(state.document.widgets).filter((widget) => widget.sceneId === node.sceneId));
+  const primaryWidgetId = useStudioStore((state) => state.document.selection.primaryWidgetId);
+  const pendingDropZoneRef = useRef<{ frame: { x: number; y: number; width: number; height: number } } | null>(null);
   const tokens: DragTokenItem[] = Array.isArray(node.props.tokens) ? node.props.tokens as DragTokenItem[] : [];
   const disabledIds = Array.isArray(node.props.disabledIds) ? node.props.disabledIds.map((value) => String(value)) : [];
   const tokenSize = Math.max(TOKEN_SIZE_MIN, Math.min(TOKEN_SIZE_MAX, Number(node.props.tokenSize ?? 72)));
@@ -142,6 +144,15 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
     }
   }, [activeAnchorWidget, anchorWidgetId]);
 
+  useEffect(() => {
+    const pendingDropZone = pendingDropZoneRef.current;
+    if (!pendingDropZone || !primaryWidgetId || primaryWidgetId === node.id) return;
+    updateWidgetFrame(primaryWidgetId, pendingDropZone.frame);
+    updateWidgetProps(node.id, { dropTargetId: primaryWidgetId });
+    selectWidget(node.id);
+    pendingDropZoneRef.current = null;
+  }, [node.id, primaryWidgetId, selectWidget, updateWidgetFrame, updateWidgetProps]);
+
   const alignDropZoneToWidget = (dropZoneId: string, targetWidget: WidgetNode) => {
     updateWidgetFrame(dropZoneId, {
       x: targetWidget.frame.x,
@@ -190,11 +201,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
         },
       },
     );
-    const createdDropZoneId = studioStore.getState().document.selection.primaryWidgetId;
-    if (!createdDropZoneId) return;
-    updateWidgetFrame(createdDropZoneId, nextFrame);
-    updateWidgetProps(node.id, { dropTargetId: createdDropZoneId });
-    selectWidget(node.id);
+    pendingDropZoneRef.current = { frame: nextFrame };
   };
 
   return (
@@ -374,6 +381,9 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
           />
           Hide shape when token image exists
         </label>
+        <div className="meta-line">
+          Each token can trigger a different scene after a successful drop inside the linked drag area.
+        </div>
         <strong>{`Tokens (${tokens.length}/${MAX_TOKENS})`}</strong>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
           {tokens.map((token, index) => (
@@ -406,16 +416,19 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 </div>
               </div>
               <div>
-                <label>Target scene</label>
+                <label>On drop, go to scene</label>
                 <select
                   value={token.targetSceneId ?? ''}
                   onChange={(event) => updateToken(token.id, { targetSceneId: event.target.value || undefined })}
                 >
-                  <option value="">No target scene</option>
+                  <option value="">Stay on current scene</option>
                   {availableScenes.map((scene) => (
                     <option key={scene.id} value={scene.id}>{scene.name}</option>
                   ))}
                 </select>
+              </div>
+              <div className="meta-line">
+                This scene change runs after this token is dropped into the linked drag area.
               </div>
               <label className="checkbox-row">
                 <input type="checkbox" checked={disabledIds.includes(token.id)} onChange={(event) => setTokenDisabled(token.id, event.target.checked)} />

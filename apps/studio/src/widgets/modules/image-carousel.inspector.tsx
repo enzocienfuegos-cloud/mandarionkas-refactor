@@ -102,16 +102,20 @@ export function ImageCarouselInspector({ widget }: { widget: WidgetNode }): JSX.
 
   function addAssetSlide(): void {
     if (!selectedAsset) return;
+    appendAssetSlide(selectedAsset);
+    setSelectedAssetId('');
+  }
+
+  function appendAssetSlide(asset: AssetRecord): void {
     const nextSlides = [
       ...slides,
       {
-        src: resolveAssetDeliveryUrl(selectedAsset, targetChannel, selectedAsset.qualityPreference ?? 'auto'),
-        caption: selectedAsset.name,
-        assetId: selectedAsset.id,
+        src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+        caption: asset.name,
+        assetId: asset.id,
       },
     ];
     commitSlides(nextSlides);
-    setSelectedAssetId('');
   }
 
   function updateSlide(index: number, patch: Partial<CarouselSlideDraft>): void {
@@ -191,7 +195,17 @@ export function ImageCarouselInspector({ widget }: { widget: WidgetNode }): JSX.
               ))}
             </select>
             <Button size="sm" className="left-button compact-action" onClick={addAssetSlide} disabled={!selectedAsset}>Add slide</Button>
-            <Button size="sm" className="left-button compact-action" onClick={requestOpenAssetLibrary}>Open library</Button>
+            <Button
+              size="sm"
+              className="left-button compact-action"
+              onClick={() => requestOpenAssetLibrary({
+                accept: 'image',
+                title: 'Add slide from library',
+                onSelect: appendAssetSlide,
+              })}
+            >
+              Open library
+            </Button>
           </div>
         </div>
 

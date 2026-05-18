@@ -1,4 +1,4 @@
-import { useStudioStore } from '../../core/store/use-studio-store';
+import { useStudioStoreSnapshot } from '../../core/store/use-studio-store';
 import { getBindingSuggestions, getFeedCatalogSources } from '../../domain/document/resolvers';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import type { BindingSource, VariantName, WidgetNode } from '../../domain/document/types';
@@ -6,7 +6,7 @@ import { createInspectorField, createInspectorSection } from '../contract-driven
 import { Button } from '../../shared/ui/Button';
 
 export function ConditionsSection({ widget }: { widget: WidgetNode }): JSX.Element {
-  const state = useStudioStore((value) => value);
+  const state = useStudioStoreSnapshot();
   const { updateWidgetConditions } = useWidgetActions();
   const activeFeedSource = state.ui.activeFeedSource;
   const source = (widget.conditions?.equals?.source ?? activeFeedSource) as BindingSource;

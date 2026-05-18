@@ -18,7 +18,6 @@ import { useAnimationEngine } from '../animation-engine';
 type MotionLayerProps = HTMLAttributes<HTMLDivElement> & {
   widget: WidgetNode;
   widgetsById?: Record<string, WidgetNode>;
-  playheadMs: number;
   previewMode?: boolean;
   isReproducing: boolean;
   children: ReactNode;
@@ -50,7 +49,6 @@ function setRefValue(ref: Ref<HTMLDivElement> | undefined, value: HTMLDivElement
 export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function MotionLayer({
   widget,
   widgetsById,
-  playheadMs: _playheadMs,
   previewMode = false,
   isReproducing,
   children,

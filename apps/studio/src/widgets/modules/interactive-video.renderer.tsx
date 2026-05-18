@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createDefaultVideoWidget, type OverlayConfig, type VideoWidgetData } from '@smx/contracts';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import type { WidgetNode } from '../../domain/document/types';
+import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
 import { VASTVideoWidget } from '../video/VASTVideoWidget';
 import { VideoWidgetRenderer } from '../video/VideoWidgetRenderer';
 import { moduleShellEdit } from './shared-styles';
@@ -12,7 +13,6 @@ import { registerVideoEffectContext, unregisterVideoEffectContext } from '../vid
 import type { IVideoPlayer } from '../video/IVideoPlayer';
 import { useOverlayVisibility } from '../video/useOverlayVisibility';
 import { useVideoAnalyticsReporter } from '../video/useVideoAnalyticsReporter';
-import { useWidgetPlayheadMs } from '../shared/use-widget-playhead';
 
 const interactiveVideoPosterStyle = {
   position: 'absolute',
@@ -211,7 +211,8 @@ function buildVideoWidget(node: WidgetNode): VideoWidgetData {
 }
 
 function InteractiveVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
-  const playheadMs = useWidgetPlayheadMs(ctx.playheadMs, ctx.isReproducing);
+  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
+  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
   const [player, setPlayer] = useState<IVideoPlayer | null>(null);
   const [analyticsEvents, setAnalyticsEvents] = useState<Array<{
     id: string;

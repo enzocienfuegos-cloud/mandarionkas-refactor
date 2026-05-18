@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { StudioState } from '../../../domain/document/types';
-import { selectStageState } from '../../../core/store/selectors/stage-selectors';
+import { selectStageDocument, selectStageState, selectStageUi } from '../../../core/store/selectors/stage-selectors';
 
 function createState(playheadMs: number): StudioState {
   return {
@@ -81,5 +81,25 @@ describe('selectStageState', () => {
     expect(second.scene).toBe(first.scene);
     expect(second.canvas).toBe(first.canvas);
     expect(second.selectedIds).toBe(first.selectedIds);
+  });
+
+  it('splits stable document data from transient ui data', () => {
+    const state = createState(0);
+    const documentSliceA = selectStageDocument(state);
+    const uiSliceA = selectStageUi(state);
+    const nextState = {
+      ...state,
+      ui: {
+        ...state.ui,
+        playheadMs: 480,
+        hoveredWidgetId: 'widget_1',
+      },
+    };
+    const documentSliceB = selectStageDocument(nextState);
+    const uiSliceB = selectStageUi(nextState);
+
+    expect(documentSliceB).toBe(documentSliceA);
+    expect(uiSliceB).not.toBe(uiSliceA);
+    expect(uiSliceB.hoveredWidgetId).toBe('widget_1');
   });
 });

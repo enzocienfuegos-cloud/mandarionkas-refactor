@@ -96,6 +96,9 @@ async function mountLeafletMap(
 
 function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
+  const previewMode = ctx.previewMode;
+  const hovered = ctx.hovered;
+  const active = ctx.active;
   const [providerPlaces, setProviderPlaces] = useState<NearbyPlace[]>([]);
   const [providerStatus, setProviderStatus] = useState<'idle' | 'loading' | 'live' | 'error'>('idle');
   const [selectedPlace, setSelectedPlace] = useState<NearbyPlace | null>(null);
@@ -108,7 +111,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   const panelMapRuntimeRef = useRef<LeafletRuntime | null>(null);
 
   const geolocation = useDynamicMapGeolocation({
-    previewMode: ctx.previewMode,
+    previewMode,
     autoRequest: Boolean(node.props.requestUserLocation ?? false),
   });
   const skinVm = useMemo(
@@ -122,7 +125,7 @@ function DynamicMapModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
   );
   const shellStyle = useMemo(
     () => buildDynamicMapShellStyle(node, ctx, skinVm.cssVars as CSSProperties),
-    [ctx, node, skinVm.cssVars],
+    [active, hovered, node, previewMode, skinVm.cssVars],
   );
 
   const viewModel = useMemo(

@@ -1,4 +1,4 @@
-import { useStudioStore } from '../../core/store/use-studio-store';
+import { useStudioStoreSnapshot } from '../../core/store/use-studio-store';
 import { getBindingSuggestions } from '../../domain/document/resolvers';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import type { BindingSource, WidgetNode } from '../../domain/document/types';
@@ -6,7 +6,7 @@ import { Button } from '../../shared/ui/Button';
 import { Tile } from '../../shared/ui/Tile';
 
 export function DataBindingsSection({ widget }: { widget: WidgetNode }): JSX.Element {
-  const state = useStudioStore((value) => value);
+  const state = useStudioStoreSnapshot();
   const { updateWidgetBinding } = useWidgetActions();
   const bindings = widget.bindings ?? {};
   const rows = [

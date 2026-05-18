@@ -1,4 +1,4 @@
-import { useStudioStore } from '../../../core/store/use-studio-store';
+import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
 import { buildDiagnosticSummary, collectDiagnostics } from '../../../domain/document/diagnostics';
 import { buildExportHandoff, buildExportManifest, buildExportPreflight, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
 import { ExportPreflightPanel } from '../../../export/ExportPreflightPanel';
@@ -14,7 +14,7 @@ export function DiagnosticsSection(): JSX.Element {
     return `pill pill--${kind}`;
   }
 
-  const state = useStudioStore((value) => value);
+  const state = useStudioStoreSnapshot();
   const exportController = useExportReadinessController(useTopBarStudioSnapshot());
   const summary = buildDiagnosticSummary(state);
   const issues = collectDiagnostics(state);

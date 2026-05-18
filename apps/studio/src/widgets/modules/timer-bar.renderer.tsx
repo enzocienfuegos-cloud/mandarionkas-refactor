@@ -76,7 +76,9 @@ function TimerBarRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
   const trackColor = String(node.props.trackColor ?? 'var(--white-a-18)');
   const borderRadius = Math.max(0, Number(node.props.borderRadius ?? 4));
   const thickness = Math.max(8, Number(node.props.thickness ?? 8));
-  const progress = resolveTimerBarProgress(ctx.playheadMs, durationMs);
+  const isReproducing = Boolean(ctx.isReproducing);
+  const initialPlayheadMs = isReproducing ? playbackEngine.getCurrentMs() : ctx.playheadMs;
+  const progress = resolveTimerBarProgress(initialPlayheadMs, durationMs);
   const fillRef = useRef<HTMLDivElement | null>(null);
   const tweenRef = useRef<gsap.core.Tween | null>(null);
 
@@ -98,7 +100,7 @@ function TimerBarRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
   useEffect(() => {
     const fillNode = fillRef.current;
     if (!fillNode) return undefined;
-    if (ctx.isReproducing) return undefined;
+    if (isReproducing) return undefined;
 
     const syncProgress = (playheadMs: number) => {
       syncTimerBarProgress(fillNode, orientation, playheadMs, durationMs);
@@ -106,18 +108,18 @@ function TimerBarRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
 
     tweenRef.current?.kill();
     tweenRef.current = null;
-    syncProgress(ctx.playheadMs);
+    syncProgress(playbackEngine.getCurrentMs());
     return playbackEngine.subscribeDom(syncProgress);
-  }, [ctx.isReproducing, ctx.playheadMs, durationMs, orientation]);
+  }, [isReproducing, durationMs, orientation]);
 
   useEffect(() => {
     const fillNode = fillRef.current;
-    if (!fillNode || !ctx.isReproducing) return undefined;
+    if (!fillNode || !isReproducing) return undefined;
 
     tweenRef.current?.kill();
     tweenRef.current = null;
 
-    const startPlayheadMs = playbackEngine.getCurrentMs() || ctx.playheadMs;
+    const startPlayheadMs = playbackEngine.getCurrentMs();
     const remainingMs = Math.max(0, durationMs - startPlayheadMs);
     syncTimerBarProgress(fillNode, orientation, startPlayheadMs, durationMs);
     if (!remainingMs) return undefined;
@@ -134,7 +136,7 @@ function TimerBarRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
       tween.kill();
       tweenRef.current = null;
     };
-  }, [ctx.isReproducing, ctx.playheadMs, durationMs, orientation]);
+  }, [isReproducing, durationMs, orientation]);
 
   const fillStyle = useMemo<CSSProperties>(() => (
     orientation === 'horizontal'

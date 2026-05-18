@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import type { WidgetNode } from '../../domain/document/types';
+import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
 import {
   buildAccordionRowChevronStyle,
   buildAccordionRowChipWrapStyle,
@@ -24,7 +25,6 @@ import {
   type VerticalAccordionRowConfig,
 } from './vertical-accordion.view-model';
 import { createModuleViewModel } from './view-model';
-import { useWidgetPlayheadMs } from '../shared/use-widget-playhead';
 
 function ChevronIcon({ color }: { color: string }): JSX.Element {
   return (
@@ -91,7 +91,8 @@ function AccordionRow({
 
 function VerticalAccordionRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const viewModel = buildVerticalAccordionViewModel(node);
-  const playheadMs = useWidgetPlayheadMs(ctx.playheadMs, ctx.isReproducing);
+  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
+  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
   const skinVm = createModuleViewModel({
     type: node.type,
     props: {},

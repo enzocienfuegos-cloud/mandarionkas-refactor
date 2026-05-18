@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useStudioStore } from '../../../core/store/use-studio-store';
+import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
 import { useCollaborationActions } from '../../../hooks/use-studio-actions';
 import { createInspectorField } from '../../contract-driven';
 import { Button } from '../../../shared/ui/Button';
 import { commentAnchorLabel, nextCommentStatus, statusButtonLabel } from './document-inspector-shared';
 
 export function CommentsSection(): JSX.Element {
-  const state = useStudioStore((value) => value);
+  const state = useStudioStoreSnapshot();
   const { addComment, updateCommentStatus, deleteComment } = useCollaborationActions();
   const activeSceneId = state.document.selection.activeSceneId;
   const selectedWidgetId = state.document.selection.primaryWidgetId;

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { shallowEqual, useStudioStore, useStudioStoreValueRef } from '../../core/store/use-studio-store';
 import { useSceneActions, useTimelineActions, useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
-import { selectStageState } from '../../core/store/selectors/stage-selectors';
+import { selectStageDocument, selectStageUi } from '../../core/store/selectors/stage-selectors';
 import { buildResolvedWidgetsById } from '../../domain/document/canvas-variants';
 import { useStageMarqueeController } from './controllers/use-stage-marquee-controller';
 import { useStageRuntimeController } from './controllers/use-stage-runtime-controller';
@@ -9,7 +9,7 @@ import { useStageSelectionController } from './controllers/use-stage-selection-c
 import { useStageTransformController } from './controllers/use-stage-transform-controller';
 import { useStageViewportController } from './controllers/use-stage-viewport-controller';
 import { useStageDropController } from './controllers/use-stage-drop-controller';
-import { usePlaybackMsLive } from '../../hooks/use-playback-engine';
+import { playbackEngine } from '../../hooks/use-playback-engine';
 import type { AssetLibraryDragPayload } from './asset-library-drag';
 export type { ResizeHandle } from './stage-types';
 
@@ -60,13 +60,14 @@ export function useStageController(workspaceRef: React.RefObject<HTMLDivElement>
   const timelineActions = useTimelineActions();
   const uiActions = useUiActions();
   const widgetActions = useWidgetActions();
-  const stageState = useStudioStore(selectStageState, shallowEqual);
+  const stageDocument = useStudioStore(selectStageDocument);
+  const stageUi = useStudioStore(selectStageUi, shallowEqual);
   const fullStateRef = useStudioStoreValueRef((value) => value);
   const storePlayheadMs = useStudioStore((state) => state.ui.playheadMs);
 
-  const { canvas, scene, widgets, widgetsById, zoom, isPlaying, previewMode } = stageState;
-  const livePlaybackMs = usePlaybackMsLive(storePlayheadMs);
-  const playheadMs = isPlaying ? livePlaybackMs : storePlayheadMs;
+  const { canvas, scene, widgets, widgetsById } = stageDocument;
+  const { zoom, isPlaying, previewMode } = stageUi;
+  const playheadMs = storePlayheadMs;
 
   const {
     fitToViewport,
@@ -91,7 +92,7 @@ export function useStageController(workspaceRef: React.RefObject<HTMLDivElement>
     zoom,
     previewMode,
     canvas,
-    playheadMs,
+    playheadMs: previewMode && isPlaying ? playbackEngine.getCurrentMs() : playheadMs,
     fullStateRef,
     widgetsById,
     selectWidget: widgetActions.selectWidget,
@@ -104,7 +105,7 @@ export function useStageController(workspaceRef: React.RefObject<HTMLDivElement>
     zoom,
     previewMode,
     widgets,
-    playheadMs,
+    playheadMs: previewMode && isPlaying ? playbackEngine.getCurrentMs() : playheadMs,
     selectWidget: widgetActions.selectWidget,
     selectWidgets: widgetActions.selectWidgets,
   });
@@ -170,7 +171,8 @@ export function useStageController(workspaceRef: React.RefObject<HTMLDivElement>
   const stageHeight = canvas.height * zoom;
 
   return {
-    stageState,
+    stageDocument,
+    stageUi,
     playheadMs,
     fullStateRef,
     interaction,

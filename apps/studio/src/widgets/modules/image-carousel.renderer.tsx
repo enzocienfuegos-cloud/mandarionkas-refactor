@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
+import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
 import { clamp, getAccent, isFilenameLikeCaption, moduleBody, moduleHeader, moduleShell, parseCarouselSlides, renderCollapsedIfNeeded } from './shared-styles';
 import { resolveCornerRadius } from '../shared/corner-style';
-import { useWidgetPlayheadMs } from '../shared/use-widget-playhead';
 
 const imageCarouselViewportBaseStyle: CSSProperties = {
   position: 'relative',
@@ -123,7 +123,8 @@ function buildImageCarouselNextButtonStyle(accent: string): CSSProperties {
 
 function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
-  const playheadMs = useWidgetPlayheadMs(ctx.playheadMs, ctx.isReproducing);
+  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
+  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
   const borderRadius = resolveCornerRadius(node, 20);
   const slides = useMemo(() => parseCarouselSlides(String(node.props.slides ?? '')), [node.props.slides]);
   const intervalMs = clamp(Number(node.props.intervalMs ?? 2600), 1000, 10000);

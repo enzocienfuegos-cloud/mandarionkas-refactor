@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
+import { playbackEngine, usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
+import { useLatestRef } from '../../shared/hooks';
 import { getAccent, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 
 const scratchRevealShellBaseStyle: CSSProperties = {
@@ -283,6 +285,10 @@ function eraseScratchProgress(
 }
 
 function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
+  const throttledPlayheadMs = usePlaybackMsThrottled(ctx.playheadMs);
+  const playheadMs = ctx.isReproducing ? throttledPlayheadMs : ctx.playheadMs;
+  const previewMode = ctx.previewMode;
+  const ctxRef = useLatestRef(ctx);
   const accent = getAccent(node);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const revealMediaRef = useRef<HTMLImageElement | null>(null);
@@ -290,8 +296,6 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const pointerActiveRef = useRef(false);
   const scratchCompletedRef = useRef(false);
   const lastScratchPointRef = useRef<{ x: number; y: number } | null>(null);
-  const previousPreviewModeRef = useRef(ctx.previewMode);
-  const previousPlayheadRef = useRef(ctx.playheadMs);
   const [coverReady, setCoverReady] = useState(false);
   const [revealAnimationTick, setRevealAnimationTick] = useState(0);
   const title = String(node.props.title ?? node.name);
@@ -319,27 +323,40 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     lastScratchPointRef.current = null;
     setCoverReady(false);
     paintScratchCover(canvas, beforeImage, coverBlur, accent, () => setCoverReady(true));
-  }, [beforeImage, coverBlur, accent, node.frame.width, node.frame.height, ctx.previewMode]);
+  }, [beforeImage, coverBlur, accent, node.frame.width, node.frame.height, previewMode]);
 
   useEffect(() => {
-    const enteredPreview = ctx.previewMode && !previousPreviewModeRef.current;
-    const rewoundToStart = ctx.previewMode && ctx.playheadMs === 0 && previousPlayheadRef.current > 0;
-    previousPreviewModeRef.current = ctx.previewMode;
-    previousPlayheadRef.current = ctx.playheadMs;
-    if (!enteredPreview && !rewoundToStart) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    gsap.killTweensOf(revealMediaRef.current);
-    const width = Math.max(1, Math.round(canvas.clientWidth));
-    const height = Math.max(1, Math.round(canvas.clientHeight));
-    canvas.width = width;
-    canvas.height = height;
-    progressCanvasRef.current = createScratchProgressCanvas(width, height);
-    scratchCompletedRef.current = false;
-    lastScratchPointRef.current = null;
-    setCoverReady(false);
-    paintScratchCover(canvas, beforeImage, coverBlur, accent, () => setCoverReady(true));
-  }, [accent, beforeImage, coverBlur, ctx.playheadMs, ctx.previewMode]);
+    let previousPlayheadMs = playbackEngine.getCurrentMs();
+    let previousPreviewMode = ctxRef.current.previewMode;
+
+    const reset = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      gsap.killTweensOf(revealMediaRef.current);
+      const width = Math.max(1, Math.round(canvas.clientWidth));
+      const height = Math.max(1, Math.round(canvas.clientHeight));
+      canvas.width = width;
+      canvas.height = height;
+      progressCanvasRef.current = createScratchProgressCanvas(width, height);
+      scratchCompletedRef.current = false;
+      lastScratchPointRef.current = null;
+      setCoverReady(false);
+      paintScratchCover(canvas, beforeImage, coverBlur, accent, () => setCoverReady(true));
+    };
+
+    const checkRewind = (nextMs: number) => {
+      const nextPreviewMode = ctxRef.current.previewMode;
+      const enteredPreview = nextPreviewMode && !previousPreviewMode;
+      const rewoundToStart = nextPreviewMode && nextMs === 0 && previousPlayheadMs > 0;
+      previousPlayheadMs = nextMs;
+      previousPreviewMode = nextPreviewMode;
+      if (enteredPreview || rewoundToStart) {
+        reset();
+      }
+    };
+
+    return playbackEngine.subscribeDom(checkRewind);
+  }, [accent, beforeImage, coverBlur, ctxRef]);
 
   useEffect(() => {
     if (!revealAnimationTick || !afterImage) return;
@@ -367,8 +384,8 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     setRevealAnimationTick((current) => current + 1);
     ctx.triggerWidgetAction('scratch-complete', {
       clearedPercent,
-      thresholdPercent: autoRevealThresholdPercent,
-      completedAtMs: ctx.playheadMs,
+        thresholdPercent: autoRevealThresholdPercent,
+      completedAtMs: playbackEngine.getCurrentMs(),
     });
   };
 

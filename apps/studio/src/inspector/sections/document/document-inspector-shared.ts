@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useStudioStore } from '../../../core/store/use-studio-store';
+import { shallowEqual, useStudioStore, useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
 import { resolveNextSceneId } from '../../../domain/document/resolvers';
 import type { ApprovalStatus, CommentStatus, StudioState } from '../../../domain/document/types';
 import { usePlatformSnapshot } from '../../../platform/runtime';
@@ -12,11 +12,17 @@ export function useDocumentInspectorTab(initial: DocumentInspectorTab | string =
 }
 
 export function useDocumentInspectorContext() {
-  const state = useStudioStore((value) => value);
+  const state = useStudioStoreSnapshot();
+  const snapshot = useStudioStore((current) => ({
+    document: current.document,
+    playheadMs: current.ui.playheadMs,
+    lastAction: current.ui.lastTriggeredActionLabel,
+    activeVariant: current.ui.activeVariant,
+  }), shallowEqual);
   const document = state.document;
-  const playheadMs = usePlaybackMsThrottled(state.ui.playheadMs);
-  const lastAction = state.ui.lastTriggeredActionLabel;
-  const activeVariant = state.ui.activeVariant;
+  const playheadMs = usePlaybackMsThrottled(snapshot.playheadMs);
+  const lastAction = snapshot.lastAction;
+  const activeVariant = snapshot.activeVariant;
   const activeSceneId = state.document.selection.activeSceneId;
   const activeScene = document.scenes.find((scene) => scene.id === activeSceneId) ?? document.scenes[0];
   const nextSceneId = activeScene ? resolveNextSceneId(state, activeScene.id) : undefined;

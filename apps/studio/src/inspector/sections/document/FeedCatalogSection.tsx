@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
-import { useStudioStore } from '../../../core/store/use-studio-store';
+import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
 import { getActiveFeedRecord, getBindingSuggestions, getFeedCatalogSources, getFeedRecords } from '../../../domain/document/resolvers';
 import { useFeedActions, useUiActions } from '../../../hooks/use-studio-actions';
 import { Button } from '../../../shared/ui/Button';
 
 export function FeedCatalogSection(): JSX.Element {
-  const state = useStudioStore((value) => value);
+  const state = useStudioStoreSnapshot();
   const { setActiveFeedSource, setActiveFeedRecord } = useUiActions();
   const { upsertFeedRecord, deleteFeedRecord } = useFeedActions();
   const sources = useMemo(() => getFeedCatalogSources(state), [state]);
