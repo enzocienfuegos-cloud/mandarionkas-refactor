@@ -15,7 +15,7 @@ function isMasterVariant(state: StudioState): boolean {
   return state.document.canvasVariants.find((variant) => variant.id === state.document.activeCanvasVariantId)?.isMaster ?? true;
 }
 
-function writeFrameOverride(
+export function writeFrameOverride(
   state: StudioState,
   widgetId: string,
   nextFrame: NonNullable<StudioState['document']['widgets'][string]>['frame'],
@@ -41,7 +41,7 @@ function writeFrameOverride(
   };
 }
 
-function writeSharedSceneFrameOverride(
+export function writeSharedSceneFrameOverride(
   state: StudioState,
   widgetId: string,
   nextFrame: WidgetFrame,

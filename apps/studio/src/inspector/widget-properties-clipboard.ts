@@ -12,6 +12,10 @@ export function buildWidgetPropertyClipboardPayload(widget: WidgetNode): WidgetP
   return {
     widgetType: widget.type,
     widgetName: widget.name,
+    frame: {
+      x: widget.frame.x,
+      y: widget.frame.y,
+    },
     props: JSON.parse(JSON.stringify(widget.props ?? {})) as Record<string, unknown>,
     style: JSON.parse(JSON.stringify(widget.style ?? {})) as Record<string, unknown>,
     motion: widget.motion ? JSON.parse(JSON.stringify(widget.motion)) as WidgetNode['motion'] : undefined,

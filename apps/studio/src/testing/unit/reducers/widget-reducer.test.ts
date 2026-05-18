@@ -356,6 +356,7 @@ describe('widget reducer slices', () => {
     let state = createInitialState();
     state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'image' });
     const widgetId = Object.keys(state.document.widgets)[0];
+    const originalFrame = state.document.widgets[widgetId].frame;
 
     state = reduceBySlices(state, {
       type: 'APPLY_WIDGET_PROPERTY_CLIPBOARD',
@@ -363,12 +364,15 @@ describe('widget reducer slices', () => {
       clipboard: {
         widgetType: 'image',
         widgetName: 'Hero source',
+        frame: { x: originalFrame.x + 80, y: originalFrame.y + 36 },
         props: { src: 'https://cdn.example.com/hero.png', assetId: 'asset_1' },
         style: { borderRadius: 24, opacity: 0.6, animationPreset: 'appear' },
         copiedAt: '2026-05-15T00:00:00.000Z',
       },
     });
 
+    expect(state.document.widgets[widgetId]?.frame.x).toBe(originalFrame.x + 80);
+    expect(state.document.widgets[widgetId]?.frame.y).toBe(originalFrame.y + 36);
     expect(state.document.widgets[widgetId]?.props.src).toBe('https://cdn.example.com/hero.png');
     expect(state.document.widgets[widgetId]?.props.assetId).toBe('asset_1');
     expect(state.document.widgets[widgetId]?.style.borderRadius).toBe(24);
@@ -380,6 +384,7 @@ describe('widget reducer slices', () => {
     state = reduceBySlices(state, { type: 'CREATE_WIDGET', widgetType: 'text' });
     const widgetId = Object.keys(state.document.widgets)[0];
     const originalProps = { ...state.document.widgets[widgetId].props };
+    const originalFrame = state.document.widgets[widgetId].frame;
 
     state = reduceBySlices(state, {
       type: 'APPLY_WIDGET_PROPERTY_CLIPBOARD',
@@ -387,12 +392,15 @@ describe('widget reducer slices', () => {
       clipboard: {
         widgetType: 'image',
         widgetName: 'Hero image',
+        frame: { x: originalFrame.x + 140, y: originalFrame.y + 22 },
         props: { src: 'https://cdn.example.com/hero.png', assetId: 'asset_2' },
         style: { opacity: 0.45, color: '#ffcc00' },
         copiedAt: '2026-05-15T00:00:00.000Z',
       },
     });
 
+    expect(state.document.widgets[widgetId]?.frame.x).toBe(originalFrame.x + 140);
+    expect(state.document.widgets[widgetId]?.frame.y).toBe(originalFrame.y + 22);
     expect(state.document.widgets[widgetId]?.props).toEqual(originalProps);
     expect(state.document.widgets[widgetId]?.style.opacity).toBe(0.45);
     expect(state.document.widgets[widgetId]?.style.color).toBe('#ffcc00');

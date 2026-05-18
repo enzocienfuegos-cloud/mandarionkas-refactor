@@ -3,6 +3,7 @@ import type { StudioState } from '../../../../domain/document/types';
 import { buildResolvedWidgetsById, resolveWidgetForCanvasVariant } from '../../../../domain/document/canvas-variants';
 import { cloneWidgetMotion } from '../../../../motion/motion-model';
 import { rebuildWidgetMotionKeyframes } from '../../../../motion/motion-template-keyframes';
+import { writeFrameOverride, writeSharedSceneFrameOverride } from './widget-frame-reducer';
 import { currentScene, getPlacedFrameForPoint, getSmartPlacedFrame, getWidgetDefinition, withDirty } from './shared';
 
 function isMasterVariant(state: StudioState): boolean {
@@ -239,6 +240,13 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
       const nextStyle = sameType ? { ...command.clipboard.style } : { ...target.style, ...command.clipboard.style };
       const nextMotion = sameType && command.clipboard.motion ? cloneWidgetMotion(command.clipboard.motion) : rawTarget?.motion;
       const nextHoverMotion = sameType && command.clipboard.hoverMotion ? { ...command.clipboard.hoverMotion, config: { ...command.clipboard.hoverMotion.config } } : rawTarget?.hoverMotion;
+      const nextFrame = command.clipboard.frame
+        ? {
+            ...target.frame,
+            x: Number.isFinite(command.clipboard.frame.x) ? command.clipboard.frame.x : target.frame.x,
+            y: Number.isFinite(command.clipboard.frame.y) ? command.clipboard.frame.y : target.frame.y,
+          }
+        : target.frame;
 
       if (rawTarget?.sharedLayerId) {
         const sharedLayer = state.document.sharedLayers[rawTarget.sharedLayerId];
@@ -248,11 +256,20 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
           const intermediateState = nextSharedLayers === state.document.sharedLayers
             ? state
             : { ...state, document: { ...state.document, sharedLayers: nextSharedLayers } };
+          const frameState = command.clipboard.frame
+            ? {
+                ...intermediateState,
+                document: {
+                  ...intermediateState.document,
+                  sharedLayers: writeSharedSceneFrameOverride(intermediateState, command.widgetId, nextFrame),
+                },
+              }
+            : intermediateState;
           return withDirty({
-            ...intermediateState,
+            ...frameState,
             document: {
-              ...intermediateState.document,
-              sharedLayers: writeSharedSceneObjectOverride(intermediateState, command.widgetId, 'style', nextStyle),
+              ...frameState.document,
+              sharedLayers: writeSharedSceneObjectOverride(frameState, command.widgetId, 'style', nextStyle),
             },
           });
         }
@@ -269,6 +286,7 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
               ...state.document.widgets,
               [baseTarget.id]: {
                 ...baseTarget,
+                frame: nextFrame,
                 props: sameType ? nextProps : baseTarget.props,
                 style: nextStyle,
                 motion: nextMotion,
@@ -276,7 +294,7 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
                 timeline: {
                   ...baseTarget.timeline,
                   keyframes: rebuildWidgetMotionKeyframes(
-                    { ...baseTarget, frame: target.frame, style: nextStyle, timeline: baseTarget.timeline },
+                    { ...baseTarget, frame: nextFrame, style: nextStyle, timeline: baseTarget.timeline },
                     nextMotion,
                     baseTarget.timeline.keyframes ?? [],
                   ),
@@ -294,14 +312,23 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
           : state.document.widgetOverrides,
       };
       const intermediateState = sameType ? { ...state, document: nextDocument } : state;
+      const frameState = command.clipboard.frame
+        ? {
+            ...intermediateState,
+            document: {
+              ...intermediateState.document,
+              widgetOverrides: writeFrameOverride(intermediateState, command.widgetId, nextFrame),
+            },
+          }
+        : intermediateState;
       return withDirty({
-        ...intermediateState,
+        ...frameState,
         document: {
-          ...intermediateState.document,
-          widgetOverrides: writeObjectOverride(intermediateState, command.widgetId, 'style', nextStyle),
+          ...frameState.document,
+          widgetOverrides: writeObjectOverride(frameState, command.widgetId, 'style', nextStyle),
           widgets: sameType && rawTarget
             ? {
-                ...intermediateState.document.widgets,
+                ...frameState.document.widgets,
                 [rawTarget.id]: {
                   ...rawTarget,
                   motion: nextMotion,
@@ -309,14 +336,14 @@ export function widgetCreateUpdateReducer(state: StudioState, command: StudioCom
                   timeline: {
                     ...rawTarget.timeline,
                     keyframes: rebuildWidgetMotionKeyframes(
-                      { ...rawTarget, frame: target.frame, style: nextStyle, timeline: rawTarget.timeline },
+                      { ...rawTarget, frame: nextFrame, style: nextStyle, timeline: rawTarget.timeline },
                       nextMotion,
                       rawTarget.timeline.keyframes ?? [],
                     ),
                   },
                 },
               }
-            : intermediateState.document.widgets,
+            : frameState.document.widgets,
         },
       });
     }

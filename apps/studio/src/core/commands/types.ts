@@ -5,6 +5,7 @@ export type WidgetClipboardPayload = { widgets: WidgetNode[]; actions: ActionNod
 export type WidgetPropertyClipboardPayload = {
   widgetType: WidgetType;
   widgetName: string;
+  frame?: Pick<WidgetNode['frame'], 'x' | 'y'>;
   props: Record<string, unknown>;
   style: Record<string, unknown>;
   motion?: WidgetMotion;
