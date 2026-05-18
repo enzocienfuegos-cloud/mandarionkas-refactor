@@ -30,6 +30,16 @@ function resolveRepeat(plan: AnimationPlan): number {
   return Math.max(0, plan.iterations - 1);
 }
 
+function shouldForce3D(plan: AnimationPlan): boolean {
+  return plan.spec.willChange?.includes('transform')
+    || 'x' in plan.spec.from
+    || 'y' in plan.spec.from
+    || 'transform' in plan.spec.from
+    || 'x' in plan.spec.to
+    || 'y' in plan.spec.to
+    || 'transform' in plan.spec.to;
+}
+
 export class RuntimeAnimationEngine implements AnimationEngine {
   private readonly playbacks = new Map<string, PlaybackRecord>();
   private readonly playbacksByPlanId = new Map<string, PlaybackRecord>();
@@ -76,6 +86,8 @@ export class RuntimeAnimationEngine implements AnimationEngine {
         repeat: resolveRepeat(plan),
         yoyo: isLoopPlayback(plan),
         immediateRender: false,
+        overwrite: 'auto',
+        force3D: shouldForce3D(plan),
       },
     );
 

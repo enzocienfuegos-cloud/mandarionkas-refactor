@@ -24,10 +24,10 @@ function MotionGalleryTile({
   onClick: () => void;
   children?: ReactNode;
 }): JSX.Element {
-  const ref = useRef<HTMLButtonElement | null>(null);
+  const previewRef = useRef<HTMLDivElement | null>(null);
   const [previewActive, setPreviewActive] = useState(false);
   useMotionPreview({
-    ref,
+    ref: previewRef,
     template,
     config,
     baseOpacity: 1,
@@ -50,12 +50,15 @@ function MotionGalleryTile({
     >
       <button
         type="button"
-        ref={ref}
         className="motion-gallery-tile__button"
         onClick={onClick}
         title={template.description ?? template.label}
       >
-        <div className="motion-gallery-tile__preview">{template.thumbnail(config)}</div>
+        <div className="motion-gallery-tile__preview">
+          <div ref={previewRef} className="motion-gallery-tile__preview-inner">
+            {template.thumbnail(config)}
+          </div>
+        </div>
         <div className="motion-gallery-tile__meta">
           <strong>{template.label}</strong>
           {template.description ? <small>{template.description}</small> : null}

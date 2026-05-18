@@ -82,6 +82,24 @@ describe('animation presets', () => {
     expect(pulse.motion?.idle?.templateId).toBe('pulse');
   });
 
+  it('replaces a previous enter preset when switching to float so idle controls can own the selection', () => {
+    const widget = createWidget('image');
+    widget.motion = {
+      enter: {
+        templateId: 'fade-up',
+        trigger: 'load',
+        config: { durationMs: 700, delayMs: 0, distancePx: 24, iterations: 1 },
+      },
+    };
+    widget.style.animationPreset = 'fade-up';
+
+    const result = applyAnimationPreset(widget, 'float');
+
+    expect(result.motion?.enter).toBeUndefined();
+    expect(result.motion?.idle?.templateId).toBe('float');
+    expect(result.stylePatch.animationPreset).toBe('float');
+  });
+
   it('strips only motion-managed tracks when removing a template', () => {
     const widget = createWidget('text');
     widget.timeline.keyframes = [

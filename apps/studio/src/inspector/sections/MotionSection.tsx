@@ -76,9 +76,7 @@ export function MotionSection({ widget }: { widget: WidgetNode }): JSX.Element |
                       replayPolicy: selectedMotion.replayPolicy,
                       phase: selectedMotion.phase,
                     });
-                    const nextMotion = nextSlotMotion
-                      ? { ...(widget.motion ?? {}), [selectedMotion.phase]: nextSlotMotion[selectedMotion.phase] }
-                      : undefined;
+                    const nextMotion = nextSlotMotion;
                     setWidgetKeyframes(widget.id, rebuildWidgetMotionKeyframes(widget, nextMotion, widget.timeline.keyframes ?? []));
                     updateWidgetMotion(widget.id, nextMotion);
                     updateWidgetStyle(widget.id, buildLegacyMotionStylePatch(nextMotion));

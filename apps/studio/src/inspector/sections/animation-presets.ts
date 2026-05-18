@@ -132,13 +132,7 @@ export function applyAnimationPreset(
     intensity: currentConfig.intensity,
     repeatMode: currentConfig.repeatMode,
   });
-  const selection = resolveWidgetMotionSelection({ ...widget, motion: nextSlotMotion });
-  const motion = selection
-    ? {
-        ...(widget.motion ?? {}),
-        [selection.phase]: nextSlotMotion?.[selection.phase],
-      }
-    : nextSlotMotion;
+  const motion = nextSlotMotion;
   return {
     keyframes: rebuildWidgetMotionKeyframes(widget, motion, widget.timeline.keyframes ?? []),
     stylePatch: buildLegacyMotionStylePatch(motion),
