@@ -76,6 +76,28 @@ describe('client preview player', () => {
     expect(html).toContain('window.SmxRuntime.bootSmxRuntime(');
   });
 
+  it('preserves resolved remote asset URLs in public preview html instead of localizing them for zip export', () => {
+    const state = createInitialState();
+    const sceneId = state.document.scenes[0].id;
+    state.document.widgets.image_1 = {
+      id: 'image_1',
+      type: 'image',
+      name: 'Resolved image',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 120, height: 80, rotation: 0 },
+      style: {},
+      props: { assetId: 'asset_hero', src: 'https://cdn-staging.duskplatform.co/assets/image/image_lndqqcb/hero.png' },
+      timeline: { startMs: 0, endMs: 1000, keyframes: [] },
+    } as any;
+    state.document.scenes[0].widgetIds.push('image_1');
+
+    const html = buildClientPreviewSceneHtml(state, 0);
+
+    expect(html).toContain('https://cdn-staging.duskplatform.co/assets/image/image_lndqqcb/hero.png');
+    expect(html).not.toContain('<img src="assets/image/');
+  });
+
   it('isolates the selected scene for public preview playback', () => {
     const state = createInitialState();
     state.document.scenes.push({

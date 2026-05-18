@@ -197,6 +197,10 @@ export type ExportHtmlAdapter =
   | PlayableExportAdapterResult
   | VastSimidAdapterResult;
 
+type BuildChannelHtmlOptions = {
+  assetPathMap?: Record<string, string>;
+};
+
 function getRuntimeProject(adapter: ExportHtmlAdapter) {
   return adapter.adapter === 'playable-ad' ? adapter.playableProject : adapter.portableProject;
 }
@@ -420,7 +424,7 @@ export function buildPlayableSingleFileHtml(
 </html>`;
 }
 
-export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter): string {
+export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter, options: BuildChannelHtmlOptions = {}): string {
   if (adapter.adapter === 'playable-ad') {
     return buildPlayableSingleFileHtml(state, adapter);
   }
@@ -429,7 +433,7 @@ export function buildChannelHtml(state: StudioState, adapter: ExportHtmlAdapter)
   const runtimeModel = buildExportRuntimeModelFromPortable(nonPlayableAdapter.portableProject);
   const exitConfig = buildExportExitConfig(adapter);
   const activeRecord = getActiveFeedRecord(state);
-  const assetPathMap = buildExportAssetPathMap(buildExportAssetPlan(nonPlayableAdapter.portableProject));
+  const assetPathMap = options.assetPathMap ?? buildExportAssetPathMap(buildExportAssetPlan(nonPlayableAdapter.portableProject));
   const orderedScenes = [...nonPlayableAdapter.portableProject.scenes].sort((a, b) => a.order - b.order);
   const exitBootstrap = buildExitBootstrap(adapter);
   const canvas = nonPlayableAdapter.portableProject.canvas;
