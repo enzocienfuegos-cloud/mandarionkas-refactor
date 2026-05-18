@@ -32,7 +32,7 @@ const dragTokenBaseStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'var(--neutral-slate-800)',
+  background: 'transparent',
   color: 'var(--surface-card-light)',
   fontSize: 11,
   fontWeight: 700,
@@ -48,7 +48,7 @@ const dragTokenBaseStyle: CSSProperties = {
 const dragTokenGhostBaseStyle: CSSProperties = {
   position: 'fixed',
   overflow: 'hidden',
-  background: 'var(--neutral-slate-800)',
+  background: 'transparent',
   color: 'var(--surface-card-light)',
   display: 'flex',
   alignItems: 'center',
@@ -183,7 +183,8 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
       <div style={buildDragTokenTrackStyle(gap)}>
         {tokens.map((token) => {
           const isDisabled = disabled.has(token.id);
-          const hasTokenImage = Boolean(token.imageUrl);
+          const displayImageUrl = token.baseImageUrl ?? token.imageUrl;
+          const hasTokenImage = Boolean(displayImageUrl);
           const hideFrame = hasTokenImage && hideAccentForImageTokens;
           const hideShape = hasTokenImage && hideShapeForImageTokens;
           const effectiveRadius = hideShape ? '0' : radius;
@@ -206,19 +207,10 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
               }}
               style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, effectiveRadius, hideFrame)}
             >
-              {token.baseImageUrl ? (
-                <img
-                  src={token.baseImageUrl}
-                  alt=""
-                  aria-hidden="true"
-                  draggable={false}
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0, pointerEvents: 'none' }}
-                />
-              ) : null}
               <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-                {token.imageUrl ? (
+                {displayImageUrl ? (
                   <img
-                    src={token.imageUrl}
+                    src={displayImageUrl}
                     alt={token.label}
                     draggable={false}
                     style={buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape)}
@@ -232,7 +224,8 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
       {draggingId && pointerPosition ? (() => {
         const draggingToken = tokens.find((token) => token.id === draggingId);
         if (!draggingToken) return null;
-        const hasTokenImage = Boolean(draggingToken.imageUrl);
+        const displayImageUrl = draggingToken.baseImageUrl ?? draggingToken.imageUrl;
+        const hasTokenImage = Boolean(displayImageUrl);
         const hideFrame = hasTokenImage && hideAccentForImageTokens;
         const hideShape = hasTokenImage && hideShapeForImageTokens;
         const effectiveRadius = hideShape ? '0' : radius;
@@ -247,19 +240,10 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
           )}
         >
           <>
-            {draggingToken.baseImageUrl ? (
-              <img
-                src={draggingToken.baseImageUrl}
-                alt=""
-                aria-hidden="true"
-                draggable={false}
-                style={{ position: 'absolute', inset: 0, zIndex: 0, width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
-              />
-            ) : null}
             <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-              {draggingToken.imageUrl ? (
+              {displayImageUrl ? (
                 <img
-                  src={draggingToken.imageUrl}
+                  src={displayImageUrl}
                   alt={draggingToken.label}
                   draggable={false}
                   style={{ ...buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape), pointerEvents: 'none' }}

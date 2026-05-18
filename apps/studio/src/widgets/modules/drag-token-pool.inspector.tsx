@@ -187,19 +187,6 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 Disabled
               </label>
               <AssetPickerButton
-                label="Token image"
-                assetId={token.assetId}
-                imageUrl={token.imageUrl}
-                assets={assets}
-                accept="image"
-                emptyLabel="No token image selected."
-                onChange={(asset) => updateToken(token.id, {
-                  assetId: asset.id,
-                  imageUrl: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
-                })}
-                onClear={() => updateToken(token.id, { assetId: undefined, imageUrl: undefined })}
-              />
-              <AssetPickerButton
                 label="Base image"
                 assetId={token.baseAssetId}
                 imageUrl={token.baseImageUrl}
