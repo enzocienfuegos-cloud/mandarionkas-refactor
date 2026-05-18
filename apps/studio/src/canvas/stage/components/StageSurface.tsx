@@ -11,7 +11,7 @@ import { isVisibleWithinParentTimeline, resolveInheritedMotionFrame, resolveInhe
 import { createEventClock } from '../../../motion/animation-engine';
 import { useAnimationEngine } from '../../../motion/animation-engine';
 import { isScratchGroupActive } from '../../../widgets/group/group-scratch-activation';
-import { resolveScratchRevealTargets } from '../../../widgets/group/group-reveal-target';
+import { getScratchRevealTargetId, getScratchRevealTargetMode, isWidgetDescendantOf, resolveScratchRevealTargets } from '../../../widgets/group/group-reveal-target';
 
 export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
@@ -92,6 +92,27 @@ export function StageSurface({
   const previousSceneIdRef = useRef<string | undefined>(undefined);
   const widgetsRef = useRef(widgets);
   const sceneWidgets = Object.values(widgetsById).filter((widget) => widget.sceneId === sceneId);
+
+  function isVisuallyCoveredByScratchShell(scratchGroup: WidgetNode, widget: WidgetNode): boolean {
+    if (scratchGroup.id === widget.id) return false;
+    if (isWidgetDescendantOf(widget.id, scratchGroup.id, widgetsById)) return false;
+    if (Number(scratchGroup.zIndex ?? 0) <= Number(widget.zIndex ?? 0)) return false;
+    return Number(scratchGroup.frame.x ?? 0) < Number(widget.frame.x ?? 0) + Number(widget.frame.width ?? 0)
+      && Number(scratchGroup.frame.x ?? 0) + Number(scratchGroup.frame.width ?? 0) > Number(widget.frame.x ?? 0)
+      && Number(scratchGroup.frame.y ?? 0) < Number(widget.frame.y ?? 0) + Number(widget.frame.height ?? 0)
+      && Number(scratchGroup.frame.y ?? 0) + Number(scratchGroup.frame.height ?? 0) > Number(widget.frame.y ?? 0);
+  }
+
+  function isSuppressedByExplicitScratchTarget(widget: WidgetNode): boolean {
+    return sceneWidgets.some((candidate) => {
+      if (candidate.type !== 'group' || !candidate.props.scratchEnabled) return false;
+      if (!isScratchGroupActive({ group: candidate, widgetsById, playheadMs })) return false;
+      if (getScratchRevealTargetMode(candidate) !== 'widget' || !getScratchRevealTargetId(candidate)) return false;
+      if (!isVisuallyCoveredByScratchShell(candidate, widget)) return false;
+      const targetIds = new Set(resolveScratchRevealTargets(candidate, sceneWidgets, widgetsById).map((target) => target.id));
+      return !targetIds.has(widget.id);
+    });
+  }
 
   useEffect(() => {
     widgetsRef.current = widgets;
@@ -226,6 +247,7 @@ export function StageSurface({
             return target ? isWidgetVisibleAtBaseTime(target) : false;
           },
         })) return null;
+        if (isSuppressedByExplicitScratchTarget(widget)) return null;
         if (isCoveredByScratchGroup(widget)) return null;
         const scratchGroupActive = widget.type === 'group' && isScratchGroupActive({ group: widget, widgetsById, playheadMs });
         const isPassThroughGroup = widget.type === 'group'

@@ -131,16 +131,17 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
         {scratchEnabled ? (
           <>
             <div>
-              <label>Reveal target</label>
+              <label>What should the scratch reveal?</label>
               <select value={revealTargetMode} onChange={(event) => updateRevealTargetMode(event.target.value)}>
-                <option value="auto">Auto (layers behind)</option>
-                <option value="widget">Layer or group</option>
-                <option value="scene">Scene</option>
+                <option value="widget">Only selected layer or group</option>
+                <option value="auto">Everything behind the scratch cover</option>
+                <option value="scene">Switch to another scene</option>
               </select>
+              <small className="muted">Use the selected layer/group mode for predictable reveals. It keeps unrelated covered layers hidden.</small>
             </div>
             {revealTargetMode === 'widget' ? (
               <div>
-                <label>Target layer or group</label>
+                <label>Selected layer or group to reveal</label>
                 <select
                   value={revealTargetId}
                   onChange={(event) => widgetActions.updateWidgetProps(widget.id, { revealTargetId: event.target.value })}
@@ -221,8 +222,8 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
               </select>
             </div>
             <div className="field-stack">
-              <strong>Milestones intermedios</strong>
-              <small className="muted">Dispará triggers al cruzar % de rascado sin completar. Útil para animar capas escalonadas.</small>
+              <strong>Advanced milestones</strong>
+              <small className="muted">Optional. Fires extra triggers at partial scratch percentages before completion.</small>
               {milestones.map((milestone, index) => (
                 <div key={milestone.id} className="fields-grid">
                   <div>
@@ -259,7 +260,7 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
               </Button>
             </div>
             <small className="muted">
-              The grouped child layers become the scratchable cover. Reveal target can stay automatic or point explicitly to a layer, group, or scene.
+              The grouped child layers become the scratchable cover. Recommended setup: pick one explicit layer or group as the reveal target.
             </small>
           </>
         ) : null}

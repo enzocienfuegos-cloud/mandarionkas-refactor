@@ -478,7 +478,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     <div ref={shellRef} style={{ ...scratchShellStyle, borderRadius: Number(node.style.borderRadius ?? 18), boxShadow }}>
       <canvas ref={maskCanvasRef} style={scratchCanvasStyle} aria-hidden="true" />
       {scratchContent ? (
-        <div style={scratchCompleted || !maskUrl ? scratchRevealedContentStyle : buildScratchMaskStyle(maskUrl, coverBlur)}>
+        <div style={scratchCompleted ? { display: 'none' } : !maskUrl ? scratchRevealedContentStyle : buildScratchMaskStyle(maskUrl, coverBlur)}>
           {scratchContent}
         </div>
       ) : null}

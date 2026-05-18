@@ -200,12 +200,30 @@ function isCoveredByScratchGroup(scene: ExportRuntimeScene, scratchWidget: Expor
   return rectsOverlap(scratchWidget.frame, widget.frame);
 }
 
+function isVisuallyCoveredByScratchShell(scene: ExportRuntimeScene, scratchWidget: ExportRuntimeWidget, widget: ExportRuntimeWidget): boolean {
+  if (scratchWidget.id === widget.id) return false;
+  if (isRuntimeWidgetDescendantOf(scene, widget, scratchWidget.id)) return false;
+  if (Number(scratchWidget.zIndex ?? 0) <= Number(widget.zIndex ?? 0)) return false;
+  return rectsOverlap(scratchWidget.frame, widget.frame);
+}
+
 function resolveScratchScene(runtimeModel: ExportRuntimeModel, scratchWidgetId: string): ExportRuntimeScene | null {
   return runtimeModel.scenes.find((scene) => scene.widgets.some((widget) => widget.id === scratchWidgetId)) ?? null;
 }
 
 function resolveScratchTargets(scene: ExportRuntimeScene, scratchWidget: ExportRuntimeWidget): ExportRuntimeWidget[] {
   return scene.widgets.filter((widget) => isCoveredByScratchGroup(scene, scratchWidget, widget));
+}
+
+function resolveCoveredScratchWidgets(scene: ExportRuntimeScene, scratchWidget: ExportRuntimeWidget): ExportRuntimeWidget[] {
+  return scene.widgets.filter((widget) => isVisuallyCoveredByScratchShell(scene, scratchWidget, widget));
+}
+
+function findRuntimeWidgetNodes(widgetId: string): HTMLElement[] {
+  return [
+    ...document.querySelectorAll<HTMLElement>(`[data-widget-id="${widgetId}"]`),
+    ...document.querySelectorAll<HTMLElement>(`[data-widget-layer-id="${widgetId}"]`),
+  ];
 }
 
 export function mountScratchReveal(
@@ -217,6 +235,7 @@ export function mountScratchReveal(
   runtimeWindow.__smxScratchCompletionMsByWidgetId = runtimeWindow.__smxScratchCompletionMsByWidgetId ?? {};
   runtimeWindow.__smxScratchCompletionPerfMsByWidgetId = runtimeWindow.__smxScratchCompletionPerfMsByWidgetId ?? {};
   const removers: Array<() => void> = [];
+  const visibilitySnapshots = new Map<HTMLElement, { display: string; visibility: string; pointerEvents: string }>();
 
   document.querySelectorAll<HTMLElement>('[data-scratch-shell]').forEach((shellNode) => {
     const root = shellNode.closest<HTMLElement>('[data-widget-id]') ?? shellNode.parentElement;
@@ -300,11 +319,30 @@ export function mountScratchReveal(
 
     const startedAt = nowMs();
     const scratchWidgetId = root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || '';
+    const scene = resolveScratchScene(runtimeModel, scratchWidgetId);
+    const scratchWidget = scene?.widgets.find((widget) => widget.id === scratchWidgetId);
+
+    if (scene && scratchWidget && revealTargetMode === 'widget' && revealTargetId) {
+      const targetIds = new Set(resolveScratchTargets(scene, scratchWidget).map((widget) => widget.id));
+      resolveCoveredScratchWidgets(scene, scratchWidget).forEach((widget) => {
+        if (targetIds.has(widget.id)) return;
+        findRuntimeWidgetNodes(widget.id).forEach((node) => {
+          if (!visibilitySnapshots.has(node)) {
+            visibilitySnapshots.set(node, {
+              display: node.style.display,
+              visibility: node.style.visibility,
+              pointerEvents: node.style.pointerEvents,
+            });
+          }
+          node.style.display = 'none';
+          node.style.visibility = 'hidden';
+          node.style.pointerEvents = 'none';
+        });
+      });
+    }
 
     const emitScratchMilestone = (milestone: ScratchMilestone, perfNow: number): void => {
-      const scene = resolveScratchScene(runtimeModel, scratchWidgetId);
       if (!scene) return;
-      const scratchWidget = scene.widgets.find((widget) => widget.id === scratchWidgetId);
       if (!scratchWidget) return;
       const targets = resolveScratchTargets(scene, scratchWidget);
       const trigger = milestone.emitTrigger as ScratchMilestoneTrigger;
@@ -330,6 +368,8 @@ export function mountScratchReveal(
       runtimeWindow.__smxScratchCompletionMsByWidgetId![scratchWidgetId] = completionPerfMs - startedAt;
       runtimeWindow.__smxScratchCompletionPerfMsByWidgetId![scratchWidgetId] = completionPerfMs;
       if (maskTarget) {
+        maskTarget.style.display = 'none';
+        maskTarget.style.visibility = 'hidden';
         maskTarget.style.webkitMaskImage = 'none';
         maskTarget.style.maskImage = 'none';
       } else {
@@ -337,8 +377,6 @@ export function mountScratchReveal(
       }
       canvas.style.display = 'none';
 
-      const scene = resolveScratchScene(runtimeModel, scratchWidgetId);
-      const scratchWidget = scene?.widgets.find((widget) => widget.id === scratchWidgetId);
       if (!scene || !scratchWidget) return;
       const clock = createEventClock('reveal', completionPerfMs);
       resolveScratchTargets(scene, scratchWidget).forEach((widget) => {
@@ -423,6 +461,11 @@ export function mountScratchReveal(
   return {
     dispose: () => {
       removers.forEach((remove) => remove());
+      visibilitySnapshots.forEach((snapshot, node) => {
+        node.style.display = snapshot.display;
+        node.style.visibility = snapshot.visibility;
+        node.style.pointerEvents = snapshot.pointerEvents;
+      });
     },
   };
 }

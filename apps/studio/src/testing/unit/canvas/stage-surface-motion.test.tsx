@@ -234,6 +234,11 @@ describe('StageSurface motion behavior', () => {
       );
     });
 
+    const renderedIdsBeforeReveal = scratchRoot!.root.findAll((node) => typeof node.props?.['data-widget-id'] === 'string')
+      .map((node) => node.props['data-widget-id']);
+    expect(renderedIdsBeforeReveal).toContain('scratch_group');
+    expect(renderedIdsBeforeReveal).not.toContain('target_group');
+
     const scratchWidgetProps = stageWidgetProps.find((entry) => entry.node.id === 'scratch_group');
     expect(scratchWidgetProps).toBeTruthy();
 

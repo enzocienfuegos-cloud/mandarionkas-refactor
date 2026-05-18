@@ -250,11 +250,24 @@ describe('scratch reveal runtime behavior', () => {
     const sceneId = state.document.scenes[0].id;
     state.document.canvas = { width: 300, height: 250, backgroundColor: '#111827' };
     state.document.metadata.release.targetChannel = 'generic-html5';
+    state.document.widgets.target_group = {
+      id: 'target_group',
+      type: 'group',
+      name: 'Target parent group',
+      sceneId,
+      zIndex: 1,
+      frame: { x: 0, y: 0, width: 300, height: 250, rotation: 0 },
+      style: { opacity: 1, backgroundColor: '#22c55e' },
+      props: { title: 'Target parent group' },
+      timeline: { startMs: 0, endMs: 1000, keyframes: [] },
+      childIds: ['image_1'],
+    } as any;
     state.document.widgets.image_1 = {
       id: 'image_1',
       type: 'image',
       name: 'Late timeline child',
       sceneId,
+      parentId: 'target_group',
       zIndex: 1,
       frame: { x: 40, y: 55, width: 120, height: 90, rotation: 0 },
       style: { opacity: 1 },
@@ -288,7 +301,7 @@ describe('scratch reveal runtime behavior', () => {
       timeline: { startMs: 0, endMs: 1000 },
       childIds: [],
     } as any;
-    state.document.scenes[0].widgetIds.push('image_1', 'scratch_group');
+    state.document.scenes[0].widgetIds.push('target_group', 'image_1', 'scratch_group');
 
     const html = buildClientPreviewSceneHtml(state, 0);
     const page = await (await getBrowser()).newPage({ viewport: { width: 360, height: 320 } });
@@ -299,9 +312,14 @@ describe('scratch reveal runtime behavior', () => {
 
       const beforeOpacity = await page.evaluate(() => {
         const node = document.querySelector('[data-widget-id="image_1"]') as HTMLElement | null;
-        return node ? Number(window.getComputedStyle(node).opacity) : -1;
+        const parent = document.querySelector('[data-widget-id="target_group"]') as HTMLElement | null;
+        return {
+          opacity: node ? Number(window.getComputedStyle(node).opacity) : -1,
+          parentDisplay: parent ? window.getComputedStyle(parent).display : 'missing',
+        };
       });
-      expect(beforeOpacity).toBe(0);
+      expect(beforeOpacity.opacity).toBe(0);
+      expect(beforeOpacity.parentDisplay).toBe('none');
 
       await page.evaluate(() => {
         const canvas = document.querySelector('[data-scratch-canvas]');
@@ -332,16 +350,19 @@ describe('scratch reveal runtime behavior', () => {
 
       const after = await page.evaluate(() => {
         const node = document.querySelector('[data-widget-id="image_1"]') as HTMLElement | null;
+        const parent = document.querySelector('[data-widget-id="target_group"]') as HTMLElement | null;
         return {
           completed: Boolean((window as any).__smxScratchCompletionMsByWidgetId?.scratch_group),
           completedPerf: Boolean((window as any).__smxScratchCompletionPerfMsByWidgetId?.scratch_group),
           opacity: node ? Number(window.getComputedStyle(node).opacity) : -1,
+          parentDisplay: parent ? window.getComputedStyle(parent).display : 'missing',
         };
       });
 
       expect(after.completed).toBe(true);
       expect(after.completedPerf).toBe(true);
       expect(after.opacity).toBeGreaterThan(0.9);
+      expect(after.parentDisplay).toBe('none');
     } finally {
       await page.close();
     }
