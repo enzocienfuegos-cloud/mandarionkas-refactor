@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useLeftRailController } from './left-rail/use-left-rail-controller';
 import { useAssetLibraryController } from './left-rail/use-asset-library-controller';
 import { Button } from '../../shared/ui/Button';
@@ -12,6 +13,14 @@ type AssetLibraryModalProps = {
 export function AssetLibraryModal({ onClose, request }: AssetLibraryModalProps): JSX.Element {
   const assetController = useLeftRailController();
   const lib = useAssetLibraryController(assetController);
+
+  useEffect(() => {
+    if (request?.accept === 'image' || request?.accept === 'video' || request?.accept === 'font') {
+      assetController.setAssetFilter(request.accept);
+      return;
+    }
+    assetController.setAssetFilter('all');
+  }, [assetController.setAssetFilter, request?.accept]);
 
   return (
     <div
@@ -36,7 +45,7 @@ export function AssetLibraryModal({ onClose, request }: AssetLibraryModalProps):
       >
         {/* Header */}
         <div className="asset-library-browser-header">
-          <strong>Assets</strong>
+          <strong>{request?.title?.trim() || 'Assets'}</strong>
           <span className="muted">
             {request?.target === 'scratch-cover'
               ? 'Choose the cover image for the selected scratch widget.'
@@ -44,7 +53,9 @@ export function AssetLibraryModal({ onClose, request }: AssetLibraryModalProps):
                 ? 'Choose the reveal image for the selected scratch widget.'
                 : request?.target === 'group-scratch-cover'
                   ? 'Choose the scratch cover image for the selected group.'
-                : 'Reuse, replace, upload, organize.'}
+                : request?.onSelect
+                  ? 'Browse, search, upload, or organize assets, then choose one for this field.'
+                  : 'Reuse, replace, upload, organize.'}
           </span>
         </div>
 

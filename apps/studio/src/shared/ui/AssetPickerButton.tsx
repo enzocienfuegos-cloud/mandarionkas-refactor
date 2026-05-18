@@ -3,6 +3,7 @@ import type { AssetRecord, AssetKind } from '../../assets/types';
 import { resolveAssetDeliveryUrl, resolveAssetPreviewUrl } from '../../assets/policy';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { listAssets } from '../../repositories/asset';
+import { requestOpenAssetLibrary } from '../asset-library-events';
 import { AssetPickerModal } from './AssetPickerModal';
 import { Button } from './Button';
 
@@ -15,6 +16,7 @@ type AssetPickerButtonProps = {
   accept: AssetPickerAccept;
   assets?: AssetRecord[];
   emptyLabel?: string;
+  pickerMode?: 'library' | 'compact';
   onChange: (asset: AssetRecord) => void;
   onClear: () => void;
 };
@@ -30,6 +32,7 @@ export function AssetPickerButton({
   accept,
   assets,
   emptyLabel = 'No asset selected.',
+  pickerMode = 'library',
   onChange,
   onClear,
 }: AssetPickerButtonProps): JSX.Element {
@@ -63,6 +66,26 @@ export function AssetPickerButton({
   const previewUrl = imageUrl || (resolvedAsset ? resolveAssetPreviewUrl(resolvedAsset, targetChannel) : '');
   const hasPreview = previewUrl.trim().length > 0;
 
+  const applySelection = (asset: AssetRecord) => {
+    onChange({
+      ...asset,
+      src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
+      posterSrc: asset.derivatives?.poster?.src ?? asset.posterSrc,
+    });
+  };
+
+  const openPicker = () => {
+    if (pickerMode === 'compact') {
+      setOpen(true);
+      return;
+    }
+    requestOpenAssetLibrary({
+      accept,
+      title: label,
+      onSelect: (asset: AssetRecord) => applySelection(asset),
+    });
+  };
+
   return (
     <div className="field-stack">
       <label>{label}</label>
@@ -86,23 +109,19 @@ export function AssetPickerButton({
         <small className="muted">{emptyLabel}</small>
       )}
       <div className="asset-inline-actions">
-        <Button size="sm" className="left-button compact-action" onClick={() => setOpen(true)}>
+        <Button size="sm" className="left-button compact-action" onClick={openPicker}>
           {hasPreview ? 'Change asset' : 'Choose from library'}
         </Button>
         <Button variant="ghost" size="sm" className="compact-action" onClick={onClear} disabled={!hasPreview}>
           Remove asset
         </Button>
       </div>
-      {open ? (
+      {pickerMode === 'compact' && open ? (
         <AssetPickerModal
           assets={availableAssets}
           title={label}
           onSelect={(asset) => {
-            onChange({
-              ...asset,
-              src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
-              posterSrc: asset.derivatives?.poster?.src ?? asset.posterSrc,
-            });
+            applySelection(asset);
             setOpen(false);
           }}
           onClose={() => setOpen(false)}

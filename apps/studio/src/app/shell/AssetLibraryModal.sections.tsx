@@ -13,6 +13,13 @@ import { Tooltip } from '../../shared/ui/Tooltip';
 
 type AssetController = ReturnType<typeof useLeftRailController>;
 type AssetLibraryController = ReturnType<typeof useAssetLibraryController>;
+
+function requestAcceptsAsset(request: AssetLibraryOpenRequest | undefined, asset: AssetRecord | undefined): boolean {
+  if (!asset) return false;
+  if (!request?.accept || request.accept === 'any') return true;
+  return asset.kind === request.accept;
+}
+
 function buildAssetModalUploadProgressStyle(progress: number): CSSProperties {
   return { width: `${progress}%` };
 }
@@ -192,6 +199,10 @@ export function AssetLibraryToolbar({
   request?: AssetLibraryOpenRequest;
 }): JSX.Element {
   function applyTargetedAsset(asset: AssetRecord | undefined): boolean {
+    if (request?.onSelect && requestAcceptsAsset(request, asset)) {
+      request.onSelect(asset as AssetRecord);
+      return true;
+    }
     if (!asset || asset.kind !== 'image') return false;
     const primaryWidget = assetController.primaryWidget;
     const resolvedSrc = assetController.resolveAssetPreviewUrl(asset);
@@ -279,7 +290,21 @@ export function AssetLibraryToolbar({
             </Button>
           </span>
         </Tooltip>
-        {assetController.selectedWidgetAcceptsAsset ? (
+        {request?.onSelect ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="compact-action"
+            disabled={!requestAcceptsAsset(request, assetController.selectedAsset)}
+            onClick={() => {
+              if (!requestAcceptsAsset(request, assetController.selectedAsset)) return;
+              applyTargetedAsset(assetController.selectedAsset);
+              onClose();
+            }}
+          >
+            Choose selected
+          </Button>
+        ) : assetController.selectedWidgetAcceptsAsset ? (
           <Button
             variant="ghost"
             size="sm"
@@ -446,6 +471,10 @@ export function AssetLibraryFilesSection({
   const selectedAsset = assetController.selectedAsset;
 
   function applyTargetedAsset(asset: AssetRecord): boolean {
+    if (request?.onSelect && requestAcceptsAsset(request, asset)) {
+      request.onSelect(asset);
+      return true;
+    }
     if (asset.kind !== 'image') return false;
     const primaryWidget = assetController.primaryWidget;
     const resolvedSrc = assetController.resolveAssetPreviewUrl(asset);
@@ -494,6 +523,13 @@ export function AssetLibraryFilesSection({
     assetController.setSelectedAssetId(asset.id);
 
     if (options.additive || options.range) return;
+    if (request?.onSelect) {
+      if (options.closeOnApply === true && requestAcceptsAsset(request, asset)) {
+        applyTargetedAsset(asset);
+        onClose();
+      }
+      return;
+    }
     if (asset.kind === 'font') return;
     if (!lib.isCompatibleWithSelection(asset)) return;
 

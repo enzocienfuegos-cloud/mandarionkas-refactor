@@ -1,13 +1,26 @@
+import type { AssetRecord } from '../assets/types';
+
 const OPEN_ASSET_LIBRARY_EVENT = 'studio:open-asset-library';
 
 export type AssetLibraryOpenRequest = {
   target?: 'scratch-cover' | 'scratch-reveal' | 'group-scratch-cover';
+  accept?: 'image' | 'video' | 'font' | 'any';
+  title?: string;
+  onSelect?: (asset: AssetRecord) => void;
 };
 
 function isAssetLibraryOpenRequest(value: unknown): value is AssetLibraryOpenRequest {
   if (!value || typeof value !== 'object') return false;
-  const target = (value as AssetLibraryOpenRequest).target;
-  return target === undefined || target === 'scratch-cover' || target === 'scratch-reveal' || target === 'group-scratch-cover';
+  const request = value as AssetLibraryOpenRequest;
+  const target = request.target;
+  const accept = request.accept;
+  const title = request.title;
+  const onSelect = request.onSelect;
+  const targetValid = target === undefined || target === 'scratch-cover' || target === 'scratch-reveal' || target === 'group-scratch-cover';
+  const acceptValid = accept === undefined || accept === 'image' || accept === 'video' || accept === 'font' || accept === 'any';
+  const titleValid = title === undefined || typeof title === 'string';
+  const onSelectValid = onSelect === undefined || typeof onSelect === 'function';
+  return targetValid && acceptValid && titleValid && onSelectValid;
 }
 
 export function requestOpenAssetLibrary(request?: unknown): void {

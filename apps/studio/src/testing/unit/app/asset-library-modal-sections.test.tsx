@@ -114,4 +114,45 @@ describe('AssetLibraryFilesSection', () => {
     expect(assignAsset).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it('keeps browsing on single click and applies on double click when opened as a picker request', () => {
+    const asset = createImageAsset();
+    const assignAsset = vi.fn();
+    const setSelectedAssetId = vi.fn();
+    const onClose = vi.fn();
+    const onSelect = vi.fn();
+    const assetController = createAssetController(asset, assignAsset, setSelectedAssetId);
+    const lib = createLibraryController(asset);
+    let root: ReactTestRenderer | undefined;
+
+    act(() => {
+      root = create(
+        <AssetLibraryFilesSection
+          assetController={assetController as never}
+          lib={lib as never}
+          onClose={onClose}
+          request={{ accept: 'image', title: 'Token image', onSelect }}
+        />,
+      );
+    });
+
+    const card = findFirstAssetCard(root!);
+    act(() => {
+      card.props.onClick({ metaKey: false, ctrlKey: false, shiftKey: false });
+    });
+
+    expect(lib.toggleAssetSelection).toHaveBeenCalledWith('asset-image-1', false, false);
+    expect(setSelectedAssetId).toHaveBeenCalledWith('asset-image-1');
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(assignAsset).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    act(() => {
+      card.props.onDoubleClick();
+    });
+
+    expect(onSelect).toHaveBeenCalledWith(asset);
+    expect(assignAsset).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
 });
