@@ -139,6 +139,12 @@ export default function TagBindingsPanel({
     });
   }, [creativeOptions, savedTag.workspaceId, selectedCampaignWorkspaceId, tagFormat, tagWidth, tagHeight]);
 
+  const visibleCreativeOptions = useMemo(
+    () => filteredCreativeOptions.slice(0, 5),
+    [filteredCreativeOptions],
+  );
+  const hiddenCreativeOptionCount = Math.max(0, filteredCreativeOptions.length - visibleCreativeOptions.length);
+
   useEffect(() => {
     setAssignmentVersionId((current) => (
       current && filteredCreativeOptions.some((option) => option.latestVersion.id === current)
@@ -377,6 +383,58 @@ export default function TagBindingsPanel({
                 </p>
               )}
             </FormField>
+
+            {visibleCreativeOptions.length > 0 ? (
+              <div className="space-y-2">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--dusk-text-muted)]">
+                  Compatible creatives
+                </div>
+                <div className="space-y-2">
+                  {visibleCreativeOptions.map((option) => {
+                    const selected = option.latestVersion.id === assignmentVersionId;
+                    const width = Number(option.latestVersion.width) || 0;
+                    const height = Number(option.latestVersion.height) || 0;
+                    const sizeLabel = width > 0 && height > 0 ? `${width}x${height}` : 'Unknown size';
+                    return (
+                      <button
+                        key={option.latestVersion.id}
+                        type="button"
+                        onClick={() => {
+                          setAssignmentVersionId(option.latestVersion.id);
+                          setAssignmentError('');
+                        }}
+                        disabled={creativeOptionsLoading || assignmentBusy}
+                        className={[
+                          'w-full rounded-xl border px-3 py-2 text-left transition',
+                          selected
+                            ? 'border-brand-500/60 bg-brand-500/15 text-text-primary'
+                            : 'border-[color:var(--dusk-border-subtle)] bg-[color:var(--dusk-surface-muted)] text-[color:var(--dusk-text-secondary)] hover:border-brand-500/40 hover:text-text-primary',
+                        ].join(' ')}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold">{option.creative.name}</span>
+                            <span className="mt-1 block text-xs">
+                              v{option.latestVersion.versionNumber} · {sizeLabel} · {option.latestVersion.servingFormat}
+                            </span>
+                          </span>
+                          {selected ? (
+                            <span className="rounded-full bg-brand-500/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-text-brand">
+                              Selected
+                            </span>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {hiddenCreativeOptionCount > 0 ? (
+                  <p className="text-xs text-[color:var(--dusk-text-secondary)]">
+                    +{hiddenCreativeOptionCount} more compatible creative{hiddenCreativeOptionCount === 1 ? '' : 's'} in the dropdown.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <Button
               type="button"

@@ -347,6 +347,10 @@ export async function createTag(input: {
   format: 'VAST' | 'display' | 'native';
   status?: 'active' | 'paused' | 'archived' | 'draft';
   campaignId?: string | null;
+  servingWidth?: number | null;
+  servingHeight?: number | null;
+  trackerType?: 'click' | 'impression' | null;
+  clickUrl?: string | null;
 }): Promise<TagOption | null> {
   const payload = await fetchJson<{ tag?: TagOption }>('/v1/tags', {
     method: 'POST',
@@ -356,6 +360,10 @@ export async function createTag(input: {
       format: input.format,
       status: input.status ?? 'draft',
       campaignId: input.campaignId ?? null,
+      servingWidth: input.servingWidth ?? null,
+      servingHeight: input.servingHeight ?? null,
+      trackerType: input.trackerType ?? null,
+      clickUrl: input.clickUrl ?? null,
     }),
   });
   return payload.tag ?? null;

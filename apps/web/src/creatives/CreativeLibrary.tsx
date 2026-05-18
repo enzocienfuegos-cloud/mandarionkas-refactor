@@ -65,6 +65,7 @@ export default function CreativesView() {
   const currentViewId = searchParams.get('view');
   const [bulkClickUrl, setBulkClickUrl] = useState('');
   const [bulkAssignTagId, setBulkAssignTagId] = useState('');
+  const [bulkCreateTagName, setBulkCreateTagName] = useState('');
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [previewModal, setPreviewModal] = useState<PreviewModalState | null>(null);
@@ -244,6 +245,7 @@ export default function CreativesView() {
     setClickUrlEditor,
     bulkClickUrlSaving,
     bulkAssignSaving,
+    bulkCreateTagSaving,
     bulkStatusSaving,
     bulkDeleteSaving,
     statusUpdateCreativeId,
@@ -252,6 +254,7 @@ export default function CreativesView() {
     handleEditCreativeClickUrl,
     handleSaveCreativeClickUrl,
     handleBulkAssignToTag,
+    handleBulkCreateSizeTag,
     handleBulkCreativeStatusUpdate,
     handleBulkDeleteCreatives,
     handleCreativeOperationalStatusToggle,
@@ -278,6 +281,70 @@ export default function CreativesView() {
     load,
     confirm,
   });
+
+  const selectedBulkTagProfile = useMemo(() => {
+    if (selectedCreatives.length === 0) {
+      return {
+        canCreate: false,
+        sizeLabel: null as string | null,
+        hint: null as string | null,
+      };
+    }
+    if (selectedCreativeWorkspaceIds.length !== 1) {
+      return {
+        canCreate: false,
+        sizeLabel: null,
+        hint: 'Select creatives from one client only before creating a tag.',
+      };
+    }
+
+    const versions = selectedCreatives
+      .map((creative) => latestVersions[creative.id])
+      .filter((version): version is CreativeVersion => Boolean(version));
+    if (versions.length !== selectedCreatives.length) {
+      return {
+        canCreate: false,
+        sizeLabel: null,
+        hint: 'Every selected creative needs a latest version.',
+      };
+    }
+    if (versions.some((version) => !['display_html', 'display_image'].includes(String(version.servingFormat)))) {
+      return {
+        canCreate: false,
+        sizeLabel: null,
+        hint: 'Create tag from selection supports display creatives only.',
+      };
+    }
+
+    const sizeLabels = Array.from(new Set(versions.map((version) => {
+      const width = Number(version.width) || 0;
+      const height = Number(version.height) || 0;
+      return width > 0 && height > 0 ? `${width}x${height}` : '';
+    }))).filter(Boolean);
+    if (sizeLabels.length !== 1) {
+      return {
+        canCreate: false,
+        sizeLabel: null,
+        hint: 'Select one exact size only, for example only 300x250 creatives.',
+      };
+    }
+
+    return {
+      canCreate: true,
+      sizeLabel: sizeLabels[0],
+      hint: null,
+    };
+  }, [latestVersions, selectedCreativeWorkspaceIds, selectedCreatives]);
+
+  useEffect(() => {
+    if (selectedBulkTagProfile.sizeLabel) {
+      setBulkCreateTagName(`Display ${selectedBulkTagProfile.sizeLabel}`);
+      return;
+    }
+    if (selection.selectedCreativeIds.length === 0) {
+      setBulkCreateTagName('');
+    }
+  }, [selectedBulkTagProfile.sizeLabel, selection.selectedCreativeIds.length]);
 
   useEffect(() => {
     if (!previewModal) return undefined;
@@ -375,6 +442,13 @@ export default function CreativesView() {
           bulkAssignableTags={bulkAssignableTags}
           canBulkAssign={canBulkAssign}
           bulkAssignHint={bulkAssignHint}
+          bulkCreateTagName={bulkCreateTagName}
+          onBulkCreateTagNameChange={setBulkCreateTagName}
+          onBulkCreateSizeTag={() => handleBulkCreateSizeTag(bulkCreateTagName)}
+          bulkCreateTagSaving={bulkCreateTagSaving}
+          canBulkCreateTag={selectedBulkTagProfile.canCreate}
+          bulkCreateTagHint={selectedBulkTagProfile.hint}
+          selectedSizeLabel={selectedBulkTagProfile.sizeLabel}
           onBulkStatusUpdate={handleBulkCreativeStatusUpdate}
           bulkStatusSaving={bulkStatusSaving}
           onBulkDelete={handleBulkDeleteCreatives}
@@ -383,6 +457,7 @@ export default function CreativesView() {
             selection.clearSelection();
             setBulkAssignTagId('');
             setBulkClickUrl('');
+            setBulkCreateTagName('');
           }}
         />
       )}

@@ -1,6 +1,7 @@
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import {
   assignCreativeVersionToTag,
+  createTag,
   deleteCreativeById,
   updateCreativeById,
   updateCreativeVersionById,
@@ -63,6 +64,7 @@ export function useCreativeCatalogActions({
   const [clickUrlEditor, setClickUrlEditor] = useState<ClickUrlEditorState | null>(null);
   const [bulkClickUrlSaving, setBulkClickUrlSaving] = useState(false);
   const [bulkAssignSaving, setBulkAssignSaving] = useState(false);
+  const [bulkCreateTagSaving, setBulkCreateTagSaving] = useState(false);
   const [bulkStatusSaving, setBulkStatusSaving] = useState(false);
   const [bulkDeleteSaving, setBulkDeleteSaving] = useState(false);
   const [statusUpdateCreativeId, setStatusUpdateCreativeId] = useState('');
@@ -253,6 +255,95 @@ export function useCreativeCatalogActions({
     }
   };
 
+  const handleBulkCreateSizeTag = async (name: string) => {
+    const normalizedName = name.trim();
+    if (!selectedCreativeIds.length) {
+      setError('Select at least one creative first.');
+      return;
+    }
+    if (!normalizedName) {
+      setError('Name the tag before creating it.');
+      return;
+    }
+    if (selectedCreativeWorkspaceIds.length !== 1) {
+      setError('Create tag from selection only works when all selected creatives belong to one client.');
+      return;
+    }
+
+    const selectedVersions = selectedCreatives
+      .map((creative) => latestVersions[creative.id])
+      .filter((version): version is CreativeVersion => Boolean(version));
+    if (selectedVersions.length !== selectedCreatives.length) {
+      setError('Every selected creative needs a latest version before creating a tag.');
+      return;
+    }
+
+    const displayVersions = selectedVersions.filter((version) => (
+      ['display_html', 'display_image'].includes(String(version.servingFormat))
+    ));
+    if (displayVersions.length !== selectedVersions.length) {
+      setError('Create tag from selection supports display creatives only.');
+      return;
+    }
+
+    const sizeKeys = new Set(displayVersions.map((version) => {
+      const width = Number(version.width) || 0;
+      const height = Number(version.height) || 0;
+      return width > 0 && height > 0 ? `${width}x${height}` : '';
+    }));
+    sizeKeys.delete('');
+    if (sizeKeys.size !== 1) {
+      setError('Select creatives with one exact size only before creating a tag.');
+      return;
+    }
+
+    const [width, height] = Array.from(sizeKeys)[0].split('x').map(Number);
+    const workspaceId = selectedCreativeWorkspaceIds[0];
+
+    setBulkCreateTagSaving(true);
+    setError('');
+    setSuccessMessage('');
+    try {
+      if (workspaceId && workspaceId !== activeWorkspaceId) {
+        setWorkspaceBusy(true);
+        await switchWorkspace(workspaceId);
+        setActiveWorkspaceId(workspaceId);
+      }
+
+      const createdTag = await createTag({
+        workspaceId,
+        name: normalizedName,
+        format: 'display',
+        status: 'draft',
+        servingWidth: width,
+        servingHeight: height,
+      });
+      if (!createdTag) {
+        throw new Error('Tag creation did not return a tag.');
+      }
+
+      for (const version of displayVersions) {
+        await assignCreativeVersionToTag({
+          creativeVersionId: version.id,
+          tagId: createdTag.id,
+        });
+      }
+
+      await load();
+      setSelectedCreativeIds([]);
+      setBulkAssignTagId('');
+      setSuccessMessage(
+        `Created tag "${createdTag.name}" (${width}x${height}) with ${displayVersions.length} creative${displayVersions.length === 1 ? '' : 's'} assigned.`,
+      );
+      window.setTimeout(() => setSuccessMessage(''), 4500);
+    } catch (createError: any) {
+      setError(createError.message ?? 'Failed to create tag from selected creatives.');
+    } finally {
+      setWorkspaceBusy(false);
+      setBulkCreateTagSaving(false);
+    }
+  };
+
   const handleBulkCreativeStatusUpdate = async (nextStatus: 'draft' | 'archived') => {
     if (!selectedCreativeIds.length) {
       setError('Select at least one creative first.');
@@ -386,6 +477,7 @@ export function useCreativeCatalogActions({
     setClickUrlEditor,
     bulkClickUrlSaving,
     bulkAssignSaving,
+    bulkCreateTagSaving,
     bulkStatusSaving,
     bulkDeleteSaving,
     statusUpdateCreativeId,
@@ -394,6 +486,7 @@ export function useCreativeCatalogActions({
     handleEditCreativeClickUrl,
     handleSaveCreativeClickUrl,
     handleBulkAssignToTag,
+    handleBulkCreateSizeTag,
     handleBulkCreativeStatusUpdate,
     handleBulkDeleteCreatives,
     handleCreativeOperationalStatusToggle,

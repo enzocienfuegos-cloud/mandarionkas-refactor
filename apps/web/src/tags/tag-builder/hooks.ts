@@ -312,11 +312,15 @@ export function useTagBuilderData({
 
   const handleDisplaySizePresetChange = (value: string) => {
     const preset = [
+      { label: '250x250', width: 250, height: 250 },
       { label: '300x250', width: 300, height: 250 },
+      { label: '300x50', width: 300, height: 50 },
       { label: '320x50', width: 320, height: 50 },
       { label: '320x100', width: 320, height: 100 },
       { label: '336x280', width: 336, height: 280 },
+      { label: '468x60', width: 468, height: 60 },
       { label: '728x90', width: 728, height: 90 },
+      { label: '970x90', width: 970, height: 90 },
       { label: '970x250', width: 970, height: 250 },
       { label: '160x600', width: 160, height: 600 },
       { label: '300x600', width: 300, height: 600 },

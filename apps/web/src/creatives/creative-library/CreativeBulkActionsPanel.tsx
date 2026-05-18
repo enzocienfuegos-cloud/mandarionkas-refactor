@@ -19,6 +19,13 @@ type Props = {
   bulkAssignableTags: BulkAssignableTag[];
   canBulkAssign: boolean;
   bulkAssignHint: string | null;
+  bulkCreateTagName: string;
+  onBulkCreateTagNameChange: (value: string) => void;
+  onBulkCreateSizeTag: () => void | Promise<void>;
+  bulkCreateTagSaving: boolean;
+  canBulkCreateTag: boolean;
+  bulkCreateTagHint: string | null;
+  selectedSizeLabel: string | null;
   onBulkStatusUpdate: (nextStatus: 'draft' | 'archived') => void | Promise<void>;
   bulkStatusSaving: boolean;
   onBulkDelete: () => void | Promise<void>;
@@ -39,6 +46,13 @@ export function CreativeBulkActionsPanel({
   bulkAssignableTags,
   canBulkAssign,
   bulkAssignHint,
+  bulkCreateTagName,
+  onBulkCreateTagNameChange,
+  onBulkCreateSizeTag,
+  bulkCreateTagSaving,
+  canBulkCreateTag,
+  bulkCreateTagHint,
+  selectedSizeLabel,
   onBulkStatusUpdate,
   bulkStatusSaving,
   onBulkDelete,
@@ -107,6 +121,40 @@ export function CreativeBulkActionsPanel({
               <p className="mt-1 text-[11px] text-[color:var(--dusk-status-warning-fg)]">{bulkAssignHint}</p>
             ) : null}
           </div>
+        </div>
+
+        <div className="rounded-lg border border-brand-500/20 bg-surface-1/80 p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-text-brand">Create tag from selected size</div>
+            {selectedSizeLabel ? (
+              <span className="rounded-full border border-brand-500/20 px-2 py-1 text-[11px] font-semibold text-text-brand">
+                {selectedSizeLabel}
+              </span>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={bulkCreateTagName}
+              onChange={(event) => onBulkCreateTagNameChange(event.target.value)}
+              placeholder="Tag name"
+              className="min-w-0 flex-1"
+              disabled={!canBulkCreateTag || bulkCreateTagSaving}
+            />
+            <Button
+              onClick={() => void onBulkCreateSizeTag()}
+              variant="secondary"
+              loading={bulkCreateTagSaving}
+              disabled={!canBulkCreateTag || !bulkCreateTagName.trim()}
+            >
+              Create tag
+            </Button>
+          </div>
+          <p className="mt-2 text-[11px] text-text-secondary">
+            Select one display size only. Dusk will create a display tag for that size and attach the selected creatives.
+          </p>
+          {bulkCreateTagHint ? (
+            <p className="mt-1 text-[11px] text-[color:var(--dusk-status-warning-fg)]">{bulkCreateTagHint}</p>
+          ) : null}
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">

@@ -75,6 +75,12 @@ export interface DataTableProps<T> {
   estimatedRowHeight?: number;
   /** Show column visibility menu. */
   showColumnVisibilityMenu?: boolean;
+  /** Client-side pagination controls. Disabled by default. */
+  pagination?: {
+    defaultPageSize?: number;
+    pageSizeOptions?: number[];
+    label?: string;
+  };
 }
 
 type SortRule = { id: string; direction: SortDirection };
@@ -180,8 +186,11 @@ export function DataTable<T>({
   virtualize = false,
   estimatedRowHeight,
   showColumnVisibilityMenu = true,
+  pagination,
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<SortRule[]>([]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(() => pagination?.defaultPageSize ?? pagination?.pageSizeOptions?.[0] ?? 10);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(
     () => new Set(rawColumns.filter((column) => column.defaultHidden).map((column) => column.id)),
   );
@@ -292,6 +301,21 @@ export function DataTable<T>({
     });
   }, [data, rawColumns, sort]);
 
+  const paginationEnabled = Boolean(pagination) && !virtualize;
+  const pageSizeOptions = pagination?.pageSizeOptions ?? [10, 20, 50, 100];
+  const pageCount = paginationEnabled ? Math.max(1, Math.ceil(sortedData.length / pageSize)) : 1;
+  const safePageIndex = Math.min(pageIndex, pageCount - 1);
+  const pageStart = paginationEnabled ? safePageIndex * pageSize : 0;
+  const displayData = paginationEnabled
+    ? sortedData.slice(pageStart, pageStart + pageSize)
+    : sortedData;
+  const pageEnd = paginationEnabled ? Math.min(pageStart + displayData.length, sortedData.length) : sortedData.length;
+
+  useEffect(() => {
+    if (!paginationEnabled) return;
+    setPageIndex(0);
+  }, [paginationEnabled, pageSize, rawColumns, sort, data]);
+
   const handleSort = (column: ColumnDef<T>, event: React.MouseEvent) => {
     if (!column.sortAccessor) return;
 
@@ -311,13 +335,24 @@ export function DataTable<T>({
     });
   };
 
-  const allKeys = useMemo(() => new Set(sortedData.map(rowKey)), [sortedData, rowKey]);
-  const allSelected = selectable && selectedKeys && selectedKeys.size > 0 && selectedKeys.size === allKeys.size;
+  const allKeys = useMemo(() => new Set(displayData.map(rowKey)), [displayData, rowKey]);
+  const allSelected = selectable
+    && selectedKeys
+    && allKeys.size > 0
+    && Array.from(allKeys).every((key) => selectedKeys.has(key));
+  const somePageSelected = selectable
+    && selectedKeys
+    && Array.from(allKeys).some((key) => selectedKeys.has(key));
 
   const toggleAll = () => {
     if (!onSelectionChange) return;
-    if (allSelected) onSelectionChange(new Set());
-    else onSelectionChange(new Set(allKeys));
+    const next = new Set(selectedKeys ?? []);
+    if (allSelected) {
+      allKeys.forEach((key) => next.delete(key));
+    } else {
+      allKeys.forEach((key) => next.add(key));
+    }
+    onSelectionChange(next);
   };
 
   const toggleOne = (key: string) => {
@@ -335,7 +370,7 @@ export function DataTable<T>({
 
   const rowHeight = estimatedRowHeight ?? densityHeights[effectiveDensity];
   const rowVirtualizer = useVirtualizer({
-    count: sortedData.length,
+    count: displayData.length,
     getScrollElement: () => scrollContainerRef.current,
     estimateSize: () => rowHeight,
     initialRect: virtualize ? { width: 0, height: rowHeight * 8 } : undefined,
@@ -344,8 +379,8 @@ export function DataTable<T>({
   });
   const virtualItems = virtualize ? rowVirtualizer.getVirtualItems() : [];
   const initialVirtualRows = useMemo(
-    () => sortedData.slice(0, Math.min(sortedData.length, 16)),
-    [sortedData],
+    () => displayData.slice(0, Math.min(displayData.length, 16)),
+    [displayData],
   );
   const totalSize = virtualize ? rowVirtualizer.getTotalSize() : 0;
   const visibleRows = virtualize
@@ -353,14 +388,14 @@ export function DataTable<T>({
       ? virtualItems.map((item) => ({
           index: item.index,
           key: item.key,
-          row: sortedData[item.index],
+          row: displayData[item.index],
         }))
       : initialVirtualRows.map((row, index) => ({
           index,
           key: rowKey(row),
           row,
         })))
-    : sortedData.map((row, index) => ({
+    : displayData.map((row, index) => ({
         index,
         key: rowKey(row),
         row,
@@ -489,7 +524,7 @@ export function DataTable<T>({
                   type="checkbox"
                   checked={allSelected}
                   ref={(element) => {
-                    if (element) element.indeterminate = !!selectedKeys && selectedKeys.size > 0 && !allSelected;
+                    if (element) element.indeterminate = Boolean(somePageSelected && !allSelected);
                   }}
                   onChange={toggleAll}
                   aria-label="Select all rows"
@@ -630,9 +665,59 @@ export function DataTable<T>({
       {bordered ? (
         <Panel padding="none" className={cn('overflow-hidden', virtualize && 'h-full min-h-0')}>
           {tableEl}
+          {paginationEnabled && sortedData.length > 0 ? (
+            <div className="flex flex-col gap-3 border-t border-[color:var(--dusk-border-subtle)] px-4 py-3 text-sm text-[color:var(--dusk-text-secondary)] sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                Showing <span className="font-medium text-[color:var(--dusk-text-primary)]">{pageStart + 1}</span>
+                {' '}to <span className="font-medium text-[color:var(--dusk-text-primary)]">{pageEnd}</span>
+                {' '}of <span className="font-medium text-[color:var(--dusk-text-primary)]">{sortedData.length}</span>
+                {' '}{pagination?.label ?? 'rows'}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2">
+                  <span>Rows</span>
+                  <select
+                    value={pageSize}
+                    onChange={(event) => {
+                      setPageSize(Number(event.target.value) || pageSizeOptions[0] || 10);
+                      setPageIndex(0);
+                    }}
+                    className="rounded-lg border border-[color:var(--dusk-border-default)] bg-[color:var(--dusk-surface-1)] px-2 py-1 text-[color:var(--dusk-text-primary)]"
+                  >
+                    {pageSizeOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex items-center gap-2">
+                  <IconButton
+                    icon={<ChevronUp className="-rotate-90" />}
+                    aria-label="Previous page"
+                    size="sm"
+                    variant="ghost"
+                    disabled={safePageIndex <= 0}
+                    onClick={() => setPageIndex((current) => Math.max(0, current - 1))}
+                  />
+                  <span className="min-w-20 text-center">
+                    Page {safePageIndex + 1} / {pageCount}
+                  </span>
+                  <IconButton
+                    icon={<ChevronUp className="rotate-90" />}
+                    aria-label="Next page"
+                    size="sm"
+                    variant="ghost"
+                    disabled={safePageIndex >= pageCount - 1}
+                    onClick={() => setPageIndex((current) => Math.min(pageCount - 1, current + 1))}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : null}
         </Panel>
       ) : (
-        tableEl
+        <>
+          {tableEl}
+        </>
       )}
     </div>
   );

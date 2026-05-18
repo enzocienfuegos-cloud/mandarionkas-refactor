@@ -320,7 +320,7 @@ export default function TagBuilder() {
                     <FormField label="Display Size Preset" required error={errors.servingWidth ?? errors.servingHeight} className="md:col-span-3">
                       <Select value={`${form.servingWidth || 0}x${form.servingHeight || 0}`.replace(/^0x0$/, '')} onChange={(event) => handleDisplaySizePresetChange(event.target.value)}>
                         <option value="">Select a size</option>
-                        {['300x250', '320x50', '320x100', '336x280', '728x90', '970x250', '160x600', '300x600'].map((preset) => (
+                        {['250x250', '300x250', '300x50', '320x50', '320x100', '336x280', '468x60', '728x90', '970x90', '970x250', '160x600', '300x600'].map((preset) => (
                           <option key={preset} value={preset}>{preset}</option>
                         ))}
                       </Select>

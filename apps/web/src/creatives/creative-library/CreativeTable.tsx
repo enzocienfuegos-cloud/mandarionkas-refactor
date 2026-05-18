@@ -190,6 +190,11 @@ export function CreativeTable({
           });
         }}
         bordered
+        pagination={{
+          defaultPageSize: 10,
+          pageSizeOptions: [10, 20, 50, 100],
+          label: 'creatives',
+        }}
       />
     </div>
   );
