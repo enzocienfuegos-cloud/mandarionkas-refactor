@@ -16,6 +16,7 @@ type StageWidgetProps = {
   node: WidgetNode;
   stateRef: React.MutableRefObject<StudioState>;
   widgetsById: Record<string, WidgetNode>;
+  widgetRef?: (node: HTMLDivElement | null) => void;
   frame: WidgetFrame;
   selected: boolean;
   primary: boolean;
@@ -39,6 +40,7 @@ export const StageWidget = memo(function StageWidget({
   node,
   stateRef,
   widgetsById,
+  widgetRef,
   frame,
   selected,
   primary,
@@ -111,6 +113,7 @@ export const StageWidget = memo(function StageWidget({
 
   return (
     <MotionLayer
+      ref={widgetRef}
       widget={node}
       widgetsById={widgetsById}
       previewMode={previewMode}

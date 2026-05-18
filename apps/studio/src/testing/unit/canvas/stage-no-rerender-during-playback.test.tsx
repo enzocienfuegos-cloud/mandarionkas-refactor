@@ -23,7 +23,9 @@ vi.mock('../../../motion/animation-engine', async () => {
 });
 
 vi.mock('../../../canvas/stage/components/StageWidget', () => ({
-  StageWidget: ({ node }: { node: WidgetNode }) => <div data-stage-widget-id={node.id} />,
+  StageWidget: ({ node, widgetRef }: { node: WidgetNode; widgetRef?: (node: HTMLDivElement | null) => void }) => (
+    <div ref={widgetRef} data-stage-widget-id={node.id} />
+  ),
 }));
 
 vi.mock('../../../canvas/stage/components/StageDropPreviewOverlay', () => ({

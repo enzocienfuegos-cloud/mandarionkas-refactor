@@ -144,6 +144,10 @@
   backface-visibility: hidden;
   transition: transform  var(--motion-base) ease, opacity var(--motion-base) ease;
 }
+.stage-surface.is-preview-mode .stage-widget,
+.workspace-shell.is-performance-mode .stage-widget {
+  transition: none;
+}
 @keyframes smx-stage-hover-pulse {
   0%, 100% { transform: var(--smx-motion-base-transform); }
   50% { transform: var(--smx-motion-hover-transform); }

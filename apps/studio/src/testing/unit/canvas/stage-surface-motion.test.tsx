@@ -22,9 +22,9 @@ vi.mock('../../../motion/animation-engine', async () => {
 });
 
 vi.mock('../../../canvas/stage/components/StageWidget', () => ({
-  StageWidget: (props: { node: WidgetNode }) => {
+  StageWidget: (props: { node: WidgetNode; widgetRef?: (node: HTMLDivElement | null) => void }) => {
     stageWidgetProps.push(props);
-    return <div data-widget-id={props.node.id} />;
+    return <div ref={props.widgetRef} data-widget-id={props.node.id} />;
   },
 }));
 

@@ -22,7 +22,9 @@ vi.mock('../../../motion/animation-engine', async () => {
 });
 
 vi.mock('../../../canvas/stage/components/StageWidget', () => ({
-  StageWidget: ({ node }: { node: WidgetNode }) => <div data-stage-widget-id={node.id} />,
+  StageWidget: ({ node, widgetRef }: { node: WidgetNode; widgetRef?: (node: HTMLDivElement | null) => void }) => (
+    <div ref={widgetRef} data-stage-widget-id={node.id} />
+  ),
 }));
 
 vi.mock('../../../canvas/stage/components/StageDropPreviewOverlay', () => ({
@@ -101,6 +103,7 @@ describe('StageSurface DOM compositor path', () => {
   });
 
   it('positions widgets and playhead overlay with transform instead of left/top mutations', () => {
+    const querySelectorSpy = vi.spyOn(document, 'querySelector');
     const { container } = render(
       <PlayheadRefProvider>
         <StageSurface {...buildProps()} />
@@ -131,5 +134,6 @@ describe('StageSurface DOM compositor path', () => {
     });
 
     expect(playhead?.style.transform).toBe('translate3d(80px, 0, 0)');
+    expect(querySelectorSpy).not.toHaveBeenCalledWith('[data-stage-widget-id="widget_1"]');
   });
 });

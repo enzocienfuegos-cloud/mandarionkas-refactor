@@ -93,6 +93,8 @@ export function StageSurface({
   const transitionDuration = Math.max(120, sceneTransitionDurationMs);
   const previousSceneIdRef = useRef<string | undefined>(undefined);
   const widgetsRef = useRef(widgets);
+  const widgetElementsRef = useRef(new Map<string, HTMLDivElement>());
+  const widgetRefHandlersRef = useRef(new Map<string, (node: HTMLDivElement | null) => void>());
   const playheadOverlayRef = useRef<HTMLDivElement | null>(null);
   const sceneWidgets = useMemo(
     () => Object.values(widgetsById).filter((widget) => widget.sceneId === sceneId),
@@ -150,6 +152,30 @@ export function StageSurface({
   }, [widgets]);
 
   useEffect(() => {
+    const activeIds = new Set(widgets.map((widget) => widget.id));
+    widgetElementsRef.current.forEach((_, widgetId) => {
+      if (!activeIds.has(widgetId)) widgetElementsRef.current.delete(widgetId);
+    });
+    widgetRefHandlersRef.current.forEach((_, widgetId) => {
+      if (!activeIds.has(widgetId)) widgetRefHandlersRef.current.delete(widgetId);
+    });
+  }, [widgets]);
+
+  const getWidgetRefHandler = useCallback((widgetId: string) => {
+    const existing = widgetRefHandlersRef.current.get(widgetId);
+    if (existing) return existing;
+    const handler = (node: HTMLDivElement | null) => {
+      if (node) {
+        widgetElementsRef.current.set(widgetId, node);
+        return;
+      }
+      widgetElementsRef.current.delete(widgetId);
+    };
+    widgetRefHandlersRef.current.set(widgetId, handler);
+    return handler;
+  }, []);
+
+  useEffect(() => {
     if (!previewMode) {
       engine.resetEventClocks();
     }
@@ -194,7 +220,7 @@ export function StageSurface({
     if (typeof document === 'undefined') return undefined;
     const apply = (ms: number) => {
       widgets.forEach((widget) => {
-        const element = document.querySelector<HTMLElement>(`[data-stage-widget-id="${widget.id}"]`);
+        const element = widgetElementsRef.current.get(widget.id);
         if (!element) return;
 
         const visible = !widget.hidden && isWidgetVisibleAt(widget, ms) && isVisibleWithinParentTimeline({
@@ -207,7 +233,11 @@ export function StageSurface({
           },
         });
 
-        element.style.display = visible ? '' : 'none';
+        const nextDisplay = visible ? '' : 'none';
+        if (element.dataset.displayState !== nextDisplay) {
+          element.style.display = nextDisplay;
+          element.dataset.displayState = nextDisplay;
+        }
         if (!visible) return;
 
         const liveFrame = isReproducing
@@ -224,7 +254,11 @@ export function StageSurface({
               ownFrame: liveFrame,
             });
 
-        element.style.transform = `translate3d(${frame.x}px, ${frame.y}px, 0) rotate(${frame.rotation}deg)`;
+        const nextTransform = `translate3d(${frame.x}px, ${frame.y}px, 0) rotate(${frame.rotation}deg)`;
+        if (element.dataset.frameTransform !== nextTransform) {
+          element.style.transform = nextTransform;
+          element.dataset.frameTransform = nextTransform;
+        }
 
         const nextWidth = String(frame.width);
         const nextHeight = String(frame.height);
@@ -246,7 +280,11 @@ export function StageSurface({
               ownOpacity: getLiveWidgetOpacity(widget, ms),
               getLiveOpacity: (target, targetPlayheadMs) => getLiveWidgetOpacity(target, targetPlayheadMs),
             });
-        element.style.opacity = String(opacity);
+        const nextOpacity = String(opacity);
+        if (element.dataset.frameOpacity !== nextOpacity) {
+          element.style.opacity = nextOpacity;
+          element.dataset.frameOpacity = nextOpacity;
+        }
       });
 
       if (playheadOverlayRef.current) {
@@ -310,6 +348,7 @@ export function StageSurface({
             node={widget}
             stateRef={stateRef}
             widgetsById={widgetsById}
+            widgetRef={getWidgetRefHandler(widget.id)}
             selected={selectedIds.includes(widget.id) && !previewMode}
             primary={selectedIds[0] === widget.id && !previewMode}
             frame={baseFrame}
