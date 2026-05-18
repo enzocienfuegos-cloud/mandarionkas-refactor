@@ -356,6 +356,25 @@ test('HTML5 asset proxy injects bsClickTAG globals only for Illumin', () => {
   );
 });
 
+test('HTML5 asset proxy preserves Illumin bsClickTAG over Adform fallbacks', () => {
+  const click = 'https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Illumin&url=https%3A%2F%2Fadvertiser.com';
+  const requestUrl = new URL(`https://api.example.com/v1/tags/display/tag-1/bindings/binding-1/index.html?bsClickTAG=${encodeURIComponent(click)}`);
+  const html = normalizeServedHtml5AssetBodyForRequest(
+    Buffer.from(`<!doctype html><html><head><script>
+      window.bannerURL = "bsClickTAG";
+      var bsClickTAG = dhtml.getVar('bsClickTAG', 'https://fallback.example/landing');
+    </script></head><body></body></html>`),
+    'index.html',
+    requestUrl,
+  ).toString('utf8');
+
+  assert.ok(html.includes('window.bsClickTAG=v'));
+  assert.ok(
+    html.includes("var bsClickTAG = window.bsClickTAG || window.clickTAG || window.clickTag || dhtml.getVar('bsClickTAG', 'https://fallback.example/landing');"),
+    'Adform fallback should not overwrite the injected Illumin click tracker',
+  );
+});
+
 test('HTML5 asset proxy does not inject bsClickTAG globals for Basis', () => {
   const click = 'https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Basis&url=https%3A%2F%2Fadvertiser.com';
   const requestUrl = new URL(`https://api.example.com/v1/tags/display/tag-1/bindings/binding-1/index.html?bsClickTAG=${encodeURIComponent(click)}`);

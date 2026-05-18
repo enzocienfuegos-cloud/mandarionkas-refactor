@@ -250,11 +250,17 @@ function injectIlluminClickAliasesIntoHtml(htmlSource, clickValue) {
   if (!source || !value || !shouldUseIlluminClickAliases(value)) return source;
 
   const aliasScript = `<script>(function(){var v=${escapeScriptContext(JSON.stringify(value))};window.clickTag=v;window.clickTAG=v;window.bsClickTAG=v;try{window.bannerURL=window.bannerURL||"bsClickTAG";}catch(_){}})();</script>`;
-  if (source.includes(aliasScript)) return source;
-  if (/<head[^>]*>/i.test(source)) {
-    return source.replace(/<head([^>]*)>/i, `<head$1>${aliasScript}`);
+  const normalizedSource = source.replace(
+    /var\s+bsClickTAG\s*=\s*dhtml\.getVar\s*\(\s*(['"])bsClickTAG\1\s*,\s*(['"])([^'"]*)\2\s*\)\s*;/gi,
+    (_match, keyQuote, fallbackQuote, fallbackUrl) => (
+      `var bsClickTAG = window.bsClickTAG || window.clickTAG || window.clickTag || dhtml.getVar(${keyQuote}bsClickTAG${keyQuote}, ${fallbackQuote}${fallbackUrl}${fallbackQuote});`
+    ),
+  );
+  if (normalizedSource.includes(aliasScript)) return normalizedSource;
+  if (/<head[^>]*>/i.test(normalizedSource)) {
+    return normalizedSource.replace(/<head([^>]*)>/i, `<head$1>${aliasScript}`);
   }
-  return `${aliasScript}${source}`;
+  return `${aliasScript}${normalizedSource}`;
 }
 
 const RUNTIME_TRACKING_CONTEXT_JS = `
