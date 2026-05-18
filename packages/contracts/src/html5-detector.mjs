@@ -253,18 +253,23 @@ function extractStyleTagBodies(htmlSource) {
   return bodies;
 }
 
+function stripScriptBodies(htmlSource) {
+  return String(htmlSource || '').replace(/(<script\b[^>]*>)[\s\S]*?<\/script>/gi, '$1</script>');
+}
+
 function extractHtmlAttributeReferences(htmlSource, fromPath) {
   const references = new Set();
+  const markupSource = stripScriptBodies(htmlSource);
   const directReferencePattern = /\b(?:src|href|poster)\s*=\s*(["'])([\s\S]*?)\1/gi;
   const srcsetPattern = /\bsrcset\s*=\s*(["'])([\s\S]*?)\1/gi;
   const stylePattern = /\bstyle\s*=\s*(["'])([\s\S]*?)\1/gi;
 
-  for (const match of htmlSource.matchAll(directReferencePattern)) {
+  for (const match of markupSource.matchAll(directReferencePattern)) {
     const resolved = resolveBundleAssetPath(fromPath, match[2]);
     if (resolved) references.add(resolved);
   }
 
-  for (const match of htmlSource.matchAll(srcsetPattern)) {
+  for (const match of markupSource.matchAll(srcsetPattern)) {
     const candidates = String(match[2] || '')
       .split(',')
       .map((part) => trimText(part).split(/\s+/)[0])
@@ -275,7 +280,7 @@ function extractHtmlAttributeReferences(htmlSource, fromPath) {
     }
   }
 
-  for (const match of htmlSource.matchAll(stylePattern)) {
+  for (const match of markupSource.matchAll(stylePattern)) {
     for (const resolved of extractReferencedAssetPathsFromCss(match[2], { fromPath })) {
       references.add(resolved);
     }

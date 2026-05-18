@@ -193,6 +193,23 @@ test('validateHtml5Bundle passes when all referenced local assets exist', () => 
   assert.deepEqual(result.missingPaths, []);
 });
 
+test('validateHtml5Bundle ignores dynamic script src strings inside inline scripts', () => {
+  const html = `
+    <html>
+      <head>
+        <script>document.write('<scr'+'ipt src="' + (window.API_URL || 'https://s1.adform.net/banners/scripts/rmb/Adform.DHTML.js?bv=' + Math.random()) + '"></scr'+'ipt>');</script>
+      </head>
+      <body><img src="./media/frame.png"></body>
+    </html>
+  `;
+  const result = validateHtml5Bundle(html, {
+    entryPath: 'index.html',
+    assetPaths: ['index.html', 'media/frame.png'],
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.missingPaths, []);
+});
+
 test('validateHtml5Bundle does not treat meta content values as asset paths', () => {
   const html = `
     <html>
