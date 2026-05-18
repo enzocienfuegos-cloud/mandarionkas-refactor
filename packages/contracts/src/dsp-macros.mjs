@@ -457,29 +457,17 @@ function buildDestinationAwareClickUrl(clickTrackUrl, destinationUrl) {
   }
 }
 
-function getTrackedClickDestination(clickTrackUrl) {
-  try {
-    const parsed = new URL(String(clickTrackUrl));
-    return parsed.searchParams.get('url') || '';
-  } catch {
-    return '';
-  }
-}
-
-function buildReplaceDestinationMacroUrl(clickTrackUrl, macroUrl, dsp = '') {
+function buildReplaceDestinationFirstHopUrl(clickTrackUrl, macroUrl, dsp = '') {
   const normalizedDsp = normalizeDsp(dsp);
-  if (normalizedDsp !== 'illumin') return macroUrl;
-
-  const destination = getTrackedClickDestination(clickTrackUrl);
-  if (!destination) return macroUrl;
+  if (normalizedDsp !== 'illumin') return '';
 
   try {
     const parsedMacro = new URL(String(macroUrl));
-    if (!parsedMacro.searchParams.has('landingUrl')) return macroUrl;
-    parsedMacro.searchParams.set('landingUrl', destination);
+    if (!parsedMacro.searchParams.has('landingUrl')) return '';
+    parsedMacro.searchParams.set('landingUrl', String(clickTrackUrl));
     return parsedMacro.toString();
   } catch {
-    return macroUrl;
+    return '';
   }
 }
 
@@ -492,10 +480,12 @@ export function buildDspTrackedClickUrl(clickTrackUrl, macroValue, dsp = '', { o
     return clickTrackUrl;
   }
   if (mode === 'replace_destination') {
-    const replacementUrl = buildReplaceDestinationMacroUrl(clickTrackUrl, resolvedMacroValue, dsp);
-    return isHttpUrl(replacementUrl)
-      ? buildDestinationAwareClickUrl(clickTrackUrl, replacementUrl)
-      : clickTrackUrl;
+    const firstHopUrl = buildReplaceDestinationFirstHopUrl(clickTrackUrl, resolvedMacroValue, dsp);
+    return isHttpUrl(firstHopUrl)
+      ? firstHopUrl
+      : isHttpUrl(resolvedMacroValue)
+        ? buildDestinationAwareClickUrl(clickTrackUrl, resolvedMacroValue)
+        : clickTrackUrl;
   }
   return `${resolvedMacroValue}${encodeURIComponent(String(clickTrackUrl))}`;
 }
@@ -506,9 +496,12 @@ export function buildDspLiteralClickUrl(clickTrackUrl, macroValue, dsp = '') {
   const literalMacroValue = safeDecode(macroValue).trim();
   if (!literalMacroValue) return clickTrackUrl;
   if (mode === 'replace_destination') {
-    return isHttpUrl(literalMacroValue)
-      ? buildDestinationAwareClickUrl(clickTrackUrl, literalMacroValue)
-      : clickTrackUrl;
+    const firstHopUrl = buildReplaceDestinationFirstHopUrl(clickTrackUrl, literalMacroValue, dsp);
+    return isHttpUrl(firstHopUrl)
+      ? firstHopUrl
+      : isHttpUrl(literalMacroValue)
+        ? buildDestinationAwareClickUrl(clickTrackUrl, literalMacroValue)
+        : clickTrackUrl;
   }
   return `${literalMacroValue}${encodeURIComponent(String(clickTrackUrl))}`;
 }
