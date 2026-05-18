@@ -140,8 +140,8 @@ test('buildDisplayHtml does not double-encode click URL when resolvedClickUrl is
   const trackerUrlParamCount = (html.match(/%3Furl%3D/g) || []).length;
   assert.equal(
     trackerUrlParamCount,
-    1,
-    'clickTag should contain exactly one encoded ?url= segment, not double-encoded',
+    3,
+    'click aliases should each contain one encoded ?url= segment, not a double-encoded tracker URL',
   );
   assert.ok(
     !html.includes('%253Furl%253D'),
@@ -271,7 +271,7 @@ test('buildDisplayJs creates iframe pointing directly to creative public_url', (
   );
 });
 
-test('buildDisplayJs appends clickTag query param to creative URL', () => {
+test('buildDisplayJs appends common HTML5 click aliases to creative URL', () => {
   const js = buildDisplayJs({
     creativeUrl: 'https://cdn.example.com/banner/index.html',
     impressionUrl: '',
@@ -291,12 +291,12 @@ test('buildDisplayJs appends clickTag query param to creative URL', () => {
     'clickTag should be appended through the shared runtime helper',
   );
   assert.ok(
-    js.includes("return withoutHash + separator + 'clickTag=' + encodeURIComponent(value) + hash;"),
-    'standard runtime helper should append only clickTag by default',
+    js.includes("'clickTag=' + encoded + '&clickTAG=' + encoded + '&bsClickTAG=' + encoded"),
+    'generic HTML5 creative URLs should receive clickTag, clickTAG, and bsClickTAG aliases',
   );
 });
 
-test('buildDisplayJs adds Adform/Creatopy click aliases only for Illumin', () => {
+test('buildDisplayJs adds Adform/Creatopy click aliases for Illumin', () => {
   const js = buildDisplayJs({
     creativeUrl: 'https://cdn.example.com/banner/index.html',
     impressionUrl: '',
@@ -337,7 +337,7 @@ test('buildDisplayHtml keeps Basis on standard clickTag only', () => {
   );
 });
 
-test('HTML5 asset proxy injects bsClickTAG globals only for Illumin', () => {
+test('HTML5 asset proxy injects bsClickTAG globals for non-Basis display tags', () => {
   const click = 'https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Illumin&url=https%3A%2F%2Fadvertiser.com';
   const requestUrl = new URL(`https://api.example.com/v1/tags/display/tag-1/bindings/binding-1/index.html?bsClickTAG=${encodeURIComponent(click)}`);
   const html = normalizeServedHtml5AssetBodyForRequest(
@@ -348,15 +348,15 @@ test('HTML5 asset proxy injects bsClickTAG globals only for Illumin', () => {
 
   assert.ok(
     html.indexOf('window.bsClickTAG=v') > -1,
-    'Illumin HTML should receive bsClickTAG before the creative runtime executes',
+    'non-Basis HTML should receive bsClickTAG before the creative runtime executes',
   );
   assert.ok(
     html.indexOf('window.bsClickTAG=v') < html.indexOf('<script src="runtime.js">'),
-    'Illumin click globals should be injected inside head before existing scripts',
+    'click globals should be injected inside head before existing scripts',
   );
 });
 
-test('HTML5 asset proxy preserves Illumin bsClickTAG over Adform fallbacks', () => {
+test('HTML5 asset proxy preserves non-Basis bsClickTAG over Adform fallbacks', () => {
   const click = 'https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Illumin&url=https%3A%2F%2Fadvertiser.com';
   const requestUrl = new URL(`https://api.example.com/v1/tags/display/tag-1/bindings/binding-1/index.html?bsClickTAG=${encodeURIComponent(click)}`);
   const html = normalizeServedHtml5AssetBodyForRequest(
@@ -371,7 +371,26 @@ test('HTML5 asset proxy preserves Illumin bsClickTAG over Adform fallbacks', () 
   assert.ok(html.includes('window.bsClickTAG=v'));
   assert.ok(
     html.includes("var bsClickTAG = window.bsClickTAG || window.clickTAG || window.clickTag || dhtml.getVar('bsClickTAG', 'https://fallback.example/landing');"),
-    'Adform fallback should not overwrite the injected Illumin click tracker',
+    'Adform fallback should not overwrite the injected click tracker',
+  );
+});
+
+test('HTML5 asset proxy preserves generic bsClickTAG over Adform fallbacks', () => {
+  const click = 'https://api.example.com/v1/tags/tracker/tag-1/click?url=https%3A%2F%2Fadvertiser.com';
+  const requestUrl = new URL(`https://api.example.com/v1/tags/display/tag-1/bindings/binding-1/index.html?bsClickTAG=${encodeURIComponent(click)}`);
+  const html = normalizeServedHtml5AssetBodyForRequest(
+    Buffer.from(`<!doctype html><html><head><script>
+      window.bannerURL = "bsClickTAG";
+      var bsClickTAG = dhtml.getVar('bsClickTAG', 'https://fallback.example/landing');
+    </script></head><body></body></html>`),
+    'index.html',
+    requestUrl,
+  ).toString('utf8');
+
+  assert.ok(html.includes('window.bsClickTAG=v'));
+  assert.ok(
+    html.includes("var bsClickTAG = window.bsClickTAG || window.clickTAG || window.clickTag || dhtml.getVar('bsClickTAG', 'https://fallback.example/landing');"),
+    'generic Adform fallback should not overwrite the injected click tracker',
   );
 });
 

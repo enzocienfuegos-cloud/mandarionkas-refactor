@@ -189,18 +189,24 @@ function escapeScriptContext(jsonStr) {
   return jsonStr.replace(/<\//g, '<\\/');
 }
 
-function shouldUseIlluminClickAliases(clickValue) {
+function getClickDsp(clickValue) {
   const value = trimText(clickValue);
-  if (!value) return false;
+  if (!value) return '';
   try {
     const url = new URL(value);
-    return String(url.searchParams.get('dsp') || url.searchParams.get('smx_dsp') || '').toLowerCase() === 'illumin';
+    return String(url.searchParams.get('dsp') || url.searchParams.get('smx_dsp') || '').toLowerCase();
   } catch {
-    return /(?:[?&](?:dsp|smx_dsp)=illumin)(?:&|$)/i.test(value);
+    const match = value.match(/(?:[?&](?:dsp|smx_dsp)=([^&]+))(?:&|$)/i);
+    return match ? String(match[1] || '').toLowerCase() : '';
   }
 }
 
-function appendClickParams(rawUrl, clickValue, { illuminAliases = shouldUseIlluminClickAliases(clickValue) } = {}) {
+function shouldUseDisplayClickAliases(clickValue) {
+  const dsp = getClickDsp(clickValue);
+  return dsp !== 'basis';
+}
+
+function appendClickParams(rawUrl, clickValue, { clickAliases = shouldUseDisplayClickAliases(clickValue) } = {}) {
   const base = trimText(rawUrl);
   const value = trimText(clickValue);
   if (!base || !value) return base;
@@ -209,14 +215,14 @@ function appendClickParams(rawUrl, clickValue, { illuminAliases = shouldUseIllum
   const hash = hashIndex === -1 ? '' : base.slice(hashIndex);
   const separator = withoutHash.includes('?') ? '&' : '?';
   const encoded = encodeURIComponent(value);
-  const params = illuminAliases
+  const params = clickAliases
     ? `clickTag=${encoded}&clickTAG=${encoded}&bsClickTAG=${encoded}`
     : `clickTag=${encoded}`;
   return `${withoutHash}${separator}${params}${hash}`;
 }
 
-function buildRuntimeClickParamAppender({ illuminAliases = false } = {}) {
-  return illuminAliases
+function buildRuntimeClickParamAppender({ clickAliases = false } = {}) {
+  return clickAliases
     ? `
   function smxAppendClickParams(rawUrl, clickValue) {
     var base = String(rawUrl || '');
@@ -247,7 +253,7 @@ function buildRuntimeClickParamAppender({ illuminAliases = false } = {}) {
 function injectIlluminClickAliasesIntoHtml(htmlSource, clickValue) {
   const source = typeof htmlSource === 'string' ? htmlSource : '';
   const value = trimText(clickValue);
-  if (!source || !value || !shouldUseIlluminClickAliases(value)) return source;
+  if (!source || !value || !shouldUseDisplayClickAliases(value)) return source;
 
   const aliasScript = `<script>(function(){var v=${escapeScriptContext(JSON.stringify(value))};window.clickTag=v;window.clickTAG=v;window.bsClickTAG=v;try{window.bannerURL=window.bannerURL||"bsClickTAG";}catch(_){}})();</script>`;
   const normalizedSource = source.replace(
@@ -870,7 +876,7 @@ export function normalizeServedHtml5AssetBodyForRequest(body, requestedAssetPath
   const clickValue = trimText(url?.searchParams?.get('bsClickTAG'))
     || trimText(url?.searchParams?.get('clickTAG'))
     || trimText(url?.searchParams?.get('clickTag'));
-  if (!clickValue || !shouldUseIlluminClickAliases(clickValue)) return normalizedBody;
+  if (!clickValue || !shouldUseDisplayClickAliases(clickValue)) return normalizedBody;
   return injectIlluminClickAliasesIntoHtml(normalizedBody.toString('utf8'), clickValue);
 }
 
@@ -929,11 +935,11 @@ export function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, 
           : safeClickTracker)
       : safeClickUrl
   );
-  const useIlluminClickAliases = shouldUseIlluminClickAliases(trackedClickTag);
+  const useClickAliases = shouldUseDisplayClickAliases(trackedClickTag);
   const clickTagBlock = trackedClickTag
     ? `<script>var clickTag=${escapeScriptContext(JSON.stringify(trackedClickTag))};window.clickTag=clickTag;</script>`
     : '';
-  const iframeSrc = appendClickParams(safeCreativeUrl, trackedClickTag, { illuminAliases: useIlluminClickAliases });
+  const iframeSrc = appendClickParams(safeCreativeUrl, trackedClickTag, { clickAliases: useClickAliases });
   const omidBlock = omidVerification?.jsUrl
     ? `<script src="https://staticresources.iab-psl.org/omid/omid-session-client.js" async></script>
 <script>
@@ -978,7 +984,7 @@ ${omidBlock}
 <script>
 (function(){
   ${RUNTIME_TRACKING_CONTEXT_JS}
-  ${buildRuntimeClickParamAppender({ illuminAliases: useIlluminClickAliases })}
+  ${buildRuntimeClickParamAppender({ clickAliases: useClickAliases })}
   var creativeUrl = ${escapeScriptContext(JSON.stringify(safeCreativeUrl))};
   var impressionUrl = ${safeImpressionJs ?? 'null'};
     var clickTracker = ${safeClickTrackerJs};
@@ -1170,7 +1176,7 @@ export function buildDisplayJs({
   const safeClickTracker = clickTrackerUrl ? escapeScriptContext(JSON.stringify(clickTrackerUrl)) : 'null';
   const safeEngagement = engagementTrackerUrl ? escapeScriptContext(JSON.stringify(engagementTrackerUrl)) : 'null';
   const safeClickTag = clickTag ? escapeScriptContext(JSON.stringify(clickTag)) : 'null';
-  const useIlluminClickAliases = shouldUseIlluminClickAliases(clickTag);
+  const useClickAliases = shouldUseDisplayClickAliases(clickTag);
 
   return `(function(){
   var creativeUrl       = ${safeCreativeUrl};
@@ -1183,7 +1189,7 @@ export function buildDisplayJs({
   if (!creativeUrl) return;
 
     ${RUNTIME_TRACKING_CONTEXT_JS}
-    ${buildRuntimeClickParamAppender({ illuminAliases: useIlluminClickAliases })}
+    ${buildRuntimeClickParamAppender({ clickAliases: useClickAliases })}
     function smxIsDuskTrackedClick(candidate, tracker) {
       if (!candidate || !tracker) return false;
       var needles = [String(tracker)];
