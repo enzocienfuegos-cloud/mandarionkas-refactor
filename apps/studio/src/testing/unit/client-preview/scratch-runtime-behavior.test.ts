@@ -11,9 +11,10 @@ async function getBrowser(): Promise<Browser> {
 }
 
 afterAll(async () => {
-  await browser?.close();
+  const activeBrowser = browser;
   browser = null;
-}, 30000);
+  await activeBrowser?.close();
+}, 60000);
 
 describe('scratch reveal runtime behavior', () => {
   it('replays target load motion after scratch completion when the scratch group enables it', async () => {
