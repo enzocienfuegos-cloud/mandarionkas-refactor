@@ -307,6 +307,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
     onSetActiveWidget: widgetActions.setActiveWidget,
     onSetHoveredWidget: widgetActions.setHoveredWidget,
     onExecuteAction: widgetActions.executeAction,
+    onGoToScene: sceneActions.selectScene,
   };
 
   return (

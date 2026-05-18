@@ -67,6 +67,7 @@ describe('DragTokenPoolInspector', () => {
     })} />);
     expect(screen.getByText('Tokens (2/12)')).toBeTruthy();
     expect(screen.getAllByText('Base image')).toHaveLength(2);
+    expect(screen.getAllByText('Target scene')).toHaveLength(2);
     expect(screen.getAllByText('Base image fit')).toHaveLength(2);
     expect(screen.getAllByText('Base image scale (%)')).toHaveLength(2);
     expect(screen.getAllByText('Base image focal X')).toHaveLength(2);

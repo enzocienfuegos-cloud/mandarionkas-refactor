@@ -5,6 +5,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { useStudioStore } from '../../core/store/use-studio-store';
+import type { SceneNode } from '../../domain/document/types';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
@@ -42,6 +43,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
+  const scenes = useStudioStore((state) => state.document.scenes);
   const tokens: DragTokenItem[] = Array.isArray(node.props.tokens) ? node.props.tokens as DragTokenItem[] : [];
   const disabledIds = Array.isArray(node.props.disabledIds) ? node.props.disabledIds.map((value) => String(value)) : [];
   const tokenSize = Math.max(TOKEN_SIZE_MIN, Math.min(TOKEN_SIZE_MAX, Number(node.props.tokenSize ?? 72)));
@@ -116,6 +118,8 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
     }
     updateDisabledIds(disabledIds.filter((id) => id !== tokenId));
   };
+
+  const availableScenes: SceneNode[] = scenes.filter((scene) => scene.id !== node.sceneId);
 
   return (
     <section className="section section-premium">
@@ -193,6 +197,18 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                   <label>Accent color</label>
                   <input type="color" value={token.accentColor ?? '#ffffff'} onChange={(event) => updateToken(token.id, { accentColor: event.target.value })} />
                 </div>
+              </div>
+              <div>
+                <label>Target scene</label>
+                <select
+                  value={token.targetSceneId ?? ''}
+                  onChange={(event) => updateToken(token.id, { targetSceneId: event.target.value || undefined })}
+                >
+                  <option value="">No target scene</option>
+                  {availableScenes.map((scene) => (
+                    <option key={scene.id} value={scene.id}>{scene.name}</option>
+                  ))}
+                </select>
               </div>
               <label className="checkbox-row">
                 <input type="checkbox" checked={disabledIds.includes(token.id)} onChange={(event) => setTokenDisabled(token.id, event.target.checked)} />

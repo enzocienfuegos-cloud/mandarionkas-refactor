@@ -31,6 +31,7 @@ type StageWidgetProps = {
   onSetActiveWidget: (widgetId?: string) => void;
   onSetHoveredWidget: (widgetId?: string) => void;
   onExecuteAction: (actionId: string) => void;
+  onGoToScene?: (sceneId: string) => void;
   onWidgetTrigger?: (widgetId: string, trigger: ActionNode['trigger'], metadata?: Record<string, unknown>) => void;
 };
 
@@ -55,6 +56,7 @@ export const StageWidget = memo(function StageWidget({
   onSetActiveWidget,
   onSetHoveredWidget,
   onExecuteAction,
+  onGoToScene,
   onWidgetTrigger,
 }: StageWidgetProps): JSX.Element {
   const managesNativeDrag = isNativeStageDragWidgetType(node.type);
@@ -119,6 +121,7 @@ export const StageWidget = memo(function StageWidget({
             state: stateRef.current,
             triggerWidgetAction,
             executeAction: onExecuteAction,
+            goToScene: onGoToScene,
           },
           { wireframe: useWireframe },
         )}
@@ -182,6 +185,7 @@ function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProp
     && previous.sceneDurationMs === next.sceneDurationMs
     && previous.hovered === next.hovered
     && previous.active === next.active
+    && previous.onGoToScene === next.onGoToScene
     && previous.onWidgetTrigger === next.onWidgetTrigger;
 }
 

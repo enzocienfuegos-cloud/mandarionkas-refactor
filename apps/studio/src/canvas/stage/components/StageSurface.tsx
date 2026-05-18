@@ -48,6 +48,7 @@ export type StageSurfaceProps = {
   onSetActiveWidget: (widgetId?: string) => void;
   onSetHoveredWidget: (widgetId?: string) => void;
   onExecuteAction: (actionId: string) => void;
+  onGoToScene: (sceneId: string) => void;
 };
 
 export function StageSurface({
@@ -84,6 +85,7 @@ export function StageSurface({
   onSetActiveWidget,
   onSetHoveredWidget,
   onExecuteAction,
+  onGoToScene,
 }: StageSurfaceProps): JSX.Element {
   const engine = useAnimationEngine();
   const stageDropActive = Boolean(dropPreview);
@@ -303,6 +305,7 @@ export function StageSurface({
             onSetActiveWidget={onSetActiveWidget}
             onSetHoveredWidget={onSetHoveredWidget}
             onExecuteAction={onExecuteAction}
+            onGoToScene={onGoToScene}
             onWidgetTrigger={(widgetId, trigger, metadata) => {
               const nowMs = performance.now();
               if (trigger === 'click' || trigger === 'hover-enter' || trigger === 'hover-exit') {

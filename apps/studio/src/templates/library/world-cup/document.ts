@@ -226,7 +226,6 @@ export function buildWorldCupTemplateDocument(
     backgroundColor: config.backgroundColor,
   });
 
-  const tokenPoolJson = JSON.stringify(config.tokens.map((token) => getTokenAsset(token)));
   const endCardSceneId = `${base.document.scenes[0].id}_end-card`;
   const firstGameSceneId = `${base.document.scenes[0].id}_${config.steps[0]?.id ?? 'step-1'}`;
   const actions: Record<string, ActionNode> = {};
@@ -251,6 +250,10 @@ export function buildWorldCupTemplateDocument(
     const defaultSuccessTargetStepId = index === config.steps.length - 1 ? 'end-card' : config.steps[index + 1].id;
     const successSceneId = resolveStepSceneId(step.successTargetStepId ?? defaultSuccessTargetStepId);
     const timeoutSceneId = resolveStepSceneId(step.timeoutTargetStepId ?? 'end-card');
+    const tokenPoolJson = JSON.stringify(config.tokens.map((token) => ({
+      ...getTokenAsset(token),
+      targetSceneId: token.id === step.expectedTokenId ? successSceneId : undefined,
+    })));
     const actionId = `act_worldcup_step_${step.id}`;
     const seed = createGameStepScene(seedWidget, sceneId, step, index + 1, config, tokenPoolJson, timeoutSceneId, actionId);
     const dropZoneWidgetId = seed.widgets.find((widget) => isDropZoneWidgetType(widget.type))?.id ?? '';

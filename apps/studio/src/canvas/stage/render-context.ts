@@ -11,4 +11,5 @@ export type RenderContext = {
   state?: StudioState;
   triggerWidgetAction: (trigger: ActionNode['trigger'], metadata?: Record<string, unknown>) => void;
   executeAction?: (actionId: string) => void;
+  goToScene?: (sceneId: string) => void;
 };

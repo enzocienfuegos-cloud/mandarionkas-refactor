@@ -4,6 +4,7 @@ export type TokenImageFit = 'contain' | 'cover' | 'fill' | 'scale-down';
 export type DragTokenItem = {
   id: string;
   label: string;
+  targetSceneId?: string;
   assetId?: string;
   imageUrl?: string;
   accentColor?: string;

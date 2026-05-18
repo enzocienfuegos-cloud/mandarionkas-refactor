@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { createProjectStarterState, getProjectStarters } from '../../../app/shell/topbar/project-starters';
 import { getTemplate } from '../../../templates/library/registry';
 
-const EXPECTED_DOCUMENT_SHA256 = '3eea1f69ed95c4ece7406c8c90dcafe45fa7eae90c918d087dc3845a9584b7ec';
-const EXPECTED_DOCUMENT_LENGTH = 47489;
+const EXPECTED_DOCUMENT_SHA256 = 'bac07734d987d35d237092097620264501f2c8db0326e84e18dc13e99e19c50d';
+const EXPECTED_DOCUMENT_LENGTH = 47620;
 
 function withDeterministicRandom<T>(callback: () => T): T {
   const originalRandom = Math.random;
@@ -43,8 +43,15 @@ describe('world cup template library', () => {
 
     const json = JSON.stringify(state.document);
     const hash = createHash('sha256').update(json).digest('hex');
+    const firstScene = state.document.scenes[0];
+    const firstPool = Object.values(state.document.widgets).find((widget) => widget.sceneId === firstScene?.id && widget.type === 'drag-token-pool');
+    const firstStepExpectedTokenId = 'buenachos';
+    const parsedTokens = Array.isArray(firstPool?.props.tokens) ? firstPool?.props.tokens : JSON.parse(String(firstPool?.props.tokens ?? '[]'));
+    const expectedToken = Array.isArray(parsedTokens) ? parsedTokens.find((token) => token?.id === firstStepExpectedTokenId) : undefined;
+    const secondSceneId = state.document.scenes[1]?.id;
 
     expect(hash).toBe(EXPECTED_DOCUMENT_SHA256);
     expect(json.length).toBe(EXPECTED_DOCUMENT_LENGTH);
+    expect(expectedToken?.targetSceneId).toBe(secondSceneId);
   });
 });

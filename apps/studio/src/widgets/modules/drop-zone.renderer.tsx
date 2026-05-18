@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
+import type { DragTokenItem } from './drag-token-pool.types';
 import { subscribeTokenDrag } from './token-drag-runtime';
 
 function parseActionMap(raw: unknown): Record<string, string> {
@@ -43,6 +44,17 @@ function buildDropZoneStyle(
   };
 }
 
+function resolveTokenTargetSceneId(
+  ctx: RenderContext,
+  sourceWidgetId: string,
+  tokenId: string,
+): string | undefined {
+  const sourceWidget = ctx.widgetsById[sourceWidgetId];
+  if (!sourceWidget || sourceWidget.type !== 'drag-token-pool') return undefined;
+  const tokens = Array.isArray(sourceWidget.props.tokens) ? sourceWidget.props.tokens as DragTokenItem[] : [];
+  return tokens.find((token) => token.id === tokenId)?.targetSceneId;
+}
+
 function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }) {
   const [isOver, setIsOver] = useState(false);
   const zoneRef = useRef<HTMLDivElement | null>(null);
@@ -65,6 +77,12 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
       }
 
       if ((detail.phase === 'end' || detail.phase === 'cancel') && inside) {
+        const targetSceneId = resolveTokenTargetSceneId(ctx, detail.sourceWidgetId, detail.tokenId);
+        if (targetSceneId) {
+          ctx.goToScene?.(targetSceneId);
+          setIsOver(false);
+          return;
+        }
         const actionId = matchActionMap[detail.tokenId];
         if (actionId) {
           ctx.executeAction?.(actionId);
