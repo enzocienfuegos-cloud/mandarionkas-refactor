@@ -73,6 +73,13 @@ function normalizeNonNegativeInt(value) {
   return Math.max(Number.parseInt(String(value ?? '0'), 10) || 0, 0);
 }
 
+function canonicalSiteDomainSql(alias) {
+  return `CASE
+    WHEN COALESCE(NULLIF(${alias}.site_domain, ''), '') = '' THEN 'Unknown'
+    ELSE REGEXP_REPLACE(REGEXP_REPLACE(LOWER(${alias}.site_domain), '\\.$', ''), '^www\\.', '')
+  END`;
+}
+
 function addTagScopeFilters(params, conditions, alias, campaignId, tagIds, advertiserId = '') {
   if (campaignId) {
     params.push(campaignId);
@@ -1428,10 +1435,12 @@ export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
   }
 
   params.push(normalizeLimit(limit));
+  const impressionSiteDomainExpr = canonicalSiteDomainSql('ie');
+  const clickSiteDomainExpr = canonicalSiteDomainSql('ce');
   const { rows } = await pool.query(
     `WITH impressions AS (
        SELECT
-         COALESCE(NULLIF(ie.site_domain, ''), 'Unknown') AS site_domain,
+         ${impressionSiteDomainExpr} AS site_domain,
          COUNT(*)::bigint AS impressions,
          COALESCE(SUM(CASE WHEN COALESCE(ie.viewable, false) THEN 1 ELSE 0 END), 0)::bigint AS viewable_imps,
          COALESCE(SUM(CASE WHEN ie.viewable IS NOT NULL THEN 1 ELSE 0 END), 0)::bigint AS measured_imps,
@@ -1443,7 +1452,7 @@ export async function getWorkspaceSiteBreakdown(pool, workspaceId, opts = {}) {
      ),
      clicks AS (
        SELECT
-         COALESCE(NULLIF(ce.site_domain, ''), 'Unknown') AS site_domain,
+         ${clickSiteDomainExpr} AS site_domain,
          COUNT(*)::bigint AS clicks
        FROM click_events ce
        JOIN ad_tags t_click ON t_click.id = ce.tag_id

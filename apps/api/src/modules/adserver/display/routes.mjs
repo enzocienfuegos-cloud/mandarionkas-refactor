@@ -56,10 +56,17 @@ function extractHostname(urlOrDomain) {
   if (!urlOrDomain) return '';
   try {
     const s = urlOrDomain.startsWith('http') ? urlOrDomain : `https://${urlOrDomain}`;
-    return new URL(s).hostname;
+    return canonicalizeSiteHostname(new URL(s).hostname);
   } catch (_) {
-    return urlOrDomain.split('/')[0] || '';
+    return canonicalizeSiteHostname(urlOrDomain.split('/')[0] || '');
   }
+}
+
+function canonicalizeSiteHostname(hostname) {
+  return trimText(hostname)
+    .toLowerCase()
+    .replace(/\.$/, '')
+    .replace(/^www\./, '');
 }
 
 function isUnresolvedMacroValue(value) {

@@ -194,6 +194,23 @@ test('tracking context falls back to referer when DSP domain macros are unresolv
   assert.equal(ctx.referer, 'https://preview.example.com/tools/tag-preview?slot=hero');
 });
 
+test('tracking context canonicalizes www domains so clicks join to site rows', () => {
+  const url = new URL('http://localhost/v1/tags/tracker/tag-abc/click?dom=www.sport.es&purl=https%3A%2F%2Fwww.sport.es%2Fes%2Ffutbol%2F');
+  const ctx = extractTrackingContext(
+    {
+      headers: {
+        referer: 'https://www.sport.es/es/futbol/',
+        'user-agent': 'node-test',
+      },
+    },
+    url,
+    { country: null, region: null, city: null, ip: null },
+  );
+
+  assert.equal(ctx.siteDomain, 'sport.es');
+  assert.equal(ctx.referer, 'https://www.sport.es/es/futbol/');
+});
+
 test('tracker routes use the buffer when provided', async () => {
   const pool = createFakePool();
   const buffer = new TrackerBuffer(pool, { flushIntervalMs: 60_000, flushThreshold: 100_000 });
