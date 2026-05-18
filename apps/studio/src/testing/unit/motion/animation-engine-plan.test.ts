@@ -100,6 +100,113 @@ describe('animation engine plan derivation', () => {
     expect(plans[0]?.targetId).toBe('image_1');
   });
 
+  it('inherits parent triggers that the child does not define while preserving its own triggers', () => {
+    const group = createWidget({
+      id: 'group_1',
+      type: 'group',
+      childIds: ['cta_1'],
+      motion: {
+        enter: {
+          templateId: 'fade-up',
+          trigger: 'reveal',
+          config: { durationMs: 600, delayMs: 40, distancePx: 32 },
+        },
+      },
+    });
+    const child = createWidget({
+      id: 'cta_1',
+      type: 'cta',
+      parentId: 'group_1',
+      motion: {
+        enter: {
+          templateId: 'slide-in-right',
+          trigger: 'load',
+          config: { durationMs: 500, delayMs: 0, distancePx: 24 },
+        },
+      },
+    });
+
+    const plans = derivePlansForWidget(child, {
+      widgetsById: { [group.id]: group, [child.id]: child },
+      previewMode: true,
+    });
+
+    expect(plans.map((plan) => `${plan.trigger}:${plan.id.includes(':inherit:') ? 'inherit' : 'own'}`)).toEqual([
+      'load:own',
+      'reveal:inherit',
+    ]);
+  });
+
+  it('does not inherit duplicate triggers from the parent group when the child already owns that trigger', () => {
+    const group = createWidget({
+      id: 'group_1',
+      type: 'group',
+      childIds: ['text_1'],
+      motion: {
+        enter: {
+          templateId: 'fade-up',
+          trigger: 'load',
+          config: { durationMs: 600, delayMs: 50, distancePx: 32 },
+        },
+      },
+    });
+    const child = createWidget({
+      id: 'text_1',
+      type: 'text',
+      parentId: 'group_1',
+      motion: {
+        enter: {
+          templateId: 'appear',
+          trigger: 'load',
+          config: { durationMs: 400, delayMs: 0 },
+        },
+      },
+    });
+
+    const plans = derivePlansForWidget(child, {
+      widgetsById: { [group.id]: group, [child.id]: child },
+      previewMode: true,
+    });
+
+    expect(plans).toHaveLength(1);
+    expect(plans[0]?.trigger).toBe('load');
+    expect(plans[0]?.id.includes(':inherit:')).toBe(false);
+  });
+
+  it('applies child cascade delay to inherited parent plans based on child order', () => {
+    const group = createWidget({
+      id: 'group_1',
+      type: 'group',
+      childIds: ['text_1', 'cta_1', 'image_1'],
+      props: { childCascadeDelayMs: 150 },
+      motion: {
+        enter: {
+          templateId: 'fade-up',
+          trigger: 'reveal',
+          config: { durationMs: 600, delayMs: 25, distancePx: 32 },
+        },
+      },
+    });
+    const child = createWidget({
+      id: 'image_1',
+      type: 'image',
+      parentId: 'group_1',
+    });
+
+    const plans = derivePlansForWidget(child, {
+      widgetsById: {
+        [group.id]: group,
+        text_1: createWidget({ id: 'text_1', type: 'text', parentId: 'group_1' }),
+        cta_1: createWidget({ id: 'cta_1', type: 'cta', parentId: 'group_1' }),
+        [child.id]: child,
+      },
+      previewMode: true,
+    });
+
+    expect(plans).toHaveLength(1);
+    expect(plans[0]?.delayMs).toBe(325);
+  });
+
   it('treats repeatMode=repeat as infinite iterations for non-loop templates', () => {
     const widget = createWidget({
       id: 'image_repeat',

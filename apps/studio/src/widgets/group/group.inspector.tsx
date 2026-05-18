@@ -110,6 +110,16 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
           <label>Title</label>
           <input value={String(widget.props.title ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { title: event.target.value })} />
         </div>
+        <InspectorRangeField
+          label="Child cascade"
+          min={0}
+          max={1000}
+          step={25}
+          unit="ms"
+          value={Number(widget.props.childCascadeDelayMs ?? 0)}
+          onChange={(childCascadeDelayMs) => widgetActions.updateWidgetProps(widget.id, { childCascadeDelayMs })}
+          helpText="Adds stagger between child layers when they inherit the group motion."
+        />
         <label className="checkbox-row">
           <input
             type="checkbox"

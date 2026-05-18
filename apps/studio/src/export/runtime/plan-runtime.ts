@@ -210,12 +210,18 @@ function isPassThroughMotionGroup(widget: ExportRuntimeWidget): boolean {
     && !Boolean(widget.props?.scratchEnabled);
 }
 
-function cloneInheritedPlan(plan: AnimationPlan, widgetId: string): AnimationPlan {
+function readChildCascadeDelayMs(widget: ExportRuntimeWidget): number {
+  const raw = Number(widget.props?.childCascadeDelayMs ?? 0);
+  return Number.isFinite(raw) ? Math.max(0, raw) : 0;
+}
+
+function cloneInheritedPlan(plan: AnimationPlan, widgetId: string, delayOffsetMs = 0): AnimationPlan {
   return Object.freeze({
     ...plan,
     id: `${plan.id}:inherit:${widgetId}`,
     widgetId,
     targetId: widgetId,
+    delayMs: plan.delayMs + delayOffsetMs,
   });
 }
 
@@ -276,7 +282,7 @@ function buildInheritedMotionPlans(
   widget: ExportRuntimeWidget,
   context: { readonly widgetsById: Readonly<Record<string, ExportRuntimeWidget>>; readonly previewMode: boolean },
 ): AnimationPlan[] {
-  if (widget.motion) return [];
+  const ownTriggers = new Set(buildMotionPlans(widget).map((plan) => plan.trigger));
   const plans: AnimationPlan[] = [];
   let currentParentId = widget.parentId;
   const visited = new Set<string>([widget.id]);
@@ -286,7 +292,12 @@ function buildInheritedMotionPlans(
     const parent = context.widgetsById[currentParentId];
     if (!parent) break;
     if (isPassThroughMotionGroup(parent) && parent.motion) {
-      buildMotionPlans(parent).forEach((plan) => plans.push(cloneInheritedPlan(plan, widget.id)));
+      const childIndex = parent.childIds?.indexOf(widget.id) ?? 0;
+      const delayOffsetMs = childIndex > 0 ? childIndex * readChildCascadeDelayMs(parent) : 0;
+      buildMotionPlans(parent).forEach((plan) => {
+        if (ownTriggers.has(plan.trigger)) return;
+        plans.push(cloneInheritedPlan(plan, widget.id, delayOffsetMs));
+      });
     }
     currentParentId = parent.parentId;
   }

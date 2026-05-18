@@ -34,6 +34,7 @@ export const groupDefinition: WidgetDefinition = {
       scratchMilestones: DEFAULT_SCRATCH_MILESTONES,
       scratchActivationMode: 'delay',
       scratchActivationDelayMs: 0,
+      childCascadeDelayMs: 0,
     },
     style: { backgroundColor: 'transparent', accentColor: '#8b5cf6', color: '#ffffff' },
     timeline: { startMs: 0, endMs: 15000 },
