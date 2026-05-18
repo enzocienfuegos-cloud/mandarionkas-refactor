@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getSavedView } from '../../shared/saved-views';
+import { loadAuthMe, WORKSPACE_CHANGED_EVENT } from '../../shared/workspaces';
 import {
   Button,
   CenteredSpinner,
@@ -65,11 +66,12 @@ function formatTimezoneLabel(value: string) {
 export function ReportingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [mode, setMode] = useState<ReportingMode>('all');
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState('');
   const [advertiserFilter, setAdvertiserFilter] = useState('');
   const [campaignFilter, setCampaignFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [creativeFilter, setCreativeFilter] = useState('');
-  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>('30d');
+  const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>('today');
   const [customDateRange, setCustomDateRange] = useState<DateRange>(() => createDefaultCustomDateRange());
   const [timeGranularity, setTimeGranularity] = useState<TimeGranularity>('day');
   const [timezone, setTimezone] = useState('America/El_Salvador');
@@ -79,6 +81,40 @@ export function ReportingPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const currentViewId = searchParams.get('view');
   const config = reportingModeConfig[mode];
+
+  const applyWorkspaceScope = React.useCallback((workspaceId: string) => {
+    if (!workspaceId) return;
+    setActiveWorkspaceId(workspaceId);
+    setAdvertiserFilter(workspaceId);
+    setCampaignFilter('');
+    setTagFilter('');
+    setCreativeFilter('');
+  }, []);
+
+  useEffect(() => {
+    if (currentViewId || typeof window === 'undefined') return undefined;
+
+    let cancelled = false;
+    void loadAuthMe()
+      .then((authMe) => {
+        if (cancelled) return;
+        applyWorkspaceScope(authMe.workspace?.id ?? '');
+      })
+      .catch(() => {
+        if (!cancelled) setActiveWorkspaceId('');
+      });
+
+    const handleWorkspaceChange = (event: Event) => {
+      const nextWorkspaceId = String((event as CustomEvent<{ workspaceId?: string }>).detail?.workspaceId ?? '');
+      applyWorkspaceScope(nextWorkspaceId);
+    };
+
+    window.addEventListener(WORKSPACE_CHANGED_EVENT, handleWorkspaceChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(WORKSPACE_CHANGED_EVENT, handleWorkspaceChange);
+    };
+  }, [applyWorkspaceScope, currentViewId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -203,7 +239,7 @@ export function ReportingPage() {
         setCreativeFilter(String(nextFilters.creativeFilter ?? ''));
         setDateRangeFilter((['today', 'yesterday', '7d', '30d', '90d', 'custom'].includes(String(nextFilters.dateRangeFilter))
           ? nextFilters.dateRangeFilter
-          : '30d') as DateRangeFilter);
+          : 'today') as DateRangeFilter);
         setCustomDateRange(parseDateRange(nextFilters.customDateRange));
         setTimeGranularity((['day', 'hour'].includes(String(nextFilters.timeGranularity))
           ? nextFilters.timeGranularity
@@ -301,11 +337,11 @@ export function ReportingPage() {
         onDownloadCsv={handleDownloadCsv}
         downloadDisabled={loading && !kpis.length}
         onResetFilters={() => {
-          setAdvertiserFilter('');
+          setAdvertiserFilter(activeWorkspaceId);
           setCampaignFilter('');
           setTagFilter('');
           setCreativeFilter('');
-          setDateRangeFilter('30d');
+          setDateRangeFilter('today');
           setCustomDateRange(createDefaultCustomDateRange());
           setTimeGranularity('day');
           setTimezone('America/El_Salvador');

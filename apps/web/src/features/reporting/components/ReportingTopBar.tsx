@@ -121,7 +121,7 @@ export function ReportingTopBar({
     campaignFilter !== '',
     tagFilter !== '',
     creativeFilter !== '',
-    dateRangeFilter !== '30d',
+    dateRangeFilter !== 'today',
     timeGranularity !== 'day',
     timezone !== 'America/El_Salvador',
     statusFilter !== 'all',
