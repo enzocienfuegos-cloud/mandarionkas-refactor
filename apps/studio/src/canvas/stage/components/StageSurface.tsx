@@ -10,6 +10,7 @@ import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interac
 import { isVisibleWithinParentTimeline, resolveInheritedMotionFrame, resolveInheritedOpacity } from './stage-motion-inheritance';
 import { createEventClock } from '../../../motion/animation-engine';
 import { useAnimationEngine } from '../../../motion/animation-engine';
+import { buildScratchRevealMetadata } from '../../../motion/animation-engine/reveal-replay';
 import { isScratchGroupActive } from '../../../widgets/group/group-scratch-activation';
 import { getScratchRevealTargetId, getScratchRevealTargetMode, isWidgetDescendantOf, resolveScratchRevealTargets } from '../../../widgets/group/group-reveal-target';
 
@@ -321,6 +322,10 @@ export function StageSurface({
               if (!scratchWidget) return;
               const revealTargets = resolveScratchRevealTargets(scratchWidget, sceneWidgets, widgetsById);
               const clock = createEventClock('reveal', nowMs);
+              const metadataWithReplay = {
+                ...(metadata ?? {}),
+                ...(buildScratchRevealMetadata(scratchWidget.props.replayTargetMotionOnReveal !== false) ?? {}),
+              };
               revealTargets.forEach((targetWidget) => {
                 engine.emit({
                   trigger: 'reveal',
@@ -329,7 +334,7 @@ export function StageSurface({
                   sceneTimeMs: Number(metadata?.completedAtMs ?? playheadMs),
                   realTimeMs: nowMs,
                   clock,
-                  metadata,
+                  metadata: metadataWithReplay,
                 });
               });
             }}

@@ -148,6 +148,7 @@ export function renderGroupExport(
   const milestonesJson = escapeHtml(JSON.stringify(sortedMilestones));
   const revealTargetMode = escapeHtml(String(node.props.revealTargetMode ?? 'auto'));
   const revealTargetId = escapeHtml(String(node.props.revealTargetId ?? ''));
+  const replayTargetMotionOnReveal = node.props.replayTargetMotionOnReveal !== false;
   const base = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -174,6 +175,7 @@ export function renderGroupExport(
       data-scratch-milestones="${milestonesJson}"
       data-scratch-reveal-target-mode="${revealTargetMode}"
       data-scratch-reveal-target-id="${revealTargetId}"
+      data-scratch-replay-target-motion-on-reveal="${replayTargetMotionOnReveal ? 'true' : 'false'}"
       data-scratch-accent="${escapeHtml(accent)}"
       data-scratch-cover-blur="${coverBlur}"
       data-scratch-activation-delay="${scratchActivationDelayMs}"

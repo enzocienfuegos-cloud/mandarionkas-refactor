@@ -1,5 +1,6 @@
 import { createEventClock } from '../../motion/animation-engine/clock';
 import type { AnimationEngine } from '../../motion/animation-engine/engine';
+import { buildScratchRevealMetadata } from '../../motion/animation-engine/reveal-replay';
 import {
   DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD,
   type ScratchMilestone,
@@ -321,6 +322,9 @@ export function mountScratchReveal(
     const scratchWidgetId = root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || '';
     const scene = resolveScratchScene(runtimeModel, scratchWidgetId);
     const scratchWidget = scene?.widgets.find((widget) => widget.id === scratchWidgetId);
+    const replayTargetMotionOnReveal = (shell.getAttribute('data-scratch-replay-target-motion-on-reveal')
+      || root.getAttribute('data-scratch-replay-target-motion-on-reveal')
+      || (scratchWidget?.props?.replayTargetMotionOnReveal === false ? 'false' : 'true')) !== 'false';
 
     if (scene && scratchWidget && revealTargetMode === 'widget' && revealTargetId) {
       const targetIds = new Set(resolveScratchTargets(scene, scratchWidget).map((widget) => widget.id));
@@ -379,6 +383,7 @@ export function mountScratchReveal(
 
       if (!scene || !scratchWidget) return;
       const clock = createEventClock('reveal', completionPerfMs);
+      const revealMetadata = buildScratchRevealMetadata(replayTargetMotionOnReveal);
       resolveScratchTargets(scene, scratchWidget).forEach((widget) => {
         engine.emit({
           trigger: 'reveal',
@@ -387,6 +392,7 @@ export function mountScratchReveal(
           sceneTimeMs: completionPerfMs - startedAt,
           realTimeMs: completionPerfMs,
           clock,
+          metadata: revealMetadata,
         });
         engine.emit({
           trigger: 'scratch-complete',

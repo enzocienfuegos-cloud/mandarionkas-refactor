@@ -191,6 +191,7 @@ describe('StageSurface motion behavior', () => {
     expect(revealCalls).toHaveLength(2);
     expect(revealCalls.map((event) => event.targetId)).toEqual(['target_group', 'target_image']);
     expect(revealCalls.every((event) => event.sourceId === 'scratch_group')).toBe(true);
+    expect(revealCalls.every((event) => event.metadata?.scratchReplayTargetMotionOnReveal === true)).toBe(true);
 
     act(() => {
       scratchRoot!.unmount();
@@ -253,6 +254,7 @@ describe('StageSurface motion behavior', () => {
     expect(revealCalls).toHaveLength(1);
     expect(revealCalls[0]?.targetId).toBe('target_image');
     expect(revealCalls[0]?.sourceId).toBe('scratch_group');
+    expect(revealCalls[0]?.metadata?.scratchReplayTargetMotionOnReveal).toBe(true);
 
     act(() => {
       scratchRoot!.unmount();

@@ -34,6 +34,7 @@ export const groupDefinition: WidgetDefinition = {
       scratchMilestones: DEFAULT_SCRATCH_MILESTONES,
       scratchActivationMode: 'delay',
       scratchActivationDelayMs: 0,
+      replayTargetMotionOnReveal: true,
       childCascadeDelayMs: 0,
     },
     style: { backgroundColor: 'transparent', accentColor: '#8b5cf6', color: '#ffffff' },

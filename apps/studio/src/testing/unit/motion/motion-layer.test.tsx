@@ -160,4 +160,58 @@ describe('MotionLayer', () => {
 
     expect(engine.play).not.toHaveBeenCalled();
   });
+
+  it('replays load motion when a scratch reveal opts into target motion replay', async () => {
+    const subscriptions = new Map<string, (event: { trigger: string; sourceId: string; targetId: string; clock: object; metadata?: Record<string, unknown> }) => void>();
+    engine.subscribe.mockImplementation((trigger: string, handler: (event: any) => void) => {
+      subscriptions.set(trigger, handler);
+      return () => subscriptions.delete(trigger);
+    });
+
+    const loadPlan: AnimationPlan = {
+      ...plan,
+      id: 'widget_1:enter:slide-in-left',
+      templateId: 'slide-in-left',
+      trigger: 'load',
+      startMode: 'trigger-local-zero',
+      delayMs: 120,
+      spec: {
+        from: { x: -80 },
+        to: { x: 0 },
+        ease: 'expo.out',
+        willChange: 'transform',
+      },
+    };
+    engine.buildPlansForWidget.mockImplementation(() => [loadPlan]);
+
+    await act(async () => {
+      root.render(
+        <MotionLayer widget={createWidget({ timeline: { startMs: 500, endMs: 1500 } })} playheadMs={120} isReproducing previewMode>
+          <div>Child</div>
+        </MotionLayer>,
+      );
+    });
+
+    engine.play.mockClear();
+    const handler = subscriptions.get('reveal');
+    expect(handler).toBeTruthy();
+
+    await act(async () => {
+      handler?.({
+        trigger: 'reveal',
+        sourceId: 'scratch_group',
+        targetId: 'widget_1',
+        clock: {},
+        metadata: { scratchReplayTargetMotionOnReveal: true },
+      });
+    });
+
+    expect(engine.play).toHaveBeenCalledTimes(1);
+    expect(engine.play.mock.calls[0]?.[1]).toMatchObject({
+      id: 'widget_1:enter:slide-in-left:reveal',
+      trigger: 'reveal',
+      startMode: 'trigger-local-zero',
+      delayMs: 120,
+    });
+  });
 });

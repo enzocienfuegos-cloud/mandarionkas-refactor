@@ -38,6 +38,7 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
   const selectedSceneTargetId = sceneOptions.some((scene) => scene.id === revealTargetId)
     ? revealTargetId
     : widget.sceneId;
+  const replayTargetMotionOnReveal = Boolean(widget.props.replayTargetMotionOnReveal ?? true);
 
   const updateRevealTargetMode = (nextMode: string) => {
     if (nextMode === 'scene') {
@@ -169,6 +170,23 @@ export function GroupInspector({ widget }: { widget: WidgetNode }): JSX.Element 
                   ))}
                 </select>
               </div>
+            ) : null}
+            {revealTargetMode !== 'scene' ? (
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={replayTargetMotionOnReveal}
+                  onChange={(event) => widgetActions.updateWidgetProps(widget.id, {
+                    replayTargetMotionOnReveal: event.target.checked,
+                  })}
+                />
+                Play target animation after full reveal
+              </label>
+            ) : null}
+            {revealTargetMode !== 'scene' ? (
+              <small className="muted">
+                Replays target layers or groups that use a <code>load</code> animation when the scratch finishes. Leave this on unless you want the reveal to be visual-only.
+              </small>
             ) : null}
             <InspectorRangeField
               label="Cover blur"

@@ -107,6 +107,7 @@ describe('group scratch export', () => {
     expect(html).toContain('data-scratch-milestones="[]"');
     expect(html).toContain('data-scratch-reveal-target-mode="auto"');
     expect(html).toContain('data-scratch-reveal-target-id=""');
+    expect(html).toContain('data-scratch-replay-target-motion-on-reveal="true"');
     expect(html).toContain('Scratch me first');
     expect(html).toContain('Shop now');
     expect(html).toContain('data-scratch-canvas');
@@ -131,6 +132,12 @@ describe('group scratch export', () => {
     expect(html).toContain('&quot;id&quot;:&quot;m1&quot;');
     expect(html.indexOf('&quot;id&quot;:&quot;m1&quot;')).toBeLessThan(html.indexOf('&quot;id&quot;:&quot;m2&quot;'));
     expect(html.indexOf('&quot;id&quot;:&quot;m2&quot;')).toBeLessThan(html.indexOf('&quot;id&quot;:&quot;m3&quot;'));
+  });
+
+  it('serializes when target motion replay is explicitly disabled', () => {
+    const html = renderGroupExport(createGroupWidget({ replayTargetMotionOnReveal: false }), createState());
+
+    expect(html).toContain('data-scratch-replay-target-motion-on-reveal="false"');
   });
 
   it('wraps scratch cover children so grouped animations survive export runtime', () => {

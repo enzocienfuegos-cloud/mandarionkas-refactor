@@ -2,6 +2,7 @@ import gsap from 'gsap';
 import { SCENE_CLOCK, createEventClock, type AnimationClock } from '../../motion/animation-engine/clock';
 import type { AnimationEngine, AnimationTarget } from '../../motion/animation-engine/engine';
 import type { AnimationTrigger } from '../../motion/animation-engine/events';
+import { buildRevealReplayPlan, shouldReplayLoadMotionOnReveal } from '../../motion/animation-engine/reveal-replay';
 import { derivePlansForRuntimeWidget } from './plan-runtime';
 import type { ExportRuntimeModel, ExportRuntimeScene, ExportRuntimeWidget } from './runtime-model';
 import type { SceneManager } from './scene-manager';
@@ -146,16 +147,6 @@ function resolveClock(trigger: AnimationTrigger, event: { clock: AnimationClock 
   return event.clock;
 }
 
-function buildRevealReplayPlan(widget: ExportRuntimeWidget, plan: ReturnType<typeof derivePlansForRuntimeWidget>[number]) {
-  return {
-    ...plan,
-    id: `${plan.id}:reveal`,
-    trigger: 'reveal' as const,
-    startMode: 'trigger-local-zero' as const,
-    delayMs: Math.max(0, plan.delayMs - widget.timeline.startMs),
-  };
-}
-
 function bindPointerDrivenTriggers(engine: AnimationEngine, widget: ExportRuntimeWidget, targetNode: HTMLElement): Array<() => void> {
   const bindings: Array<{ eventName: keyof HTMLElementEventMap; trigger: 'click' | 'hover-enter' | 'hover-exit' }> = [
     { eventName: 'click', trigger: 'click' },
@@ -201,7 +192,9 @@ export function mountWidgetMotions(
             .filter((plan) => plan.trigger === trigger)
             .concat(
               trigger === 'reveal'
-                ? plans.filter((plan) => plan.trigger === 'timeline').map((plan) => buildRevealReplayPlan(widget, plan))
+                ? plans
+                  .filter((plan) => plan.trigger === 'timeline' || (shouldReplayLoadMotionOnReveal(event) && plan.trigger === 'load'))
+                  .map((plan) => buildRevealReplayPlan(plan, widget.timeline.startMs))
                 : [],
             );
 

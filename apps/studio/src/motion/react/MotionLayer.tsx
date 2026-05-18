@@ -12,6 +12,7 @@ import {
 import type { WidgetNode } from '../../domain/document/types';
 import { SCENE_CLOCK, createEventClock } from '../animation-engine/clock';
 import type { AnimationTrigger } from '../animation-engine/events';
+import { buildRevealReplayPlan, shouldReplayLoadMotionOnReveal } from '../animation-engine/reveal-replay';
 import { useAnimationEngine } from '../animation-engine';
 
 type MotionLayerProps = HTMLAttributes<HTMLDivElement> & {
@@ -87,8 +88,14 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
       if (!motionTargetRef.current) return;
       const matchesWidget = event.targetId === widget.id;
       if (!matchesWidget) return;
+      const replayLoadPlans = shouldReplayLoadMotionOnReveal(event)
+        ? plansRef.current
+          .filter((plan) => plan.trigger === 'load')
+          .map((plan) => buildRevealReplayPlan(plan, widgetRef.current.timeline.startMs))
+        : [];
       const matchingPlans = plansRef.current
-        .filter((plan) => plan.trigger === event.trigger);
+        .filter((plan) => plan.trigger === event.trigger)
+        .concat(replayLoadPlans);
       matchingPlans.forEach((plan) => {
         engine.play({ node: motionTargetRef.current as Element, widget: widgetRef.current }, plan, event.clock);
       });
