@@ -457,6 +457,32 @@ function buildDestinationAwareClickUrl(clickTrackUrl, destinationUrl) {
   }
 }
 
+function getTrackedClickDestination(clickTrackUrl) {
+  try {
+    const parsed = new URL(String(clickTrackUrl));
+    return parsed.searchParams.get('url') || '';
+  } catch {
+    return '';
+  }
+}
+
+function buildReplaceDestinationMacroUrl(clickTrackUrl, macroUrl, dsp = '') {
+  const normalizedDsp = normalizeDsp(dsp);
+  if (normalizedDsp !== 'illumin') return macroUrl;
+
+  const destination = getTrackedClickDestination(clickTrackUrl);
+  if (!destination) return macroUrl;
+
+  try {
+    const parsedMacro = new URL(String(macroUrl));
+    if (!parsedMacro.searchParams.has('landingUrl')) return macroUrl;
+    parsedMacro.searchParams.set('landingUrl', destination);
+    return parsedMacro.toString();
+  } catch {
+    return macroUrl;
+  }
+}
+
 export function buildDspTrackedClickUrl(clickTrackUrl, macroValue, dsp = '', { onUnresolved } = {}) {
   if (!clickTrackUrl) return clickTrackUrl;
   const mode = getDspMacroConfig(dsp)?.clickMacroMode || 'prefix_url';
@@ -466,8 +492,9 @@ export function buildDspTrackedClickUrl(clickTrackUrl, macroValue, dsp = '', { o
     return clickTrackUrl;
   }
   if (mode === 'replace_destination') {
-    return isHttpUrl(resolvedMacroValue)
-      ? buildDestinationAwareClickUrl(clickTrackUrl, resolvedMacroValue)
+    const replacementUrl = buildReplaceDestinationMacroUrl(clickTrackUrl, resolvedMacroValue, dsp);
+    return isHttpUrl(replacementUrl)
+      ? buildDestinationAwareClickUrl(clickTrackUrl, replacementUrl)
       : clickTrackUrl;
   }
   return `${resolvedMacroValue}${encodeURIComponent(String(clickTrackUrl))}`;

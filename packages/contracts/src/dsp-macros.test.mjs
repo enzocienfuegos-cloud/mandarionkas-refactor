@@ -99,3 +99,37 @@ test('Basis preview bypass requires adPreviewId to avoid touching live wrappers'
 
   assert.equal(clickTag, `${basisNonPreviewMacro}${encodeURIComponent(TRACKED_CLICK_URL)}`);
 });
+
+test('Illumin click macro receives the final landingUrl before Dusk wraps it', () => {
+  const landingUrl = 'https://www.aes-elsalvador.com/es';
+  const trackedClickUrl = `https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Illumin&url=${encodeURIComponent(landingUrl)}`;
+  const illuminMacro = 'https://click-va.acuityplatform.com/Adserver/landing?etoken=abc123&jk=&landingUrl=';
+
+  const clickTag = wrapTrackedClickUrlWithDspMacro(
+    trackedClickUrl,
+    { dsp: 'Illumin', cuu: encodeURIComponent(illuminMacro) },
+    'Illumin',
+  );
+
+  const duskUrl = new URL(clickTag);
+  assert.equal(duskUrl.origin + duskUrl.pathname, 'https://api.example.com/v1/tags/tracker/tag-1/click');
+
+  const acuityUrl = new URL(duskUrl.searchParams.get('url'));
+  assert.equal(acuityUrl.origin + acuityUrl.pathname, 'https://click-va.acuityplatform.com/Adserver/landing');
+  assert.equal(acuityUrl.searchParams.get('etoken'), 'abc123');
+  assert.equal(acuityUrl.searchParams.get('landingUrl'), landingUrl);
+});
+
+test('Illumin click macro without landingUrl keeps replace-destination behavior unchanged', () => {
+  const trackedClickUrl = 'https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Illumin&url=https%3A%2F%2Fadvertiser.com';
+  const illuminMacro = 'https://click-va.acuityplatform.com/Adserver/landing?etoken=abc123';
+
+  const clickTag = wrapTrackedClickUrlWithDspMacro(
+    trackedClickUrl,
+    { dsp: 'Illumin', cuu: encodeURIComponent(illuminMacro) },
+    'Illumin',
+  );
+
+  const duskUrl = new URL(clickTag);
+  assert.equal(duskUrl.searchParams.get('url'), illuminMacro);
+});
