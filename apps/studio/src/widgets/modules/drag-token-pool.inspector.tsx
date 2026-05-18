@@ -10,17 +10,26 @@ import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events'
 import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import { Button } from '../../shared/ui/Button';
 import {
+  clampTokenImageFocal,
   clampTokenImageMaxSizePercent,
+  clampTokenImageScalePercent,
+  DEFAULT_TOKEN_IMAGE_FOCAL_X,
+  DEFAULT_TOKEN_IMAGE_FOCAL_Y,
   DEFAULT_TOKEN_IMAGE_MAX_SIZE_PERCENT,
   DEFAULT_TOKEN_IMAGE_FIT,
+  DEFAULT_TOKEN_IMAGE_SCALE_PERCENT,
   DEFAULT_TOKEN_SHAPE,
   generateTokenId,
   MAX_TOKENS,
   MIN_TOKENS,
   normalizeTokenImageFit,
   TOKEN_IMAGE_FIT_OPTIONS,
+  TOKEN_IMAGE_FOCAL_MAX,
+  TOKEN_IMAGE_FOCAL_MIN,
   TOKEN_IMAGE_MAX_SIZE_PERCENT_MAX,
   TOKEN_IMAGE_MAX_SIZE_PERCENT_MIN,
+  TOKEN_IMAGE_SCALE_PERCENT_MAX,
+  TOKEN_IMAGE_SCALE_PERCENT_MIN,
   TOKEN_SIZE_MAX,
   TOKEN_SIZE_MIN,
   type DragTokenItem,
@@ -212,6 +221,44 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                     <option key={fit} value={fit}>{fit}</option>
                   ))}
                 </select>
+              </div>
+              <div className="fields-grid">
+                <div>
+                  <label>Base image scale (%)</label>
+                  <input
+                    type="number"
+                    min={TOKEN_IMAGE_SCALE_PERCENT_MIN}
+                    max={TOKEN_IMAGE_SCALE_PERCENT_MAX}
+                    value={clampTokenImageScalePercent(token.baseImageScalePercent ?? DEFAULT_TOKEN_IMAGE_SCALE_PERCENT)}
+                    onChange={(event) => updateToken(token.id, {
+                      baseImageScalePercent: clampTokenImageScalePercent(event.target.value),
+                    })}
+                  />
+                </div>
+                <div>
+                  <label>Base image focal X</label>
+                  <input
+                    type="number"
+                    min={TOKEN_IMAGE_FOCAL_MIN}
+                    max={TOKEN_IMAGE_FOCAL_MAX}
+                    value={clampTokenImageFocal(token.baseImageFocalX, DEFAULT_TOKEN_IMAGE_FOCAL_X)}
+                    onChange={(event) => updateToken(token.id, {
+                      baseImageFocalX: clampTokenImageFocal(event.target.value, DEFAULT_TOKEN_IMAGE_FOCAL_X),
+                    })}
+                  />
+                </div>
+                <div>
+                  <label>Base image focal Y</label>
+                  <input
+                    type="number"
+                    min={TOKEN_IMAGE_FOCAL_MIN}
+                    max={TOKEN_IMAGE_FOCAL_MAX}
+                    value={clampTokenImageFocal(token.baseImageFocalY, DEFAULT_TOKEN_IMAGE_FOCAL_Y)}
+                    onChange={(event) => updateToken(token.id, {
+                      baseImageFocalY: clampTokenImageFocal(event.target.value, DEFAULT_TOKEN_IMAGE_FOCAL_Y),
+                    })}
+                  />
+                </div>
               </div>
             </li>
           ))}

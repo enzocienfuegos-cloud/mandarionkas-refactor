@@ -6,7 +6,11 @@ import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
 import { emitTokenDrag } from './token-drag-runtime';
 import {
+  clampTokenImageFocal,
   clampTokenImageMaxSizePercent,
+  clampTokenImageScalePercent,
+  DEFAULT_TOKEN_IMAGE_FOCAL_X,
+  DEFAULT_TOKEN_IMAGE_FOCAL_Y,
   normalizeTokenImageFit,
   tokenShapeToBorderRadius,
   type DragTokenItem,
@@ -111,7 +115,14 @@ function buildDragTokenGhostStyle(
   };
 }
 
-function buildDragTokenArtworkStyle(imageMaxSizePercent: number, hideShape: boolean, imageFit: TokenImageFit): CSSProperties {
+function buildDragTokenArtworkStyle(
+  imageMaxSizePercent: number,
+  hideShape: boolean,
+  imageFit: TokenImageFit,
+  imageScalePercent: number,
+  focalX: number,
+  focalY: number,
+): CSSProperties {
   const imageSize = `${imageMaxSizePercent}%`;
   const usesFullFrame = imageFit === 'cover' || imageFit === 'fill';
   return {
@@ -120,7 +131,10 @@ function buildDragTokenArtworkStyle(imageMaxSizePercent: number, hideShape: bool
     width: usesFullFrame ? '100%' : imageSize,
     height: usesFullFrame ? '100%' : imageSize,
     objectFit: imageFit,
+    objectPosition: `${focalX}% ${focalY}%`,
     borderRadius: hideShape ? '0' : 'inherit',
+    transform: `scale(${imageScalePercent / 100})`,
+    transformOrigin: `${focalX}% ${focalY}%`,
   };
 }
 
@@ -188,6 +202,9 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
           const isDisabled = disabled.has(token.id);
           const displayImageUrl = token.baseImageUrl ?? token.imageUrl;
           const imageFit = normalizeTokenImageFit(token.baseImageFit);
+          const imageScalePercent = clampTokenImageScalePercent(token.baseImageScalePercent);
+          const focalX = clampTokenImageFocal(token.baseImageFocalX, DEFAULT_TOKEN_IMAGE_FOCAL_X);
+          const focalY = clampTokenImageFocal(token.baseImageFocalY, DEFAULT_TOKEN_IMAGE_FOCAL_Y);
           const hasTokenImage = Boolean(displayImageUrl);
           const hideFrame = hasTokenImage && hideAccentForImageTokens;
           const hideShape = hasTokenImage && hideShapeForImageTokens;
@@ -217,7 +234,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                     src={displayImageUrl}
                     alt={token.label}
                     draggable={false}
-                    style={buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape, imageFit)}
+                    style={buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape, imageFit, imageScalePercent, focalX, focalY)}
                   />
                 ) : token.label}
               </span>
@@ -230,6 +247,9 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
         if (!draggingToken) return null;
         const displayImageUrl = draggingToken.baseImageUrl ?? draggingToken.imageUrl;
         const imageFit = normalizeTokenImageFit(draggingToken.baseImageFit);
+        const imageScalePercent = clampTokenImageScalePercent(draggingToken.baseImageScalePercent);
+        const focalX = clampTokenImageFocal(draggingToken.baseImageFocalX, DEFAULT_TOKEN_IMAGE_FOCAL_X);
+        const focalY = clampTokenImageFocal(draggingToken.baseImageFocalY, DEFAULT_TOKEN_IMAGE_FOCAL_Y);
         const hasTokenImage = Boolean(displayImageUrl);
         const hideFrame = hasTokenImage && hideAccentForImageTokens;
         const hideShape = hasTokenImage && hideShapeForImageTokens;
@@ -251,7 +271,10 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                   src={displayImageUrl}
                   alt={draggingToken.label}
                   draggable={false}
-                  style={{ ...buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape, imageFit), pointerEvents: 'none' }}
+                  style={{
+                    ...buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape, imageFit, imageScalePercent, focalX, focalY),
+                    pointerEvents: 'none',
+                  }}
                 />
               ) : draggingToken.label}
             </span>
