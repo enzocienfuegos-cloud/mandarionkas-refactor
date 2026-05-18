@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { readCampaignDsp } from '@smx/contracts/dsp-macros';
+import { strToU8, zipSync } from 'fflate';
 import {
   Badge,
   Button,
@@ -88,6 +89,7 @@ export default function TagList() {
   const [previewDiagnosticChecks, setPreviewDiagnosticChecks] = useState<TagDiagnosticCheck[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [bulkExportLoading, setBulkExportLoading] = useState(false);
   const confirm = useConfirm();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -272,6 +274,132 @@ export default function TagList() {
       });
     } finally {
       setPreviewLoading(false);
+    }
+  };
+
+  const sanitizeFilename = (value: string) => (
+    value
+      .trim()
+      .replace(/[^a-z0-9-_]+/gi, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 80)
+      .toLowerCase()
+      || 'tag'
+  );
+
+  const csvCell = (value: unknown) => {
+    const text = String(value ?? '');
+    if (/[",\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+    return text;
+  };
+
+  const downloadBlob = (filename: string, blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleBulkExportTags = async () => {
+    const selectedTags = filteredTags.filter((tag) => selectedTagIds.includes(tag.id));
+    if (selectedTags.length === 0) {
+      toast({ tone: 'warning', title: 'Select at least one tag to download.' });
+      return;
+    }
+
+    setBulkExportLoading(true);
+    try {
+      const files: Record<string, Uint8Array> = {};
+      const manifestRows: Array<Record<string, unknown>> = [];
+      const manifestJson: Array<Record<string, unknown>> = [];
+
+      for (const tag of selectedTags) {
+        const folder = `${sanitizeFilename(tag.name)}-${tag.id.slice(0, 8)}`;
+        const [detailResponse, diagnosticsResponse] = await Promise.allSettled([
+          fetch(`/v1/tags/${tag.id}`, { credentials: 'include' }),
+          fetch(`/v1/tags/${tag.id}/delivery-diagnostics`, { credentials: 'include' }),
+        ]);
+
+        const detailPayload = detailResponse.status === 'fulfilled' && detailResponse.value.ok
+          ? await detailResponse.value.json().catch(() => ({}))
+          : {};
+        const detail = (detailPayload?.tag ?? detailPayload ?? {}) as Partial<Tag> & { campaign?: { metadata?: unknown } | null };
+        const diagnosticsPayload = diagnosticsResponse.status === 'fulfilled' && diagnosticsResponse.value.ok
+          ? await diagnosticsResponse.value.json().catch(() => null)
+          : null;
+        const diagnostics = ((diagnosticsPayload as any)?.deliveryDiagnostics
+          ? diagnosticsPayload
+          : (diagnosticsPayload as any)) as DeliveryDiagnosticsPayload | null;
+
+        const mergedTag: PreviewSavedTag = {
+          id: detail.id ?? tag.id,
+          name: detail.name ?? tag.name,
+          format: (detail.format as PreviewSavedTag['format']) ?? tag.format,
+          width: detail.servingWidth ?? tag.servingWidth ?? null,
+          height: detail.servingHeight ?? tag.servingHeight ?? null,
+          trackerType: (detail.trackerType as PreviewSavedTag['trackerType']) ?? tag.trackerType ?? null,
+          clickUrl: detail.clickUrl ?? tag.clickUrl ?? null,
+        };
+        const campaignDsp = readCampaignDsp(detail.campaign?.metadata);
+        const snippets = buildTagPreviewSnippets(mergedTag, campaignDsp, diagnostics);
+        const snippetEntries = Object.entries(snippets).filter((entry): entry is [TagExportMode, string] => Boolean(entry[1]));
+
+        const metadata = {
+          id: mergedTag.id,
+          name: mergedTag.name,
+          workspaceId: detail.workspaceId ?? tag.workspaceId ?? null,
+          workspaceName: detail.workspaceName ?? tag.workspaceName ?? null,
+          campaignName: detail.campaign?.name ?? tag.campaign?.name ?? null,
+          format: mergedTag.format,
+          status: detail.status ?? tag.status,
+          size: mergedTag.width && mergedTag.height ? `${mergedTag.width}x${mergedTag.height}` : tag.sizeLabel ?? '',
+          trackerType: mergedTag.trackerType ?? null,
+          clickUrl: mergedTag.clickUrl ?? null,
+          campaignDsp,
+          snippets: snippetEntries.map(([mode]) => `${folder}/snippets/${mode}.txt`),
+        };
+
+        files[`${folder}/metadata.json`] = strToU8(JSON.stringify(metadata, null, 2));
+        for (const [mode, snippet] of snippetEntries) {
+          files[`${folder}/snippets/${mode}.txt`] = strToU8(snippet);
+        }
+
+        manifestRows.push({
+          tag_id: metadata.id,
+          tag_name: metadata.name,
+          advertiser: metadata.workspaceName,
+          campaign: metadata.campaignName,
+          format: metadata.format,
+          status: metadata.status,
+          size: metadata.size,
+          dsp: campaignDsp,
+          snippet_count: snippetEntries.length,
+          folder,
+        });
+        manifestJson.push(metadata);
+      }
+
+      const manifestHeaders = ['tag_id', 'tag_name', 'advertiser', 'campaign', 'format', 'status', 'size', 'dsp', 'snippet_count', 'folder'];
+      const manifestCsv = [
+        manifestHeaders.join(','),
+        ...manifestRows.map((row) => manifestHeaders.map((header) => csvCell(row[header])).join(',')),
+      ].join('\n');
+      files['manifest.csv'] = strToU8(manifestCsv);
+      files['manifest.json'] = strToU8(JSON.stringify(manifestJson, null, 2));
+
+      const zipped = zipSync(files, { level: 6 });
+      const zipBytes = new Uint8Array(zipped);
+      const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+      downloadBlob(`dusk-tags-${stamp}.zip`, new Blob([zipBytes.buffer], { type: 'application/zip' }));
+      toast({ tone: 'success', title: `${selectedTags.length} tag${selectedTags.length === 1 ? '' : 's'} downloaded.` });
+    } catch (exportError: any) {
+      toast({ tone: 'critical', title: exportError?.message ?? 'Failed to download selected tags.' });
+    } finally {
+      setBulkExportLoading(false);
     }
   };
 
@@ -465,8 +593,16 @@ export default function TagList() {
               renderBulkActions={() => (
                 <>
                   <Button
+                    onClick={() => void handleBulkExportTags()}
+                    disabled={bulkActionLoading || bulkExportLoading}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    {bulkExportLoading ? 'Downloading…' : 'Download tags'}
+                  </Button>
+                  <Button
                     onClick={() => void handleBulkStatus('active')}
-                    disabled={bulkActionLoading}
+                    disabled={bulkActionLoading || bulkExportLoading}
                     variant="secondary"
                     size="sm"
                   >
@@ -474,7 +610,7 @@ export default function TagList() {
                   </Button>
                   <Button
                     onClick={() => void handleBulkStatus('paused')}
-                    disabled={bulkActionLoading}
+                    disabled={bulkActionLoading || bulkExportLoading}
                     variant="secondary"
                     size="sm"
                   >
@@ -482,7 +618,7 @@ export default function TagList() {
                   </Button>
                   <Button
                     onClick={() => void handleBulkDelete()}
-                    disabled={bulkActionLoading}
+                    disabled={bulkActionLoading || bulkExportLoading}
                     variant="danger"
                     size="sm"
                   >
@@ -490,7 +626,7 @@ export default function TagList() {
                   </Button>
                   <Button
                     onClick={() => setSelectedTagIds([])}
-                    disabled={bulkActionLoading}
+                    disabled={bulkActionLoading || bulkExportLoading}
                     variant="ghost"
                     size="sm"
                   >
