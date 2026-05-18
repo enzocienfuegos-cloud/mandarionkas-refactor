@@ -189,6 +189,61 @@ function escapeScriptContext(jsonStr) {
   return jsonStr.replace(/<\//g, '<\\/');
 }
 
+function shouldUseIlluminClickAliases(clickValue) {
+  const value = trimText(clickValue);
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return String(url.searchParams.get('dsp') || url.searchParams.get('smx_dsp') || '').toLowerCase() === 'illumin';
+  } catch {
+    return /(?:[?&](?:dsp|smx_dsp)=illumin)(?:&|$)/i.test(value);
+  }
+}
+
+function appendClickParams(rawUrl, clickValue, { illuminAliases = shouldUseIlluminClickAliases(clickValue) } = {}) {
+  const base = trimText(rawUrl);
+  const value = trimText(clickValue);
+  if (!base || !value) return base;
+  const hashIndex = base.indexOf('#');
+  const withoutHash = hashIndex === -1 ? base : base.slice(0, hashIndex);
+  const hash = hashIndex === -1 ? '' : base.slice(hashIndex);
+  const separator = withoutHash.includes('?') ? '&' : '?';
+  const encoded = encodeURIComponent(value);
+  const params = illuminAliases
+    ? `clickTag=${encoded}&clickTAG=${encoded}&bsClickTAG=${encoded}`
+    : `clickTag=${encoded}`;
+  return `${withoutHash}${separator}${params}${hash}`;
+}
+
+function buildRuntimeClickParamAppender({ illuminAliases = false } = {}) {
+  return illuminAliases
+    ? `
+  function smxAppendClickParams(rawUrl, clickValue) {
+    var base = String(rawUrl || '');
+    var value = String(clickValue || '');
+    if (!base || !value) return base;
+    var hashIndex = base.indexOf('#');
+    var withoutHash = hashIndex === -1 ? base : base.slice(0, hashIndex);
+    var hash = hashIndex === -1 ? '' : base.slice(hashIndex);
+    var separator = withoutHash.indexOf('?') === -1 ? '?' : '&';
+    var encoded = encodeURIComponent(value);
+    return withoutHash + separator + 'clickTag=' + encoded + '&clickTAG=' + encoded + '&bsClickTAG=' + encoded + hash;
+  }
+`
+    : `
+  function smxAppendClickParams(rawUrl, clickValue) {
+    var base = String(rawUrl || '');
+    var value = String(clickValue || '');
+    if (!base || !value) return base;
+    var hashIndex = base.indexOf('#');
+    var withoutHash = hashIndex === -1 ? base : base.slice(0, hashIndex);
+    var hash = hashIndex === -1 ? '' : base.slice(hashIndex);
+    var separator = withoutHash.indexOf('?') === -1 ? '?' : '&';
+    return withoutHash + separator + 'clickTag=' + encodeURIComponent(value) + hash;
+  }
+`;
+}
+
 const RUNTIME_TRACKING_CONTEXT_JS = `
   function smxIsUnresolvedMacroValue(value) {
     var text = String(value || '').trim();
@@ -844,10 +899,11 @@ export function buildDisplayHtml({ creativeUrl, width, height, clickTrackerUrl, 
           : safeClickTracker)
       : safeClickUrl
   );
+  const useIlluminClickAliases = shouldUseIlluminClickAliases(trackedClickTag);
   const clickTagBlock = trackedClickTag
     ? `<script>var clickTag=${escapeScriptContext(JSON.stringify(trackedClickTag))};window.clickTag=clickTag;</script>`
     : '';
-  const iframeSrc = `${safeCreativeUrl}${trackedClickTag ? `${safeCreativeUrl.includes('?') ? '&' : '?'}clickTag=${encodeURIComponent(trackedClickTag)}` : ''}`;
+  const iframeSrc = appendClickParams(safeCreativeUrl, trackedClickTag, { illuminAliases: useIlluminClickAliases });
   const omidBlock = omidVerification?.jsUrl
     ? `<script src="https://staticresources.iab-psl.org/omid/omid-session-client.js" async></script>
 <script>
@@ -892,6 +948,7 @@ ${omidBlock}
 <script>
 (function(){
   ${RUNTIME_TRACKING_CONTEXT_JS}
+  ${buildRuntimeClickParamAppender({ illuminAliases: useIlluminClickAliases })}
   var creativeUrl = ${escapeScriptContext(JSON.stringify(safeCreativeUrl))};
   var impressionUrl = ${safeImpressionJs ?? 'null'};
     var clickTracker = ${safeClickTrackerJs};
@@ -927,7 +984,7 @@ ${omidBlock}
   if (impressionUrl) (new Image()).src = impressionUrl;
   if (injectedClickTag) window.clickTag = injectedClickTag;
   if (frame && injectedClickTag) {
-    var nextFrameSrc = creativeUrl + (creativeUrl.indexOf('?') === -1 ? '?' : '&') + 'clickTag=' + encodeURIComponent(injectedClickTag);
+    var nextFrameSrc = smxAppendClickParams(creativeUrl, injectedClickTag);
     if (frame.getAttribute('src') !== nextFrameSrc) frame.src = nextFrameSrc;
     frame.addEventListener('load', function() {
       try {
@@ -1083,6 +1140,7 @@ export function buildDisplayJs({
   const safeClickTracker = clickTrackerUrl ? escapeScriptContext(JSON.stringify(clickTrackerUrl)) : 'null';
   const safeEngagement = engagementTrackerUrl ? escapeScriptContext(JSON.stringify(engagementTrackerUrl)) : 'null';
   const safeClickTag = clickTag ? escapeScriptContext(JSON.stringify(clickTag)) : 'null';
+  const useIlluminClickAliases = shouldUseIlluminClickAliases(clickTag);
 
   return `(function(){
   var creativeUrl       = ${safeCreativeUrl};
@@ -1095,6 +1153,7 @@ export function buildDisplayJs({
   if (!creativeUrl) return;
 
     ${RUNTIME_TRACKING_CONTEXT_JS}
+    ${buildRuntimeClickParamAppender({ illuminAliases: useIlluminClickAliases })}
     function smxIsDuskTrackedClick(candidate, tracker) {
       if (!candidate || !tracker) return false;
       var needles = [String(tracker)];
@@ -1133,7 +1192,7 @@ export function buildDisplayJs({
 
   var src = creativeUrl;
   if (clickTag) {
-    src = creativeUrl + (creativeUrl.indexOf('?') === -1 ? '?' : '&') + 'clickTag=' + encodeURIComponent(clickTag);
+    src = smxAppendClickParams(creativeUrl, clickTag);
   }
 
   var iframe = document.createElement('iframe');

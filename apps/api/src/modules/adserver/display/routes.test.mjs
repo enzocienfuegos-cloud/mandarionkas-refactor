@@ -286,8 +286,53 @@ test('buildDisplayJs appends clickTag query param to creative URL', () => {
     'creative iframe URL should contain clickTag query param',
   );
   assert.ok(
-    js.includes("src = creativeUrl + (creativeUrl.indexOf('?') === -1 ? '?' : '&') + 'clickTag=' + encodeURIComponent(clickTag);"),
-    'clickTag query param should be the tracker URL with advertiser encoded',
+    js.includes('smxAppendClickParams(creativeUrl, clickTag);'),
+    'clickTag should be appended through the shared runtime helper',
+  );
+  assert.ok(
+    js.includes("return withoutHash + separator + 'clickTag=' + encodeURIComponent(value) + hash;"),
+    'standard runtime helper should append only clickTag by default',
+  );
+});
+
+test('buildDisplayJs adds Adform/Creatopy click aliases only for Illumin', () => {
+  const js = buildDisplayJs({
+    creativeUrl: 'https://cdn.example.com/banner/index.html',
+    impressionUrl: '',
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Illumin',
+    engagementTrackerUrl: '',
+    clickTag: 'https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Illumin&url=https%3A%2F%2Fadvertiser.com',
+    width: 300,
+    height: 250,
+  });
+
+  assert.ok(
+    js.includes("'clickTag=' + encoded + '&clickTAG=' + encoded + '&bsClickTAG=' + encoded"),
+    'Illumin creative URLs should receive clickTag, clickTAG, and bsClickTAG aliases',
+  );
+});
+
+test('buildDisplayHtml keeps Basis on standard clickTag only', () => {
+  const html = buildDisplayHtml({
+    creativeUrl: 'https://cdn.example.com/index.html',
+    width: 300,
+    height: 250,
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click',
+    engagementTrackerUrl: '',
+    impressionUrl: '',
+    clickUrl: 'https://advertiser.com/landing',
+    clickTag: 'https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Basis&url=https%3A%2F%2Fadvertiser.com%2Flanding',
+    omidVerification: {},
+  });
+
+  assert.ok(
+    html.includes('clickTag=https%3A%2F%2Fapi.example.com%2Fv1%2Ftags%2Ftracker%2Ftag-1%2Fclick'),
+    'Basis iframe should still receive the standard clickTag param',
+  );
+  assert.equal(
+    html.includes('bsClickTAG='),
+    false,
+    'Basis iframe must not receive the Illumin-only bsClickTAG alias',
   );
 });
 
