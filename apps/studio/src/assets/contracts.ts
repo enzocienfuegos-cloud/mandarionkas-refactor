@@ -11,6 +11,7 @@ import type {
   AssetSourceType,
   AssetStorageMode,
 } from './types';
+import { absolutizeAssetUrl } from './url';
 import type {
   AssetAccessScopeDto,
   AssetDerivativeDto,
@@ -64,7 +65,7 @@ function normalizeProcessingStatus(value: string | undefined): AssetProcessingSt
 function mapDerivativeDtoToDomain(dto: AssetDerivativeDto | undefined): AssetDerivative | undefined {
   if (!dto?.src) return undefined;
   return {
-    src: dto.src,
+    src: absolutizeAssetUrl(dto.src),
     mimeType: dto.mimeType,
     sizeBytes: dto.sizeBytes,
     width: dto.width,
@@ -126,14 +127,14 @@ export function mapAssetRecordDtoToDomain(dto: AssetRecordDto): AssetRecord {
     id: dto.id,
     name: dto.name,
     kind: normalizeKind(dto.kind),
-    src: preferredDerivative?.src ?? dto.optimizedUrl ?? dto.publicUrl ?? dto.src ?? '',
+    src: absolutizeAssetUrl(preferredDerivative?.src ?? dto.optimizedUrl ?? dto.publicUrl ?? dto.src ?? ''),
     createdAt: dto.createdAt,
     mimeType: dto.mimeType,
     sourceType,
     storageMode,
     storageKey: dto.storageKey,
-    publicUrl: dto.publicUrl,
-    optimizedUrl: dto.optimizedUrl,
+    publicUrl: absolutizeAssetUrl(dto.publicUrl),
+    optimizedUrl: absolutizeAssetUrl(dto.optimizedUrl),
     qualityPreference: preferred,
     processingStatus: normalizeProcessingStatus(dto.processingStatus),
     processingMessage: dto.processingMessage,
@@ -147,8 +148,8 @@ export function mapAssetRecordDtoToDomain(dto: AssetRecordDto): AssetRecord {
     width: dto.width,
     height: dto.height,
     durationMs: dto.durationMs,
-    posterSrc: dto.posterSrc,
-    thumbnailUrl: dto.thumbnailUrl,
+    posterSrc: absolutizeAssetUrl(dto.posterSrc),
+    thumbnailUrl: absolutizeAssetUrl(dto.thumbnailUrl),
     fontFamily: dto.fontFamily,
     tags: dto.tags,
     folderId: dto.folderId,

@@ -1,5 +1,6 @@
 import type { ReleaseTarget } from '../domain/document/types';
 import type { AssetDerivative, AssetQualityPreference, AssetQualityTier, AssetRecord } from './types';
+import { absolutizeAssetUrl } from './url';
 
 export type AssetOptimizationPolicy = {
   targetChannel: ReleaseTarget;
@@ -122,7 +123,7 @@ export function resolveAssetDeliveryUrl(
   preferredQuality: AssetQualityPreference = asset.qualityPreference ?? 'auto',
 ): string {
   const derived = selectAssetDerivative(asset, targetChannel, preferredQuality);
-  return derived?.src ?? asset.optimizedUrl ?? asset.publicUrl ?? asset.src;
+  return absolutizeAssetUrl(derived?.src ?? asset.optimizedUrl ?? asset.publicUrl ?? asset.src);
 }
 
 export function assetHasSourceUrl(
@@ -136,16 +137,16 @@ export function assetHasSourceUrl(
 
   const candidates = new Set([
     resolveAssetDeliveryUrl(asset, targetChannel, preferredQuality),
-    asset.optimizedUrl,
-    asset.publicUrl,
-    asset.src,
-    asset.posterSrc,
-    asset.derivatives?.original?.src,
-    asset.derivatives?.low?.src,
-    asset.derivatives?.mid?.src,
-    asset.derivatives?.high?.src,
-    asset.derivatives?.thumbnail?.src,
-    asset.derivatives?.poster?.src,
+    absolutizeAssetUrl(asset.optimizedUrl),
+    absolutizeAssetUrl(asset.publicUrl),
+    absolutizeAssetUrl(asset.src),
+    absolutizeAssetUrl(asset.posterSrc),
+    absolutizeAssetUrl(asset.derivatives?.original?.src),
+    absolutizeAssetUrl(asset.derivatives?.low?.src),
+    absolutizeAssetUrl(asset.derivatives?.mid?.src),
+    absolutizeAssetUrl(asset.derivatives?.high?.src),
+    absolutizeAssetUrl(asset.derivatives?.thumbnail?.src),
+    absolutizeAssetUrl(asset.derivatives?.poster?.src),
   ].map((value) => value?.trim()).filter(Boolean));
 
   return candidates.has(normalized);
