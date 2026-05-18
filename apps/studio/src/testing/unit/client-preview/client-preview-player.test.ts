@@ -116,6 +116,7 @@ describe('client preview player', () => {
     });
 
     expect(root!.root.findByType('iframe').props.sandbox).toContain('allow-same-origin');
+    expect(root!.root.findAll((node) => node.type === 'span' && node.props.className === 'cp-time')[0]?.children.join('')).toBe('Runtime preview · GSAP');
 
     act(() => {
       root!.unmount();

@@ -174,7 +174,7 @@ export function ClientPreviewPlayer({
           >
             <StudioIcon icon={StudioIcons.play} size={14} />
           </button>
-          <span className="cp-time">Runtime preview · WAAPI</span>
+          <span className="cp-time">Runtime preview · GSAP</span>
           <Button
             variant={pinMode ? 'primary' : 'ghost'}
             size="sm"

@@ -1,5 +1,6 @@
 import { normalizeStudioState } from '../../domain/document/normalize-state';
 import type { StudioState } from '../../domain/document/types';
+import { prepareExportStateWithResolvedAssets } from '../../export/asset-resolution';
 import { getRepositoryApiBase } from '../../repositories/api-config';
 import { loadProject } from '../../repositories/project';
 import { readStorageItem, writeStorageItem } from '../../shared/browser/storage';
@@ -73,14 +74,19 @@ async function loadPublicPreviewProject(projectId: string, token: string): Promi
   }
 }
 
+export async function prepareClientPreviewProjectState(state: StudioState): Promise<StudioState> {
+  return prepareExportStateWithResolvedAssets(state).catch(() => state);
+}
+
 export async function loadClientPreviewProject(projectId: string, token: string): Promise<LoadedClientPreviewProject | null> {
   const loaded = await loadPublicPreviewProject(projectId, token)
     ?? await loadProject(projectId).catch(() => null);
   const state = loaded ?? readProjectFromLocalStorage(projectId);
   if (!state) return null;
+  const preparedState = await prepareClientPreviewProjectState(state);
   return {
     projectId,
     token,
-    state,
+    state: preparedState,
   };
 }
