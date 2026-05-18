@@ -33,7 +33,7 @@ static_sites:
       - key: VITE_ASSETS_BASE_URL
         scope: BUILD_TIME
         type: GENERAL
-        value: https://cdn-staging.duskplatform.co
+        value: https://pub.duskplatform.co
       - key: VITE_APP_ENV
         scope: BUILD_TIME
         type: GENERAL

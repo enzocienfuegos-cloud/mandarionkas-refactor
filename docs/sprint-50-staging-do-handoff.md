@@ -22,7 +22,7 @@ Use these staging-specific manifests:
 - `https://app-staging.duskplatform.co`
 - `https://studio-staging.duskplatform.co`
 - `https://api-staging.duskplatform.co`
-- `https://cdn-staging.duskplatform.co`
+- `https://pub.duskplatform.co`
 
 ## Secrets Required In DO
 

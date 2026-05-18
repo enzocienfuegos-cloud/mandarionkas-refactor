@@ -32,7 +32,7 @@ const required = [
   'app-staging.duskplatform.co',
   'studio-staging.duskplatform.co',
   'api-staging.duskplatform.co',
-  'cdn-staging.duskplatform.co',
+  'pub.duskplatform.co',
 ];
 
 const failures = [];
