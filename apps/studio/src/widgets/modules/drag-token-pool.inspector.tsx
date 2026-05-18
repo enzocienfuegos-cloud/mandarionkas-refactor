@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { studioStore } from '../../core/store/studio-store';
 import { resolveAssetDeliveryUrl } from '../../assets/policy';
 import type { AssetRecord } from '../../assets/types';
@@ -122,24 +122,69 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
 
   const availableScenes: SceneNode[] = scenes.filter((scene) => scene.id !== node.sceneId);
   const availableDropZones = sceneWidgets.filter((widget): widget is WidgetNode => widget.type === 'drop-zone' && widget.id !== node.id);
+  const anchorCandidates = sceneWidgets.filter((widget) => widget.id !== node.id && widget.type !== 'drop-zone');
   const selectedDropZoneId = String(node.props.dropTargetId ?? '').trim();
   const activeDropZone = availableDropZones.find((widget) => widget.id === selectedDropZoneId) ?? availableDropZones[0];
   const effectiveDropTargetId = activeDropZone?.id ?? '';
+  const [anchorWidgetId, setAnchorWidgetId] = useState('');
+  const activeAnchorWidget = useMemo(
+    () => anchorCandidates.find((widget) => widget.id === anchorWidgetId) ?? anchorCandidates[0],
+    [anchorCandidates, anchorWidgetId],
+  );
+
+  useEffect(() => {
+    if (activeAnchorWidget?.id && activeAnchorWidget.id !== anchorWidgetId) {
+      setAnchorWidgetId(activeAnchorWidget.id);
+      return;
+    }
+    if (!activeAnchorWidget && anchorWidgetId) {
+      setAnchorWidgetId('');
+    }
+  }, [activeAnchorWidget, anchorWidgetId]);
+
+  const alignDropZoneToWidget = (dropZoneId: string, targetWidget: WidgetNode) => {
+    updateWidgetFrame(dropZoneId, {
+      x: targetWidget.frame.x,
+      y: targetWidget.frame.y,
+      width: targetWidget.frame.width,
+      height: targetWidget.frame.height,
+    });
+  };
 
   const createLinkedDropZone = () => {
-    const nextX = Math.round(node.frame.x + Math.max(0, (node.frame.width - 180) / 2));
-    const nextY = Math.round(node.frame.y + node.frame.height + 48);
+    const targetWidget = activeAnchorWidget;
+    const nextFrame = targetWidget
+      ? {
+          x: targetWidget.frame.x,
+          y: targetWidget.frame.y,
+          width: targetWidget.frame.width,
+          height: targetWidget.frame.height,
+        }
+      : {
+          x: Math.round(node.frame.x + Math.max(0, (node.frame.width - 180) / 2)),
+          y: Math.round(node.frame.y + node.frame.height + 48),
+          width: 180,
+          height: 180,
+        };
+
+    if (activeDropZone) {
+      alignDropZoneToWidget(activeDropZone.id, targetWidget ?? { ...node, frame: nextFrame });
+      updateWidgetProps(node.id, { dropTargetId: activeDropZone.id });
+      selectWidget(node.id);
+      return;
+    }
+
     createWidget(
       'drop-zone',
       {
-        x: nextX,
-        y: nextY,
+        x: nextFrame.x,
+        y: nextFrame.y,
         anchor: 'top-left',
       },
       {
         props: {
-          width: 180,
-          height: 180,
+          width: nextFrame.width,
+          height: nextFrame.height,
           hitPadding: 16,
           debugOutline: true,
         },
@@ -147,6 +192,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
     );
     const createdDropZoneId = studioStore.getState().document.selection.primaryWidgetId;
     if (!createdDropZoneId) return;
+    updateWidgetFrame(createdDropZoneId, nextFrame);
     updateWidgetProps(node.id, { dropTargetId: createdDropZoneId });
     selectWidget(node.id);
   };
@@ -204,6 +250,20 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
             </div>
             <div className="fields-grid">
               <div>
+                <label>Attach to widget</label>
+                <select
+                  value={activeAnchorWidget?.id ?? ''}
+                  onChange={(event) => setAnchorWidgetId(event.target.value)}
+                >
+                  <option value="">Manual area</option>
+                  {anchorCandidates.map((widget) => (
+                    <option key={widget.id} value={widget.id}>
+                      {widget.name || `${widget.type} ${widget.id.slice(0, 6)}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label>X</label>
                 <input
                   type="number"
@@ -255,6 +315,11 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 />
               </div>
             </div>
+            {activeAnchorWidget ? (
+              <Button variant="secondary" size="sm" onClick={createLinkedDropZone}>
+                Fit area to widget
+              </Button>
+            ) : null}
             <label className="checkbox-row">
               <input
                 type="checkbox"
@@ -269,11 +334,27 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
             <div className="meta-line inspector-spread-row">
               <strong>Drag area</strong>
               <Button variant="primary" size="sm" onClick={createLinkedDropZone}>
-                Create area
+                {activeAnchorWidget ? 'Create area over widget' : 'Create area'}
               </Button>
             </div>
+            {anchorCandidates.length ? (
+              <div>
+                <label>Target widget</label>
+                <select
+                  value={activeAnchorWidget?.id ?? ''}
+                  onChange={(event) => setAnchorWidgetId(event.target.value)}
+                >
+                  <option value="">Free area</option>
+                  {anchorCandidates.map((widget) => (
+                    <option key={widget.id} value={widget.id}>
+                      {widget.name || `${widget.type} ${widget.id.slice(0, 6)}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             <div className="meta-line">
-              No linked drag area yet. Create one here and Studio will attach it to this token pool automatically.
+              No linked drag area yet. Pick a widget to place an invisible drop layer over it, or create a free manual area.
             </div>
           </div>
         )}

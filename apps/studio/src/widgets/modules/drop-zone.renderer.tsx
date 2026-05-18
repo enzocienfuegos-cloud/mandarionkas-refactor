@@ -56,13 +56,14 @@ function buildDropZoneStyle(
   width: number,
   height: number,
   hitPadding: number,
+  previewMode: boolean,
   debugOutline: boolean,
 ): CSSProperties {
   return {
     ...dropZoneBaseStyle,
     width: width + hitPadding * 2,
     height: height + hitPadding * 2,
-    border: debugOutline ? '2px dashed var(--white-a-45)' : 'none',
+    border: !previewMode && debugOutline ? '2px dashed var(--white-a-45)' : 'none',
   };
 }
 
@@ -185,7 +186,7 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        style={buildDropZoneStyle(width, height, hitPadding, debugOutline)}
+        style={buildDropZoneStyle(width, height, hitPadding, ctx.previewMode, debugOutline)}
       >
         <div style={buildDropZoneHighlightStyle(isOver)} />
       </div>

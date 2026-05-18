@@ -8,9 +8,29 @@ const updateWidgetProps = vi.fn();
 const updateWidgetFrame = vi.fn();
 const selectWidget = vi.fn();
 const createWidget = vi.fn();
+const sceneAnchorWidget = createDropAnchorWidget();
 
 vi.mock('../../../hooks/use-studio-actions', () => ({
   useWidgetActions: () => ({ createWidget, updateWidgetFrame, updateWidgetProps, selectWidget }),
+}));
+
+vi.mock('../../../core/store/use-studio-store', () => ({
+  useStudioStore: (selector: (state: any) => unknown) => selector({
+    document: {
+      metadata: {
+        release: {
+          targetChannel: 'generic-html5',
+        },
+      },
+      scenes: [
+        { id: 'scene_1', name: 'Scene 1' },
+        { id: 'scene_2', name: 'Scene 2' },
+      ],
+      widgets: {
+        [sceneAnchorWidget.id]: sceneAnchorWidget,
+      },
+    },
+  }),
 }));
 
 vi.mock('../../../core/store/studio-store', () => ({
@@ -53,6 +73,20 @@ function createNode(overrides: Partial<WidgetNode['props']> = {}): WidgetNode {
       tokenImageMaxSizePercent: 82,
       ...overrides,
     },
+    style: {},
+    timeline: { startMs: 0, endMs: 15000 },
+  };
+}
+
+function createDropAnchorWidget(): WidgetNode {
+  return {
+    id: 'target_1',
+    type: 'image',
+    name: 'Hero target',
+    sceneId: 'scene_1',
+    zIndex: 2,
+    frame: { x: 40, y: 140, width: 180, height: 180, rotation: 0 },
+    props: { src: '' },
     style: {},
     timeline: { startMs: 0, endMs: 15000 },
   };
@@ -117,7 +151,7 @@ describe('DragTokenPoolInspector', () => {
   it('offers to create a drag area when there is no linked drop zone', () => {
     render(<DragTokenPoolInspector node={createNode({ dropTargetId: '' })} />);
 
-    expect(screen.getByText('No linked drag area yet. Create one here and Studio will attach it to this token pool automatically.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Create area' })).toBeTruthy();
+    expect(screen.getByText('No linked drag area yet. Pick a widget to place an invisible drop layer over it, or create a free manual area.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Create area/ })).toBeTruthy();
   });
 });
