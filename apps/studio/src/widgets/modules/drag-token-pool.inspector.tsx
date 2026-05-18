@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { studioStore } from '../../core/store/studio-store';
 import { resolveAssetDeliveryUrl } from '../../assets/policy';
 import type { AssetRecord } from '../../assets/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
@@ -37,7 +38,7 @@ import {
 } from './drag-token-pool.types';
 
 export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Element {
-  const { updateWidgetFrame, updateWidgetProps, selectWidget } = useWidgetActions();
+  const { createWidget, updateWidgetFrame, updateWidgetProps, selectWidget } = useWidgetActions();
   const platform = usePlatformSnapshot();
   const [assets, setAssets] = useState<AssetRecord[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -124,6 +125,31 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const selectedDropZoneId = String(node.props.dropTargetId ?? '').trim();
   const activeDropZone = availableDropZones.find((widget) => widget.id === selectedDropZoneId) ?? availableDropZones[0];
   const effectiveDropTargetId = activeDropZone?.id ?? '';
+
+  const createLinkedDropZone = () => {
+    const nextX = Math.round(node.frame.x + Math.max(0, (node.frame.width - 180) / 2));
+    const nextY = Math.round(node.frame.y + node.frame.height + 48);
+    createWidget(
+      'drop-zone',
+      {
+        x: nextX,
+        y: nextY,
+        anchor: 'top-left',
+      },
+      {
+        props: {
+          width: 180,
+          height: 180,
+          hitPadding: 16,
+          debugOutline: true,
+        },
+      },
+    );
+    const createdDropZoneId = studioStore.getState().document.selection.primaryWidgetId;
+    if (!createdDropZoneId) return;
+    updateWidgetProps(node.id, { dropTargetId: createdDropZoneId });
+    selectWidget(node.id);
+  };
 
   return (
     <section className="section section-premium">
@@ -238,7 +264,19 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
               Show drag area outline
             </label>
           </>
-        ) : null}
+        ) : (
+          <div className="field-stack inspector-item-card">
+            <div className="meta-line inspector-spread-row">
+              <strong>Drag area</strong>
+              <Button variant="primary" size="sm" onClick={createLinkedDropZone}>
+                Create area
+              </Button>
+            </div>
+            <div className="meta-line">
+              No linked drag area yet. Create one here and Studio will attach it to this token pool automatically.
+            </div>
+          </div>
+        )}
         <label className="checkbox-row">
           <input
             type="checkbox"

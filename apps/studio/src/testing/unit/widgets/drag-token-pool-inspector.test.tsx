@@ -5,9 +5,24 @@ import { DragTokenPoolInspector } from '../../../widgets/modules/drag-token-pool
 import type { WidgetNode } from '../../../domain/document/types';
 
 const updateWidgetProps = vi.fn();
+const updateWidgetFrame = vi.fn();
+const selectWidget = vi.fn();
+const createWidget = vi.fn();
 
 vi.mock('../../../hooks/use-studio-actions', () => ({
-  useWidgetActions: () => ({ updateWidgetProps }),
+  useWidgetActions: () => ({ createWidget, updateWidgetFrame, updateWidgetProps, selectWidget }),
+}));
+
+vi.mock('../../../core/store/studio-store', () => ({
+  studioStore: {
+    getState: () => ({
+      document: {
+        selection: {
+          primaryWidgetId: 'drop_created',
+        },
+      },
+    }),
+  },
 }));
 
 vi.mock('../../../platform/runtime', () => ({
@@ -45,7 +60,10 @@ function createNode(overrides: Partial<WidgetNode['props']> = {}): WidgetNode {
 
 describe('DragTokenPoolInspector', () => {
   beforeEach(() => {
+    createWidget.mockReset();
+    updateWidgetFrame.mockReset();
     updateWidgetProps.mockReset();
+    selectWidget.mockReset();
   });
 
   afterEach(() => {
@@ -94,5 +112,12 @@ describe('DragTokenPoolInspector', () => {
     expect(screen.getByLabelText('Hide accent color when token image exists')).toBeTruthy();
     expect(screen.getByLabelText('Hide shape when token image exists')).toBeTruthy();
     expect(screen.getByLabelText('Image max size (%)')).toBeTruthy();
+  });
+
+  it('offers to create a drag area when there is no linked drop zone', () => {
+    render(<DragTokenPoolInspector node={createNode({ dropTargetId: '' })} />);
+
+    expect(screen.getByText('No linked drag area yet. Create one here and Studio will attach it to this token pool automatically.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Create area' })).toBeTruthy();
   });
 });
