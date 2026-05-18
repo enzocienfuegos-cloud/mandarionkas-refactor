@@ -81,3 +81,14 @@ La verificación manual pedida por el MD todavía no quedó cerrada dentro de es
 - Runtime bundle compilado actual (`src/export/__generated__/runtime.iife.js`): `134550` bytes raw, `42624` bytes gzip.
 - Wrapper TypeScript comiteado (`src/export/runtime-bundle.generated.ts`): `137614` bytes raw.
 - `compileRuntime(...)` ya bootstrapea el runtime desde `runtime-bundle.generated.ts`.
+
+## Cleanup post-migracion (Sprint S51)
+
+Cerrado el residual WAAPI declarado pendiente en `animation-engine-followups.md`:
+
+- `widgets/modules/scratch-reveal.renderer.tsx`: `runScratchRevealRevealAnimation` migrado de `Element.animate(...)` a `gsap.fromTo(...)` con `immediateRender: true` equivalente a `fill: 'backwards'`.
+- `motion/react/use-motion-preview.ts`: hook del `MotionTemplateGallery` migrado a GSAP con scrub via `timeline.seek(...)`.
+- `motion/react/use-compositor-motion.ts`: eliminado como dead code sin consumidores.
+- `widgets/modules/drag-token-pool.renderer.tsx` y `widgets/modules/drop-zone.renderer.tsx`: drag del template BocaDeli/WC 2026 refactorizado para sacar React state del hot path, mover el ghost con `transform: translate3d(...)`, cachear rects de drop-zones y reemplazar feedback no-compositeable por overlay con `opacity`.
+
+Tras este cleanup, `grep -rn "\\.animate(" apps/studio/src --include="*.ts" --include="*.tsx" | grep -v test | grep -v __generated__` no debe devolver resultados en codigo de produccion.

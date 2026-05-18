@@ -25,7 +25,17 @@ const dropZoneShellStyle: CSSProperties = {
 
 const dropZoneBaseStyle: CSSProperties = {
   borderRadius: '50%',
-  transition: 'background-color 0.15s, border-color 0.15s',
+  position: 'relative',
+};
+
+const dropZoneHighlightBaseStyle: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  borderRadius: 'inherit',
+  pointerEvents: 'none',
+  opacity: 0,
+  willChange: 'opacity',
+  transition: 'opacity 0.12s ease-out',
 };
 
 function buildDropZoneStyle(
@@ -33,14 +43,21 @@ function buildDropZoneStyle(
   height: number,
   hitPadding: number,
   debugOutline: boolean,
-  isOver: boolean,
 ): CSSProperties {
   return {
     ...dropZoneBaseStyle,
     width: width + hitPadding * 2,
     height: height + hitPadding * 2,
-    border: debugOutline ? `2px dashed ${isOver ? 'var(--accent-cyan-bright)' : 'var(--white-a-45)'}` : 'none',
-    background: isOver ? 'var(--accent-cyan-a-12)' : 'transparent',
+    border: debugOutline ? '2px dashed var(--white-a-45)' : 'none',
+  };
+}
+
+function buildDropZoneHighlightStyle(isOver: boolean): CSSProperties {
+  return {
+    ...dropZoneHighlightBaseStyle,
+    opacity: isOver ? 1 : 0,
+    background: 'var(--accent-cyan-a-12)',
+    border: '2px dashed var(--accent-cyan-bright)',
   };
 }
 
@@ -58,6 +75,8 @@ function resolveTokenTargetSceneId(
 function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }) {
   const [isOver, setIsOver] = useState(false);
   const zoneRef = useRef<HTMLDivElement | null>(null);
+  const cachedRectRef = useRef<DOMRect | null>(null);
+  const lastIsOverRef = useRef(false);
   const width = Math.max(20, Number(node.props.width ?? 120));
   const height = Math.max(20, Number(node.props.height ?? 120));
   const hitPadding = Math.max(0, Number(node.props.hitPadding ?? 16));
@@ -65,33 +84,75 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
   const matchActionMap = parseActionMap(node.props.matchActionMap);
 
   useEffect(() => {
-    return subscribeTokenDrag((detail) => {
+    const invalidateRect = () => {
+      cachedRectRef.current = null;
+    };
+
+    const addInvalidationListeners = () => {
+      window.addEventListener('resize', invalidateRect);
+      document.addEventListener('scroll', invalidateRect, true);
+    };
+
+    const removeInvalidationListeners = () => {
+      window.removeEventListener('resize', invalidateRect);
+      document.removeEventListener('scroll', invalidateRect, true);
+    };
+
+    const unsubscribe = subscribeTokenDrag((detail) => {
       const element = zoneRef.current;
       if (!element) return;
-      const rect = element.getBoundingClientRect();
-      const inside = detail.clientX >= rect.left && detail.clientX <= rect.right && detail.clientY >= rect.top && detail.clientY <= rect.bottom;
 
-      if (detail.phase === 'start' || detail.phase === 'move') {
-        setIsOver(inside);
+      if (detail.phase === 'start') {
+        cachedRectRef.current = element.getBoundingClientRect();
+        addInvalidationListeners();
+        const rect = cachedRectRef.current;
+        const inside = detail.clientX >= rect.left && detail.clientX <= rect.right && detail.clientY >= rect.top && detail.clientY <= rect.bottom;
+        if (inside !== lastIsOverRef.current) {
+          lastIsOverRef.current = inside;
+          setIsOver(inside);
+        }
         return;
       }
 
-      if ((detail.phase === 'end' || detail.phase === 'cancel') && inside) {
+      if (detail.phase === 'move') {
+        if (!cachedRectRef.current) {
+          cachedRectRef.current = element.getBoundingClientRect();
+        }
+        const rect = cachedRectRef.current;
+        const inside = detail.clientX >= rect.left && detail.clientX <= rect.right && detail.clientY >= rect.top && detail.clientY <= rect.bottom;
+        if (inside !== lastIsOverRef.current) {
+          lastIsOverRef.current = inside;
+          setIsOver(inside);
+        }
+        return;
+      }
+
+      const rect = element.getBoundingClientRect();
+      const inside = detail.clientX >= rect.left && detail.clientX <= rect.right && detail.clientY >= rect.top && detail.clientY <= rect.bottom;
+      if (detail.phase === 'end' && inside) {
         const targetSceneId = resolveTokenTargetSceneId(ctx, detail.sourceWidgetId, detail.tokenId);
         if (targetSceneId) {
           ctx.goToScene?.(targetSceneId);
-          setIsOver(false);
-          return;
-        }
-        const actionId = matchActionMap[detail.tokenId];
-        if (actionId) {
-          ctx.executeAction?.(actionId);
         } else {
-          ctx.triggerWidgetAction('click');
+          const actionId = matchActionMap[detail.tokenId];
+          if (actionId) {
+            ctx.executeAction?.(actionId);
+          } else {
+            ctx.triggerWidgetAction('click');
+          }
         }
       }
+
+      cachedRectRef.current = null;
+      lastIsOverRef.current = false;
       setIsOver(false);
+      removeInvalidationListeners();
     });
+
+    return () => {
+      unsubscribe();
+      removeInvalidationListeners();
+    };
   }, [ctx, matchActionMap]);
 
   return (
@@ -101,8 +162,10 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
-        style={buildDropZoneStyle(width, height, hitPadding, debugOutline, isOver)}
-      />
+        style={buildDropZoneStyle(width, height, hitPadding, debugOutline)}
+      >
+        <div style={buildDropZoneHighlightStyle(isOver)} />
+      </div>
     </div>
   );
 }

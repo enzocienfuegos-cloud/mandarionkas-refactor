@@ -1,4 +1,5 @@
 // render-tokenized: brand/theme split enforced by lint-color-literals.mjs
+import gsap from 'gsap';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
@@ -20,25 +21,40 @@ const scratchRevealMediaStyle: CSSProperties = {
   objectFit: 'cover',
 };
 
-type ScratchRevealAnimationPreset = 'none' | 'appear' | 'fade-up' | 'zoom-in';
+export type ScratchRevealAnimationPreset = 'none' | 'appear' | 'fade-up' | 'zoom-in';
 
-function runScratchRevealRevealAnimation(
+export function runScratchRevealRevealAnimation(
   node: HTMLImageElement | null,
   preset: ScratchRevealAnimationPreset,
   durationMs: number,
   delayMs: number,
 ): void {
-  if (!node || preset === 'none' || typeof node.animate !== 'function') return;
-  node.getAnimations?.().forEach((animation) => animation.cancel());
-  const duration = Math.max(150, Math.min(3000, Number(durationMs || 700)));
-  const delay = Math.max(0, Math.min(3000, Number(delayMs || 0)));
-  const keyframes =
+  if (!node || preset === 'none') return;
+  gsap.killTweensOf(node);
+  const duration = Math.max(150, Math.min(3000, Number(durationMs || 700))) / 1000;
+  const delay = Math.max(0, Math.min(3000, Number(delayMs || 0))) / 1000;
+  const fromVars =
     preset === 'appear'
-      ? [{ opacity: 0 }, { opacity: 1 }]
+      ? { opacity: 0 }
       : preset === 'fade-up'
-        ? [{ opacity: 0, transform: 'translateY(24px)' }, { opacity: 1, transform: 'translateY(0px)' }]
-        : [{ opacity: 0.35, transform: 'scale(0.92)' }, { opacity: 1, transform: 'scale(1)' }];
-  node.animate(keyframes, { duration, delay, easing: 'ease-out', fill: 'backwards' });
+        ? { opacity: 0, y: 24 }
+        : { opacity: 0.35, scale: 0.92 };
+  const toVars =
+    preset === 'appear'
+      ? { opacity: 1 }
+      : preset === 'fade-up'
+        ? { opacity: 1, y: 0 }
+        : { opacity: 1, scale: 1 };
+
+  gsap.fromTo(node, fromVars, {
+    ...toVars,
+    duration,
+    delay,
+    ease: 'power2.out',
+    overwrite: 'auto',
+    force3D: true,
+    immediateRender: true,
+  });
 }
 
 const scratchRevealTitleStyle: CSSProperties = {
@@ -293,7 +309,7 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    revealMediaRef.current?.getAnimations?.().forEach((animation) => animation.cancel());
+    gsap.killTweensOf(revealMediaRef.current);
     const width = Math.max(1, Math.round(canvas.clientWidth));
     const height = Math.max(1, Math.round(canvas.clientHeight));
     canvas.width = width;
@@ -313,7 +329,7 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     if (!enteredPreview && !rewoundToStart) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    revealMediaRef.current?.getAnimations?.().forEach((animation) => animation.cancel());
+    gsap.killTweensOf(revealMediaRef.current);
     const width = Math.max(1, Math.round(canvas.clientWidth));
     const height = Math.max(1, Math.round(canvas.clientHeight));
     canvas.width = width;

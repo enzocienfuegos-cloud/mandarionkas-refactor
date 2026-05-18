@@ -1,41 +1,47 @@
 import { useRef } from 'react';
 import { act, create } from 'react-test-renderer';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useMotionPreview } from '../../../motion/react/use-motion-preview';
 import appearTemplate from '../../../motion/templates/appear.motion';
 
-type FakeAnimation = {
+type FakeTimeline = {
+  id: number;
+  set: ReturnType<typeof vi.fn>;
+  to: ReturnType<typeof vi.fn>;
   pause: ReturnType<typeof vi.fn>;
   play: ReturnType<typeof vi.fn>;
-  cancel: ReturnType<typeof vi.fn>;
-  currentTime: number;
-  playState: 'idle' | 'running' | 'paused';
+  kill: ReturnType<typeof vi.fn>;
+  seek: ReturnType<typeof vi.fn>;
+  isActive: ReturnType<typeof vi.fn>;
 };
 
-function createFakeAnimation(): FakeAnimation {
-  let playState: FakeAnimation['playState'] = 'idle';
-  return {
-    pause: vi.fn(() => {
-      playState = 'paused';
-    }),
-    play: vi.fn(() => {
-      playState = 'running';
-    }),
-    cancel: vi.fn(),
-    currentTime: 0,
-    get playState() {
-      return playState;
-    },
-    set playState(nextState) {
-      playState = nextState;
-    },
-  };
-}
+const timelineFactory = vi.fn();
+const timelines: FakeTimeline[] = [];
 
-function createFakeElement(animation: FakeAnimation) {
-  return {
-    animate: vi.fn(() => animation),
-  } as unknown as HTMLElement;
+vi.mock('gsap', () => ({
+  default: {
+    timeline: (...args: unknown[]) => timelineFactory(...args),
+  },
+}));
+
+function createFakeTimeline(): FakeTimeline {
+  const timeline: FakeTimeline = {
+    id: timelines.length + 1,
+    set: vi.fn(),
+    to: vi.fn(),
+    pause: vi.fn(),
+    play: vi.fn(),
+    kill: vi.fn(),
+    seek: vi.fn(),
+    isActive: vi.fn(() => false),
+  };
+  timeline.set.mockReturnValue(timeline);
+  timeline.to.mockReturnValue(timeline);
+  timeline.pause.mockReturnValue(timeline);
+  timeline.play.mockReturnValue(timeline);
+  timeline.seek.mockReturnValue(timeline);
+  timelines.push(timeline);
+  return timeline;
 }
 
 function Harness({
@@ -61,61 +67,66 @@ function Harness({
 }
 
 describe('useMotionPreview', () => {
-  it('does not allocate an animation for idle thumbnail previews', () => {
-    const animation = createFakeAnimation();
-    const element = createFakeElement(animation);
+  beforeEach(() => {
+    timelines.length = 0;
+    timelineFactory.mockReset();
+    timelineFactory.mockImplementation(() => createFakeTimeline());
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does not allocate a GSAP timeline for idle thumbnail previews', () => {
+    const element = {} as HTMLElement;
 
     act(() => {
       create(<Harness element={element} active={false} scrubTimeMs={null} />);
     });
 
-    expect((element.animate as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+    expect(timelineFactory).not.toHaveBeenCalled();
   });
 
-  it('reuses the same animation instance while scrubbing preview playback', () => {
-    const animation = createFakeAnimation();
-    const element = createFakeElement(animation);
+  it('reuses the same GSAP timeline while scrubbing preview playback', () => {
+    const element = {} as HTMLElement;
 
     let renderer: ReturnType<typeof create>;
     act(() => {
       renderer = create(<Harness element={element} scrubTimeMs={0} />);
     });
 
-    expect((element.animate as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
-    expect(animation.currentTime).toBe(0);
+    expect(timelineFactory).toHaveBeenCalledTimes(1);
+    expect(timelines[0]?.seek).toHaveBeenLastCalledWith(0);
 
     act(() => {
       renderer!.update(<Harness element={element} scrubTimeMs={320} />);
     });
 
-    expect((element.animate as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
-    expect(animation.currentTime).toBe(320);
+    expect(timelineFactory).toHaveBeenCalledTimes(1);
+    expect(timelines[0]?.seek).toHaveBeenLastCalledWith(0.32);
   });
 
-  it('plays the existing animation instance for selected editor previews', () => {
-    const animation = createFakeAnimation();
-    const element = createFakeElement(animation);
+  it('plays the existing GSAP timeline for selected editor previews', () => {
+    const element = {} as HTMLElement;
 
     act(() => {
       create(<Harness element={element} active />);
     });
 
-    expect((element.animate as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
-    expect(animation.play).toHaveBeenCalled();
+    expect(timelineFactory).toHaveBeenCalledTimes(1);
+    expect(timelines[0]?.play).toHaveBeenCalled();
   });
 
-  it('does not pause the animation on every render during free playback', () => {
-    const animation = createFakeAnimation();
-    const element = createFakeElement(animation);
+  it('does not pause the timeline on every render during free playback', () => {
+    const element = {} as HTMLElement;
 
     let renderer: ReturnType<typeof create>;
     act(() => {
       renderer = create(<Harness element={element} active scrubTimeMs={null} />);
     });
 
-    expect(animation.play).toHaveBeenCalledTimes(1);
-    animation.pause.mockClear();
-    animation.play.mockClear();
+    timelines[0]?.pause.mockClear();
+    timelines[0]?.play.mockClear();
 
     for (let index = 0; index < 60; index += 1) {
       act(() => {
@@ -123,33 +134,31 @@ describe('useMotionPreview', () => {
       });
     }
 
-    expect(animation.pause).not.toHaveBeenCalled();
-    expect(animation.play).not.toHaveBeenCalled();
+    expect(timelineFactory).toHaveBeenCalledTimes(1);
+    expect(timelines[0]?.pause).not.toHaveBeenCalled();
+    expect(timelines[0]?.play).not.toHaveBeenCalled();
   });
 
-  it('preserves currentTime when transitioning from scrub to free playback', () => {
-    const animation = createFakeAnimation();
-    const element = createFakeElement(animation);
+  it('preserves seeked time when transitioning from scrub to free playback', () => {
+    const element = {} as HTMLElement;
 
     let renderer: ReturnType<typeof create>;
     act(() => {
       renderer = create(<Harness element={element} scrubTimeMs={500} />);
     });
 
-    expect(animation.currentTime).toBe(500);
-    expect(animation.playState).toBe('paused');
+    expect(timelines[0]?.seek).toHaveBeenLastCalledWith(0.5);
 
     act(() => {
       renderer!.update(<Harness element={element} active scrubTimeMs={null} />);
     });
 
-    expect(animation.currentTime).toBe(500);
-    expect(animation.play).toHaveBeenCalled();
+    expect(timelineFactory).toHaveBeenCalledTimes(1);
+    expect(timelines[0]?.play).toHaveBeenCalled();
   });
 
   it('pauses and resets to 0 in idle mode', () => {
-    const animation = createFakeAnimation();
-    const element = createFakeElement(animation);
+    const element = {} as HTMLElement;
 
     let renderer: ReturnType<typeof create>;
     act(() => {
@@ -160,7 +169,6 @@ describe('useMotionPreview', () => {
       renderer!.update(<Harness element={element} active={false} scrubTimeMs={null} />);
     });
 
-    expect(animation.pause).toHaveBeenCalled();
-    expect(animation.currentTime).toBe(0);
+    expect(timelines[0]?.pause).toHaveBeenCalledWith(0);
   });
 });

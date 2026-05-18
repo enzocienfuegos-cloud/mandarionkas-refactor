@@ -53,6 +53,8 @@ const dragTokenBaseStyle: CSSProperties = {
 
 const dragTokenGhostBaseStyle: CSSProperties = {
   position: 'fixed',
+  left: 0,
+  top: 0,
   overflow: 'hidden',
   background: 'transparent',
   color: 'var(--surface-card-light)',
@@ -63,9 +65,11 @@ const dragTokenGhostBaseStyle: CSSProperties = {
   padding: 6,
   fontSize: 11,
   fontWeight: 700,
-  transform: 'translate(-50%, -50%) scale(1.06)',
   pointerEvents: 'none',
   zIndex: 9999,
+  willChange: 'transform',
+  backfaceVisibility: 'hidden',
+  transformStyle: 'preserve-3d',
 };
 
 function buildDragTokenTrackStyle(gap: number): CSSProperties {
@@ -94,8 +98,7 @@ function buildDragTokenStyle(
   };
 }
 
-function buildDragTokenGhostStyle(
-  pointerPosition: { x: number; y: number },
+function buildDragTokenGhostStaticStyle(
   tokenSize: number,
   accentColor: string | undefined,
   radius: string,
@@ -104,8 +107,6 @@ function buildDragTokenGhostStyle(
   return {
     ...dragTokenGhostBaseStyle,
     borderRadius: radius,
-    left: pointerPosition.x,
-    top: pointerPosition.y,
     width: tokenSize,
     height: tokenSize,
     border: hideFrame ? 'none' : `2px solid ${accentColor ?? 'var(--white-a-35)'}`,
@@ -113,6 +114,10 @@ function buildDragTokenGhostStyle(
       ? '0 14px 30px hsl(0 0% 0% / 0.22)'
       : `0 14px 30px hsl(0 0% 0% / 0.28), 0 0 18px ${accentColor ?? 'var(--white-a-24)'}`,
   };
+}
+
+function applyGhostTransform(ghostNode: HTMLDivElement, x: number, y: number): void {
+  ghostNode.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) scale(1.06)`;
 }
 
 function buildDragTokenArtworkStyle(
@@ -140,8 +145,10 @@ function buildDragTokenArtworkStyle(
 
 function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [pointerPosition, setPointerPosition] = useState<{ x: number; y: number } | null>(null);
   const pointerStateRef = useRef<{ pointerId: number; tokenId: string } | null>(null);
+  const ghostRef = useRef<HTMLDivElement | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const tokens: DragTokenItem[] = Array.isArray(node.props.tokens) ? node.props.tokens as DragTokenItem[] : [];
   const tokenSize = Math.max(32, Number(node.props.tokenSize ?? 72));
   const gap = Math.max(4, Number(node.props.gap ?? 16));
@@ -156,10 +163,22 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
 
   useEffect(() => {
     if (!draggingId) return undefined;
+
+    const flushFrame = () => {
+      rafIdRef.current = null;
+      const ghost = ghostRef.current;
+      const pointer = lastPointerRef.current;
+      if (!ghost || !pointer) return;
+      applyGhostTransform(ghost, pointer.x, pointer.y);
+    };
+
     const handlePointerMove = (event: PointerEvent) => {
       const current = pointerStateRef.current;
       if (!current || event.pointerId !== current.pointerId) return;
-      setPointerPosition({ x: event.clientX, y: event.clientY });
+      lastPointerRef.current = { x: event.clientX, y: event.clientY };
+      if (rafIdRef.current === null) {
+        rafIdRef.current = window.requestAnimationFrame(flushFrame);
+      }
       emitTokenDrag({
         phase: 'move',
         tokenId: current.tokenId,
@@ -168,9 +187,14 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
         clientY: event.clientY,
       });
     };
+
     const finishDrag = (event: PointerEvent, phase: 'end' | 'cancel') => {
       const current = pointerStateRef.current;
       if (!current || event.pointerId !== current.pointerId) return;
+      if (rafIdRef.current !== null) {
+        window.cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
       emitTokenDrag({
         phase,
         tokenId: current.tokenId,
@@ -179,21 +203,33 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
         clientY: event.clientY,
       });
       pointerStateRef.current = null;
+      lastPointerRef.current = null;
       setDraggingId(null);
-      setPointerPosition(null);
     };
+
     const handlePointerUp = (event: PointerEvent) => finishDrag(event, 'end');
     const handlePointerCancel = (event: PointerEvent) => finishDrag(event, 'cancel');
 
-    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
     window.addEventListener('pointerup', handlePointerUp);
     window.addEventListener('pointercancel', handlePointerCancel);
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerCancel);
+      if (rafIdRef.current !== null) {
+        window.cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
     };
   }, [draggingId, node.id]);
+
+  const ghostCallbackRef = (element: HTMLDivElement | null) => {
+    ghostRef.current = element;
+    if (element && lastPointerRef.current) {
+      applyGhostTransform(element, lastPointerRef.current.x, lastPointerRef.current.y);
+    }
+  };
 
   return (
     <div style={dragTokenPoolShellStyle}>
@@ -216,8 +252,8 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                 event.stopPropagation();
                 if (isDisabled) return;
                 pointerStateRef.current = { pointerId: event.pointerId, tokenId: token.id };
+                lastPointerRef.current = { x: event.clientX, y: event.clientY };
                 setDraggingId(token.id);
-                setPointerPosition({ x: event.clientX, y: event.clientY });
                 emitTokenDrag({
                   phase: 'start',
                   tokenId: token.id,
@@ -242,7 +278,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
           );
         })}
       </div>
-      {draggingId && pointerPosition ? (() => {
+      {draggingId ? (() => {
         const draggingToken = tokens.find((token) => token.id === draggingId);
         if (!draggingToken) return null;
         const displayImageUrl = draggingToken.baseImageUrl ?? draggingToken.imageUrl;
@@ -255,16 +291,15 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
         const hideShape = hasTokenImage && hideShapeForImageTokens;
         const effectiveRadius = hideShape ? '0' : radius;
         return createPortal(
-        <div
-          style={buildDragTokenGhostStyle(
-            pointerPosition,
-            tokenSize,
-            draggingToken.accentColor,
-            effectiveRadius,
-            hideFrame,
-          )}
-        >
-          <>
+          <div
+            ref={ghostCallbackRef}
+            style={buildDragTokenGhostStaticStyle(
+              tokenSize,
+              draggingToken.accentColor,
+              effectiveRadius,
+              hideFrame,
+            )}
+          >
             <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
               {displayImageUrl ? (
                 <img
@@ -278,9 +313,8 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                 />
               ) : draggingToken.label}
             </span>
-          </>
-        </div>,
-        document.body,
+          </div>,
+          document.body,
         );
       })() : null}
     </div>
