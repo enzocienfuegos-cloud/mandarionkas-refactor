@@ -1,19 +1,44 @@
 import type { StudioState } from '../../../domain/document/types';
 import { buildResolvedWidgetsById } from '../../../domain/document/canvas-variants';
 
-export function selectStageState(state: StudioState) {
-  const widgetsById = buildResolvedWidgetsById(state.document);
-  const activeScene = state.document.scenes.find((item) => item.id === state.document.selection.activeSceneId) ?? state.document.scenes[0];
+type StageDocumentSlice = {
+  canvas: StudioState['document']['canvas'];
+  scene: StudioState['document']['scenes'][number];
+  widgets: ReturnType<typeof buildResolvedWidgetsById>[string][];
+  widgetsById: ReturnType<typeof buildResolvedWidgetsById>;
+  selectedIds: StudioState['document']['selection']['widgetIds'];
+};
+
+let cachedDocument: StudioState['document'] | null = null;
+let cachedStageDocumentSlice: StageDocumentSlice | null = null;
+
+function getStageDocumentSlice(document: StudioState['document']): StageDocumentSlice {
+  if (cachedDocument === document && cachedStageDocumentSlice) {
+    return cachedStageDocumentSlice;
+  }
+
+  const widgetsById = buildResolvedWidgetsById(document);
+  const activeScene = document.scenes.find((item) => item.id === document.selection.activeSceneId) ?? document.scenes[0];
   const sceneWidgets = activeScene.widgetIds
     .map((id) => widgetsById[id])
     .filter(Boolean)
     .sort((a, b) => a.zIndex - b.zIndex);
-  return {
-    canvas: state.document.canvas,
+
+  cachedDocument = document;
+  cachedStageDocumentSlice = {
+    canvas: document.canvas,
     scene: activeScene,
     widgets: sceneWidgets,
     widgetsById,
-    selectedIds: state.document.selection.widgetIds,
+    selectedIds: document.selection.widgetIds,
+  };
+  return cachedStageDocumentSlice;
+}
+
+export function selectStageState(state: StudioState) {
+  const documentSlice = getStageDocumentSlice(state.document);
+  return {
+    ...documentSlice,
     zoom: state.ui.zoom,
     isPlaying: state.ui.isPlaying,
     previewMode: state.ui.previewMode,

@@ -9,7 +9,7 @@ import { useStageSelectionController } from './controllers/use-stage-selection-c
 import { useStageTransformController } from './controllers/use-stage-transform-controller';
 import { useStageViewportController } from './controllers/use-stage-viewport-controller';
 import { useStageDropController } from './controllers/use-stage-drop-controller';
-import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
+import { usePlaybackMsLive } from '../../hooks/use-playback-engine';
 import type { AssetLibraryDragPayload } from './asset-library-drag';
 export type { ResizeHandle } from './stage-types';
 
@@ -65,8 +65,8 @@ export function useStageController(workspaceRef: React.RefObject<HTMLDivElement>
   const storePlayheadMs = useStudioStore((state) => state.ui.playheadMs);
 
   const { canvas, scene, widgets, widgetsById, zoom, isPlaying, previewMode } = stageState;
-  const throttledPlaybackMs = usePlaybackMsThrottled(storePlayheadMs);
-  const playheadMs = isPlaying ? throttledPlaybackMs : storePlayheadMs;
+  const livePlaybackMs = usePlaybackMsLive(storePlayheadMs);
+  const playheadMs = isPlaying ? livePlaybackMs : storePlayheadMs;
 
   const {
     fitToViewport,
