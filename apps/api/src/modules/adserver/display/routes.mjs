@@ -244,6 +244,19 @@ function buildRuntimeClickParamAppender({ illuminAliases = false } = {}) {
 `;
 }
 
+function injectIlluminClickAliasesIntoHtml(htmlSource, clickValue) {
+  const source = typeof htmlSource === 'string' ? htmlSource : '';
+  const value = trimText(clickValue);
+  if (!source || !value || !shouldUseIlluminClickAliases(value)) return source;
+
+  const aliasScript = `<script>(function(){var v=${escapeScriptContext(JSON.stringify(value))};window.clickTag=v;window.clickTAG=v;window.bsClickTAG=v;try{window.bannerURL=window.bannerURL||"bsClickTAG";}catch(_){}})();</script>`;
+  if (source.includes(aliasScript)) return source;
+  if (/<head[^>]*>/i.test(source)) {
+    return source.replace(/<head([^>]*)>/i, `<head$1>${aliasScript}`);
+  }
+  return `${aliasScript}${source}`;
+}
+
 const RUNTIME_TRACKING_CONTEXT_JS = `
   function smxIsUnresolvedMacroValue(value) {
     var text = String(value || '').trim();
@@ -844,6 +857,17 @@ function sendAsset(res, body, {
   return true;
 }
 
+export function normalizeServedHtml5AssetBodyForRequest(body, requestedAssetPath, url) {
+  const normalizedBody = normalizeServedHtml5AssetBody(body, requestedAssetPath);
+  const contentType = guessCreativeAssetContentType(requestedAssetPath);
+  if (!contentType.startsWith('text/html')) return normalizedBody;
+  const clickValue = trimText(url?.searchParams?.get('bsClickTAG'))
+    || trimText(url?.searchParams?.get('clickTAG'))
+    || trimText(url?.searchParams?.get('clickTag'));
+  if (!clickValue || !shouldUseIlluminClickAliases(clickValue)) return normalizedBody;
+  return injectIlluminClickAliasesIntoHtml(normalizedBody.toString('utf8'), clickValue);
+}
+
 export function pickWeightedCreativeRow(rows, random = Math.random) {
   const candidates = (Array.isArray(rows) ? rows : [])
     .filter((row) => trimText(row?.public_url))
@@ -1324,7 +1348,7 @@ export async function handleDisplayRoutes(ctx) {
     const storageKey = resolveCreativeAssetStorageKey(env, row, requestedAssetPath);
     if (storageKey && isR2Ready(env)) {
       try {
-        const body = normalizeServedHtml5AssetBody(await readR2ObjectBuffer(env, storageKey), requestedAssetPath);
+        const body = normalizeServedHtml5AssetBodyForRequest(await readR2ObjectBuffer(env, storageKey), requestedAssetPath, url);
         return sendAsset(res, body, {
           contentType: guessCreativeAssetContentType(requestedAssetPath),
         });
@@ -1335,7 +1359,7 @@ export async function handleDisplayRoutes(ctx) {
 
     const relayedAsset = await fetchCreativeAssetByUrl(row, requestedAssetPath);
     if (relayedAsset) {
-      return sendAsset(res, normalizeServedHtml5AssetBody(relayedAsset.body, requestedAssetPath), {
+      return sendAsset(res, normalizeServedHtml5AssetBodyForRequest(relayedAsset.body, requestedAssetPath, url), {
         contentType: relayedAsset.contentType,
       });
     }

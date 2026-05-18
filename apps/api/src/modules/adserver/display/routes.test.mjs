@@ -5,6 +5,7 @@ import {
   buildCreativeAssetProxyUrl,
   buildDisplayHtml,
   buildDisplayJs,
+  normalizeServedHtml5AssetBodyForRequest,
   pickWeightedCreativeRow,
   resolveCreativeAssetStorageKey,
 } from './routes.mjs';
@@ -334,6 +335,37 @@ test('buildDisplayHtml keeps Basis on standard clickTag only', () => {
     false,
     'Basis iframe must not receive the Illumin-only bsClickTAG alias',
   );
+});
+
+test('HTML5 asset proxy injects bsClickTAG globals only for Illumin', () => {
+  const click = 'https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Illumin&url=https%3A%2F%2Fadvertiser.com';
+  const requestUrl = new URL(`https://api.example.com/v1/tags/display/tag-1/bindings/binding-1/index.html?bsClickTAG=${encodeURIComponent(click)}`);
+  const html = normalizeServedHtml5AssetBodyForRequest(
+    Buffer.from('<!doctype html><html><head><script src="runtime.js"></script></head><body></body></html>'),
+    'index.html',
+    requestUrl,
+  ).toString('utf8');
+
+  assert.ok(
+    html.indexOf('window.bsClickTAG=v') > -1,
+    'Illumin HTML should receive bsClickTAG before the creative runtime executes',
+  );
+  assert.ok(
+    html.indexOf('window.bsClickTAG=v') < html.indexOf('<script src="runtime.js">'),
+    'Illumin click globals should be injected inside head before existing scripts',
+  );
+});
+
+test('HTML5 asset proxy does not inject bsClickTAG globals for Basis', () => {
+  const click = 'https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Basis&url=https%3A%2F%2Fadvertiser.com';
+  const requestUrl = new URL(`https://api.example.com/v1/tags/display/tag-1/bindings/binding-1/index.html?bsClickTAG=${encodeURIComponent(click)}`);
+  const html = normalizeServedHtml5AssetBodyForRequest(
+    Buffer.from('<!doctype html><html><head><script src="runtime.js"></script></head><body></body></html>'),
+    'index.html',
+    requestUrl,
+  ).toString('utf8');
+
+  assert.equal(html.includes('window.bsClickTAG'), false);
 });
 
 test('buildDisplayJs includes postMessage listener for smx:exit', () => {
