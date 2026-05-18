@@ -224,11 +224,18 @@ export function StageSurface({
               ownFrame: liveFrame,
             });
 
-        element.style.left = `${frame.x}px`;
-        element.style.top = `${frame.y}px`;
-        element.style.width = `${frame.width}px`;
-        element.style.height = `${frame.height}px`;
-        element.style.transform = `rotate(${frame.rotation}deg)`;
+        element.style.transform = `translate3d(${frame.x}px, ${frame.y}px, 0) rotate(${frame.rotation}deg)`;
+
+        const nextWidth = String(frame.width);
+        const nextHeight = String(frame.height);
+        if (element.dataset.frameWidth !== nextWidth) {
+          element.style.width = `${frame.width}px`;
+          element.dataset.frameWidth = nextWidth;
+        }
+        if (element.dataset.frameHeight !== nextHeight) {
+          element.style.height = `${frame.height}px`;
+          element.dataset.frameHeight = nextHeight;
+        }
 
         const opacity = isReproducing
           ? Number(widget.style.opacity ?? 1)
@@ -243,7 +250,8 @@ export function StageSurface({
       });
 
       if (playheadOverlayRef.current) {
-        playheadOverlayRef.current.style.left = `${Math.round((ms / sceneDurationMs) * canvas.width)}px`;
+        const x = Math.round((ms / sceneDurationMs) * canvas.width);
+        playheadOverlayRef.current.style.transform = `translate3d(${x}px, 0, 0)`;
       }
     };
 
@@ -272,7 +280,7 @@ export function StageSurface({
   }
 
   function buildPlayheadOverlayStyle(): CSSProperties {
-    return { left: 0 };
+    return { transform: 'translate3d(0, 0, 0)' };
   }
 
   return (

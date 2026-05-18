@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { playbackEngine } from '../hooks/use-playback-engine';
 
 function writePlayhead(
@@ -7,9 +7,14 @@ function writePlayhead(
   playheadMs: number,
   rowMsToPx: number,
   sceneDurationMs: number,
+  overviewTrackWidthPx: number,
 ): void {
-  gridShell?.style.setProperty('--timeline-playhead-left', `${playheadMs * rowMsToPx}px`);
-  overview?.style.setProperty('--timeline-overview-playhead-left', `${(playheadMs / Math.max(1, sceneDurationMs)) * 100}%`);
+  const gridX = playheadMs * rowMsToPx;
+  gridShell?.style.setProperty('--timeline-playhead-x', `${gridX}px`);
+
+  const overviewProgress = playheadMs / Math.max(1, sceneDurationMs);
+  const overviewX = overviewProgress * overviewTrackWidthPx;
+  overview?.style.setProperty('--timeline-overview-playhead-x', `${overviewX}px`);
 }
 
 export function useTimelinePlayhead(
@@ -20,14 +25,46 @@ export function useTimelinePlayhead(
   sceneDurationMs: number,
   isPlaying: boolean,
 ): void {
+  const overviewWidthRef = useRef(0);
+
   useEffect(() => {
-    writePlayhead(gridShellRef.current, overviewRef.current, playheadMs, rowMsToPx, sceneDurationMs);
+    if (typeof ResizeObserver === 'undefined') {
+      overviewWidthRef.current = overviewRef.current?.clientWidth ?? 0;
+      return undefined;
+    }
+
+    const updateWidth = () => {
+      overviewWidthRef.current = overviewRef.current?.clientWidth ?? 0;
+    };
+
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    if (overviewRef.current) observer.observe(overviewRef.current);
+    return () => observer.disconnect();
+  }, [overviewRef]);
+
+  useEffect(() => {
+    writePlayhead(
+      gridShellRef.current,
+      overviewRef.current,
+      playheadMs,
+      rowMsToPx,
+      sceneDurationMs,
+      overviewWidthRef.current,
+    );
   }, [gridShellRef, overviewRef, playheadMs, rowMsToPx, sceneDurationMs]);
 
   useEffect(() => {
     if (!isPlaying) return undefined;
     return playbackEngine.subscribeDom((nextMs) => {
-      writePlayhead(gridShellRef.current, overviewRef.current, nextMs, rowMsToPx, sceneDurationMs);
+      writePlayhead(
+        gridShellRef.current,
+        overviewRef.current,
+        nextMs,
+        rowMsToPx,
+        sceneDurationMs,
+        overviewWidthRef.current,
+      );
     });
   }, [gridShellRef, isPlaying, overviewRef, rowMsToPx, sceneDurationMs]);
 }

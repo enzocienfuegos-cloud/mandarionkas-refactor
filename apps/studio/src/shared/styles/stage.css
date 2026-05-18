@@ -76,11 +76,22 @@
   z-index: var(--z-local-1);
   border: 1px solid var(--white-a-12);
   border-radius: var(--radius-xl);
+  overflow: hidden;
+  contain: layout style;
+  isolation: isolate;
+}
+
+.stage-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   box-shadow:
     0 24px 64px var(--black-a-34),
     0 2px 0 var(--white-a-03) inset,
     0 0 0 1px var(--white-a-02);
-  overflow: hidden;
+  pointer-events: none;
+  z-index: calc(var(--z-local-1) - 1);
 }
 .stage-guide {
   position: absolute;
@@ -110,10 +121,14 @@
   position: absolute;
   top: 0;
   bottom: 0;
+  left: 0;
   pointer-events: none;
   z-index: var(--z-playhead);
   width: 2px;
   background: linear-gradient(180deg, var(--white-a-12), var(--white-a-04));
+  will-change: transform;
+  contain: layout paint;
+  backface-visibility: hidden;
 }
 .stage-widget {
   position: absolute;
@@ -125,7 +140,10 @@
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: transform  var(--motion-base) ease, box-shadow var(--motion-base) ease, filter var(--motion-base) ease, opacity var(--motion-base) ease;
+  will-change: transform;
+  contain: layout paint;
+  backface-visibility: hidden;
+  transition: transform  var(--motion-base) ease, opacity var(--motion-base) ease;
 }
 @keyframes smx-stage-hover-pulse {
   0%, 100% { transform: var(--smx-motion-base-transform); }

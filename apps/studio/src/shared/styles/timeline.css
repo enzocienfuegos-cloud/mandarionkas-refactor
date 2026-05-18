@@ -28,7 +28,7 @@
   position: relative;
   min-height: 112px;
   width: var(--timeline-grid-shell-width, auto);
-  --timeline-playhead-left: 0px;
+  --timeline-playhead-x: 0px;
   overflow-anchor: none;
 }
 .timeline-snap-guide-global {
@@ -74,12 +74,14 @@
   position: absolute;
   top: 0;
   bottom: -9999px;
-  left: var(--timeline-playhead-left, 0px);
+  left: 0;
   width: 2px;
+  transform: translate3d(var(--timeline-playhead-x, 0px), 0, 0);
   background: var(--gradient-timeline-playhead, linear-gradient(180deg, var(--white-a-95), var(--accent)));
   z-index: var(--z-floating);
-  will-change: left;
+  will-change: transform;
   contain: strict;
+  backface-visibility: hidden;
   pointer-events: none;
 }
 
@@ -162,7 +164,7 @@
   overflow: visible;
   cursor: pointer;
   position: relative;
-  transition: background  var(--motion-base) ease, border-color var(--motion-base) ease, transform var(--motion-base) ease;
+  transition: transform  var(--motion-base) ease, opacity var(--motion-base) ease;
   grid-template-columns: 220px 1fr;
 }
 .timeline-row.is-selected {
@@ -195,7 +197,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: var(--timeline-playhead-left, 0px);
+  left: 0;
   width: 10px;
   margin-left: -5px;
   padding: 0;
@@ -204,6 +206,9 @@
   cursor: ew-resize;
   touch-action: none;
   z-index: var(--z-local-1);
+  transform: translate3d(var(--timeline-playhead-x, 0px), 0, 0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .timeline-row-playhead::after {
@@ -235,7 +240,6 @@
   box-shadow: 0 10px 24px var(--black-a-15);
   overflow: visible;
   cursor: grab;
-  will-change: left, width;
   contain: layout paint;
 }
 
@@ -380,12 +384,16 @@
 }
 .timeline-overview-playhead {
   position: absolute;
-  left: var(--timeline-overview-playhead-left, 0%);
+  left: 0;
   top: 0;
   bottom: 0;
-  box-shadow: 0 0 0 1px var(--black-a-25);
   width: 2px;
+  transform: translate3d(var(--timeline-overview-playhead-x, 0px), 0, 0);
   background: linear-gradient(180deg, var(--white-a-95), var(--white-a-55));
+  box-shadow: 0 0 0 1px var(--black-a-25);
+  will-change: transform;
+  contain: layout paint;
+  backface-visibility: hidden;
 }
 
 .timeline-row[data-layer-index="0"] { --layer-bar-bg: var(--layer-0-bar-bg); --layer-bar-text: var(--layer-0-bar-text); }

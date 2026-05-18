@@ -106,3 +106,44 @@ S54 normaliza esos casos a:
 - el mismo lint detecta snapshots con `playheadMs` dentro de bloques con
   `shallowEqual`
 - tests unitarios cubren ambos patrones para evitar regresiones
+
+## Browser compositor optimization (Sprint S55)
+
+S52-S54 cerraron la arquitectura React. Aun asi el editor no se sentia "Final Cut
+smooth" porque habia patrones de CSS y DOM mutation que forzaban layout/paint del
+browser por frame.
+
+### Regla 1: nunca animar left/top/width/height
+
+`left`, `top`, `width` y `height` causan layout reflow del browser. Solo se anima
+`transform` y `opacity`.
+
+Donde antes habia `element.style.left = ...` por frame, ahora hay
+`element.style.transform = translate3d(...)`.
+
+Donde antes habia CSS con `left: var(--x); will-change: left`, ahora hay
+`transform: translate3d(var(--x), 0, 0); will-change: transform`.
+
+### Regla 2: contain en cada elemento animable
+
+Cada `.stage-widget`, `.timeline-playhead` y `.playhead-overlay` usa
+`contain: layout paint`. Esto aísla rendering y evita que cambios dentro del
+stage o timeline invaliden el resto del editor.
+
+### Regla 3: will-change: transform en hot paths
+
+Cada elemento que se anima durante playback usa `will-change: transform` para
+promover una layer GPU dedicada.
+
+### Regla 4: transitions solo sobre transform y opacity
+
+Transitions sobre `background-color`, `border-color`, `box-shadow` o `filter`
+fuerzan paint por frame. En el hot path del stage y timeline se limitaron a
+`transform` y `opacity`.
+
+### Lints nuevos
+
+`lint:layout-thrashing` detecta:
+- `element.style.left/top = ...` dentro de archivos con `subscribeDom`
+- CSS con `will-change: left/top/width/height`
+- transitions no compositeables en los archivos calientes de stage/timeline

@@ -171,13 +171,17 @@ function buildStageWidgetStyle(
   },
 ): CSSProperties {
   const style: CSSProperties & Record<string, string | number | undefined> = {
-    left: frame.x,
-    top: frame.y,
+    left: 0,
+    top: 0,
     width: frame.width,
     height: frame.height,
     zIndex,
     cursor: interactiveInPreview ? 'pointer' : 'default',
-    transform: `rotate(${frame.rotation}deg)`,
+    transform: `translate3d(${frame.x}px, ${frame.y}px, 0) rotate(${frame.rotation}deg)`,
+    transformOrigin: '0 0',
+    willChange: 'transform',
+    contain: 'layout paint',
+    backfaceVisibility: 'hidden',
   };
   return style;
 }

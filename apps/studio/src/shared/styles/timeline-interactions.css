@@ -62,12 +62,13 @@
   inset: 6px auto 6px 6px;
   width: 3px;
   border-radius: var(--radius-pill);
-  background: transparent;
-  transition: background  var(--motion-fast) ease;
+  background: var(--bg-focus-strong);
+  opacity: 0;
+  transition: opacity  var(--motion-fast) ease;
 }
 
 .timeline-row.has-keyframes::before {
-  background: var(--bg-focus-strong);
+  opacity: 1;
 }
 
 .timeline-row.is-active {

@@ -13,3 +13,8 @@
 - [DONE S53] `useStudioStoreRef` ya no re-renderiza consumidores; el path de scene/stage actions usa ref no-reactivo real.
 - [DONE S53] `useWidgetPlayheadMs` fue removido de codigo productivo y queda cubierto por `lint:playback-live`.
 - [DONE S53] `lint:broad-store` bloquea nuevas suscripciones de identidad al store de Studio.
+- [DONE S55] `StageSurface` muta `transform: translate3d(...)` en playback en lugar de `left/top`, y el playhead overlay del stage tambien usa transform compositor.
+- [DONE S55] `StageWidget` posiciona por `transform` con `transform-origin: 0 0`, `contain: layout paint` y `will-change: transform`.
+- [DONE S55] `timeline-playhead`, `timeline-row-playhead` y `timeline-overview-playhead` migrados de `left` a `transform`, con variables `--*-x` en pixeles.
+- [DONE S55] `.stage-widget` y hot paths del timeline limitados a transitions compositeables (`transform`, `opacity`).
+- [DONE S55] `lint:layout-thrashing` y `no-layout-thrashing.test.ts` bloquean regresiones de `style.left/top` en `subscribeDom` y `will-change` no GPU-safe.
