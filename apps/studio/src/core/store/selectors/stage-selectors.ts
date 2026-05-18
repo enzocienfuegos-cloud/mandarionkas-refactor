@@ -15,7 +15,6 @@ export function selectStageState(state: StudioState) {
     widgetsById,
     selectedIds: state.document.selection.widgetIds,
     zoom: state.ui.zoom,
-    playheadMs: state.ui.playheadMs,
     isPlaying: state.ui.isPlaying,
     previewMode: state.ui.previewMode,
     previewContext: state.ui.previewContext,

@@ -13,6 +13,7 @@ import { useAnimationEngine } from '../../../motion/animation-engine';
 import { buildScratchRevealMetadata } from '../../../motion/animation-engine/reveal-replay';
 import { isScratchGroupActive } from '../../../widgets/group/group-scratch-activation';
 import { getScratchRevealTargetId, getScratchRevealTargetMode, isWidgetDescendantOf, resolveScratchRevealTargets } from '../../../widgets/group/group-reveal-target';
+import { playbackEngine } from '../../../hooks/use-playback-engine';
 
 export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
@@ -131,8 +132,14 @@ export function StageSurface({
   }, [engine, playheadMs, previewMode]);
 
   useEffect(() => {
-    if (!isReproducing) return;
-    engine.seekScene(playheadMs);
+    if (!isReproducing) {
+      engine.seekScene(playheadMs);
+      return undefined;
+    }
+    engine.seekScene(playbackEngine.getCurrentMs() || playheadMs);
+    return playbackEngine.subscribeDom((nextMs) => {
+      engine.seekScene(nextMs);
+    });
   }, [engine, isReproducing, playheadMs]);
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded, StatChip } from './shared-styles';
+import { useWidgetPlayheadMs } from '../shared/use-widget-playhead';
 
 const countdownBodyStyle: CSSProperties = {
   ...moduleBody,
@@ -29,8 +30,9 @@ const countdownLabelStyle: CSSProperties = {
 
 function CountdownModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
+  const playheadMs = useWidgetPlayheadMs(ctx.playheadMs, ctx.isReproducing);
   const totalSeconds = Number(node.props.totalSeconds ?? ((Number(node.props.days ?? 0) * 86400) + (Number(node.props.hours ?? 0) * 3600) + (Number(node.props.minutes ?? 0) * 60) + Number(node.props.seconds ?? 0)));
-  const remaining = Math.max(0, totalSeconds - Math.floor(ctx.playheadMs / 1000));
+  const remaining = Math.max(0, totalSeconds - Math.floor(playheadMs / 1000));
   const days = Math.floor(remaining / 86400);
   const hours = Math.floor((remaining % 86400) / 3600);
   const minutes = Math.floor((remaining % 3600) / 60);

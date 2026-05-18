@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { shallowEqual, useStudioStore, useStudioStoreRef } from '../../core/store/use-studio-store';
+import { shallowEqual, useStudioStore, useStudioStoreValueRef } from '../../core/store/use-studio-store';
 import { useSceneActions, useTimelineActions, useUiActions, useWidgetActions } from '../../hooks/use-studio-actions';
 import { selectStageState } from '../../core/store/selectors/stage-selectors';
 import { buildResolvedWidgetsById } from '../../domain/document/canvas-variants';
@@ -9,7 +9,7 @@ import { useStageSelectionController } from './controllers/use-stage-selection-c
 import { useStageTransformController } from './controllers/use-stage-transform-controller';
 import { useStageViewportController } from './controllers/use-stage-viewport-controller';
 import { useStageDropController } from './controllers/use-stage-drop-controller';
-import { usePlaybackMsLive } from '../../hooks/use-playback-engine';
+import { usePlaybackMsThrottled } from '../../hooks/use-playback-engine';
 import type { AssetLibraryDragPayload } from './asset-library-drag';
 export type { ResizeHandle } from './stage-types';
 
@@ -61,10 +61,12 @@ export function useStageController(workspaceRef: React.RefObject<HTMLDivElement>
   const uiActions = useUiActions();
   const widgetActions = useWidgetActions();
   const stageState = useStudioStore(selectStageState, shallowEqual);
-  const fullStateRef = useStudioStoreRef((value) => value);
+  const fullStateRef = useStudioStoreValueRef((value) => value);
+  const storePlayheadMs = useStudioStore((state) => state.ui.playheadMs);
 
-  const { canvas, scene, widgets, widgetsById, zoom, playheadMs: storePlayheadMs, isPlaying, previewMode } = stageState;
-  const playheadMs = usePlaybackMsLive(storePlayheadMs);
+  const { canvas, scene, widgets, widgetsById, zoom, isPlaying, previewMode } = stageState;
+  const throttledPlaybackMs = usePlaybackMsThrottled(storePlayheadMs);
+  const playheadMs = isPlaying ? throttledPlaybackMs : storePlayheadMs;
 
   const {
     fitToViewport,
@@ -150,7 +152,7 @@ export function useStageController(workspaceRef: React.RefObject<HTMLDivElement>
   const { sceneTransitionActive } = useStageRuntimeController({
     fullStateRef,
     scene,
-    playheadMs,
+    playheadMs: storePlayheadMs,
     isPlaying,
     sceneActions: { selectScene: sceneActions.selectScene },
     timelineActions: { setPlayhead: timelineActions.setPlayhead, setPlaying: timelineActions.setPlaying },

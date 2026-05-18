@@ -6,6 +6,7 @@ import { moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 import { InstagramStoryInspector } from './instagram-story.inspector';
 import { ModuleMediaPlaceholder } from './render-icons';
 import { INSTAGRAM_STORY_DEFAULT_USERNAME } from './instagram-story.shared';
+import { useWidgetPlayheadMs } from '../shared/use-widget-playhead';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -276,6 +277,7 @@ function InstagramStoryRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCo
   const slides = getSlides(node);
   const username = String(node.props.username ?? INSTAGRAM_STORY_DEFAULT_USERNAME);
   const avatarSrc = String(node.props.avatarSrc ?? '').trim();
+  const playheadMs = useWidgetPlayheadMs(ctx.playheadMs, ctx.isReproducing);
 
   const [muted, setMuted] = useState(Boolean(node.props.muted ?? true));
   const [videoDurations, setVideoDurations] = useState<Record<number, number>>({});
@@ -286,7 +288,7 @@ function InstagramStoryRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCo
   );
   const totalDurationMs = effectiveDurations.reduce((sum, value) => sum + value, 0);
   const normalizedPlayheadMs = totalDurationMs > 0
-    ? (ctx.previewMode ? ctx.playheadMs % totalDurationMs : Math.min(ctx.playheadMs, totalDurationMs))
+    ? (ctx.previewMode ? playheadMs % totalDurationMs : Math.min(playheadMs, totalDurationMs))
     : 0;
   let remainingPlayheadMs = normalizedPlayheadMs;
   let activeSlide: SlideIndex = 0;

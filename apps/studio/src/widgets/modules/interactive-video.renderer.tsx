@@ -12,6 +12,7 @@ import { registerVideoEffectContext, unregisterVideoEffectContext } from '../vid
 import type { IVideoPlayer } from '../video/IVideoPlayer';
 import { useOverlayVisibility } from '../video/useOverlayVisibility';
 import { useVideoAnalyticsReporter } from '../video/useVideoAnalyticsReporter';
+import { useWidgetPlayheadMs } from '../shared/use-widget-playhead';
 
 const interactiveVideoPosterStyle = {
   position: 'absolute',
@@ -210,6 +211,7 @@ function buildVideoWidget(node: WidgetNode): VideoWidgetData {
 }
 
 function InteractiveVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
+  const playheadMs = useWidgetPlayheadMs(ctx.playheadMs, ctx.isReproducing);
   const [player, setPlayer] = useState<IVideoPlayer | null>(null);
   const [analyticsEvents, setAnalyticsEvents] = useState<Array<{
     id: string;
@@ -284,7 +286,7 @@ function InteractiveVideoRenderer({ node, ctx }: { node: WidgetNode; ctx: Render
     <div style={interactiveVideoStageRootStyle}>
       <VASTVideoWidget
         widget={widget}
-        playheadMs={ctx.playheadMs}
+        playheadMs={playheadMs}
         onPlayerReady={setPlayer}
         hiddenOverlayIds={hiddenOverlayIds}
         forcedOverlayIds={forcedOverlayIds}

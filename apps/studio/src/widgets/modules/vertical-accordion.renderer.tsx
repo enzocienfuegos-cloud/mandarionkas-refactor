@@ -24,6 +24,7 @@ import {
   type VerticalAccordionRowConfig,
 } from './vertical-accordion.view-model';
 import { createModuleViewModel } from './view-model';
+import { useWidgetPlayheadMs } from '../shared/use-widget-playhead';
 
 function ChevronIcon({ color }: { color: string }): JSX.Element {
   return (
@@ -90,6 +91,7 @@ function AccordionRow({
 
 function VerticalAccordionRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const viewModel = buildVerticalAccordionViewModel(node);
+  const playheadMs = useWidgetPlayheadMs(ctx.playheadMs, ctx.isReproducing);
   const skinVm = createModuleViewModel({
     type: node.type,
     props: {},
@@ -100,8 +102,8 @@ function VerticalAccordionRenderer({ node, ctx }: { node: WidgetNode; ctx: Rende
   const autoplayDerivedIndex = (() => {
     if (!viewModel.autoplay || !ctx.previewMode || viewModel.rows.length === 0) return null;
     const startDelayMs = 400;
-    if (ctx.playheadMs < startDelayMs) return -1;
-    const elapsedMs = ctx.playheadMs - startDelayMs;
+    if (playheadMs < startDelayMs) return -1;
+    const elapsedMs = playheadMs - startDelayMs;
     const step = Math.floor(elapsedMs / viewModel.autoplayIntervalMs);
     if (step >= viewModel.rows.length) return -1;
     return step;

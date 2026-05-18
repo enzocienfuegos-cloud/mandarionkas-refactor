@@ -28,3 +28,19 @@ export function useStudioStoreRef<T>(selector: (state: StudioState) => T, equali
 
   return ref;
 }
+
+export function useStudioStoreValueRef<T>(selector: (state: StudioState) => T): React.MutableRefObject<T> {
+  const selectorRef = useRef(selector);
+  const valueRef = useRef(selector(studioStore.getState()));
+
+  useEffect(() => {
+    selectorRef.current = selector;
+    valueRef.current = selector(studioStore.getState());
+  }, [selector]);
+
+  useEffect(() => studioStore.subscribe(() => {
+    valueRef.current = selectorRef.current(studioStore.getState());
+  }), []);
+
+  return valueRef;
+}

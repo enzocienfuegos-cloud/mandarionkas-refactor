@@ -10,16 +10,8 @@ import { MotionLayer } from '../../../motion/react/MotionLayer';
 const HANDLE_SIZE = 10;
 const showDebugWidgetTags = import.meta.env.DEV && import.meta.env.VITE_SHOW_WIDGET_TAGS === 'true';
 const PLAYBACK_REACTIVE_WIDGET_TYPES = new Set<WidgetNode['type']>([
-  'countdown',
-  'drop-zone',
   'group',
-  'image-carousel',
-  'instagram-story',
-  'interactive-video',
   'scratch-reveal',
-  'shoppable-sidebar',
-  'timer-bar',
-  'vertical-accordion',
 ]);
 
 type StageWidgetProps = {

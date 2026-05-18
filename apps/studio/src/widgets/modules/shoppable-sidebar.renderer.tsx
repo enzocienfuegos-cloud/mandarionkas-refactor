@@ -5,6 +5,7 @@ import type { RenderContext } from '../../canvas/stage/render-context';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { clamp, getAccent, moduleBody, moduleHeader, moduleShell, renderCollapsedIfNeeded } from './shared-styles';
 import { parseShoppableProducts } from './shoppable-sidebar.shared';
+import { useWidgetPlayheadMs } from '../shared/use-widget-playhead';
 
 const shoppableViewportStyle: CSSProperties = {
   position: 'relative',
@@ -172,6 +173,7 @@ function resolveCardSize(cardShape: string): { width: number; height: number } {
 
 function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const accent = getAccent(node);
+  const playheadMs = useWidgetPlayheadMs(ctx.playheadMs, ctx.isReproducing);
   const ctaBackgroundColor = String((node.style as Record<string, unknown>).ctaBackgroundColor ?? accent);
   const ctaTextColor = String((node.style as Record<string, unknown>).ctaTextColor ?? 'var(--neutral-slate-900)');
   const products = useMemo(() => parseShoppableProducts(node.props.products), [node.props.products]);
@@ -203,7 +205,7 @@ function ShoppableSidebarModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: 
     : '100%';
 
   const effectiveActiveIndex = autoscroll && itemCount > 1 && ctx.previewMode
-    ? Math.floor(ctx.playheadMs / intervalMs) % itemCount
+    ? Math.floor(playheadMs / intervalMs) % itemCount
     : activeIndex;
 
   const trackStyle = buildShoppableTrackStyle(orientation, gap, effectiveActiveIndex, cardSize);
