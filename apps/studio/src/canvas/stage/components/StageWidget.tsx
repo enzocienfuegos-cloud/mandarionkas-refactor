@@ -9,6 +9,18 @@ import { MotionLayer } from '../../../motion/react/MotionLayer';
 
 const HANDLE_SIZE = 10;
 const showDebugWidgetTags = import.meta.env.DEV && import.meta.env.VITE_SHOW_WIDGET_TAGS === 'true';
+const PLAYBACK_REACTIVE_WIDGET_TYPES = new Set<WidgetNode['type']>([
+  'countdown',
+  'drop-zone',
+  'group',
+  'image-carousel',
+  'instagram-story',
+  'interactive-video',
+  'scratch-reveal',
+  'shoppable-sidebar',
+  'timer-bar',
+  'vertical-accordion',
+]);
 
 type StageWidgetProps = {
   node: WidgetNode;
@@ -169,7 +181,7 @@ function buildStageWidgetContentStyle(previewMode: boolean): CSSProperties {
 }
 
 function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProps): boolean {
-  const playbackIndependent = previous.node.type === 'timer-bar' && next.node.type === 'timer-bar';
+  const playbackReactive = PLAYBACK_REACTIVE_WIDGET_TYPES.has(next.node.type);
   return previous.node === next.node
     && previous.stateRef === next.stateRef
     && previous.widgetsById === next.widgetsById
@@ -181,7 +193,7 @@ function stageWidgetPropsEqual(previous: StageWidgetProps, next: StageWidgetProp
     && previous.previewMode === next.previewMode
     && previous.isReproducing === next.isReproducing
     && previous.editModeWireframe === next.editModeWireframe
-    && (playbackIndependent || previous.playheadMs === next.playheadMs)
+    && (!playbackReactive || previous.playheadMs === next.playheadMs)
     && previous.sceneDurationMs === next.sceneDurationMs
     && previous.hovered === next.hovered
     && previous.active === next.active
