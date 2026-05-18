@@ -29,10 +29,10 @@ function createNode(overrides: Partial<WidgetNode['props']> = {}): WidgetNode {
     props: {
       tokens: [],
       disabledIds: [],
-      dropTargetId: '',
       tokenSize: 72,
       gap: 16,
       tokenShape: 'circle',
+      dropTargetId: 'drop_1',
       hideAccentForImageTokens: false,
       hideShapeForImageTokens: false,
       tokenImageMaxSizePercent: 82,

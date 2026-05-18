@@ -6,9 +6,9 @@ import type { WidgetNode } from '../../../domain/document/types';
 import { renderDropZoneStage } from '../../../widgets/modules/drop-zone.renderer';
 import { emitTokenDrag } from '../../../widgets/modules/token-drag-runtime';
 
-function createDropZone(props: Partial<WidgetNode['props']> = {}): WidgetNode {
+function createDropZone(id = 'drop_1', props: Partial<WidgetNode['props']> = {}): WidgetNode {
   return {
-    id: 'drop_1',
+    id,
     type: 'drop-zone',
     name: 'Drop zone',
     sceneId: 'scene_1',
@@ -27,7 +27,7 @@ function createDropZone(props: Partial<WidgetNode['props']> = {}): WidgetNode {
   };
 }
 
-function createTokenPool(tokens: Array<Record<string, unknown>>): WidgetNode {
+function createTokenPool(tokens: Array<Record<string, unknown>>, props: Partial<WidgetNode['props']> = {}): WidgetNode {
   return {
     id: 'pool_1',
     type: 'drag-token-pool',
@@ -42,6 +42,7 @@ function createTokenPool(tokens: Array<Record<string, unknown>>): WidgetNode {
       tokenSize: 72,
       gap: 16,
       tokenShape: 'circle',
+      ...props,
     },
     style: {},
     timeline: { startMs: 0, endMs: 15000 },
@@ -114,23 +115,18 @@ describe('drop zone scene targeting', () => {
     expect(executeAction).not.toHaveBeenCalled();
   });
 
-  it('falls back to the legacy action map when the token has no target scene', () => {
-    const tokenPool = createTokenPool([{ id: 'tok_2', label: 'Token 2' }]);
+  it('ignores drops when the source token pool is linked to a different drop zone', () => {
+    const tokenPool = createTokenPool([{ id: 'tok_3', label: 'Token 3', targetSceneId: 'scene_4' }]);
     const goToScene = vi.fn();
     const executeAction = vi.fn();
     const ctx = createContext(
       {
-        [tokenPool.id]: tokenPool,
+        [tokenPool.id]: createTokenPool([{ id: 'tok_3', label: 'Token 3', targetSceneId: 'scene_4' }], { dropTargetId: 'drop_other' }),
       },
       { goToScene, executeAction },
     );
 
-    const { container } = render(
-      renderDropZoneStage(
-        createDropZone({ matchActionMap: JSON.stringify({ tok_2: 'act_scene_3' }) }),
-        ctx,
-      ),
-    );
+    const { container } = render(renderDropZoneStage(createDropZone('drop_1'), ctx));
     const shell = container.firstElementChild as HTMLDivElement | null;
     const zone = shell?.firstElementChild as HTMLDivElement | null;
     expect(zone).toBeTruthy();
@@ -153,7 +149,7 @@ describe('drop zone scene targeting', () => {
     act(() => {
       emitTokenDrag({
         phase: 'end',
-        tokenId: 'tok_2',
+        tokenId: 'tok_3',
         sourceWidgetId: tokenPool.id,
         clientX: 80,
         clientY: 80,
@@ -161,6 +157,6 @@ describe('drop zone scene targeting', () => {
     });
 
     expect(goToScene).not.toHaveBeenCalled();
-    expect(executeAction).toHaveBeenCalledWith('act_scene_3');
+    expect(executeAction).not.toHaveBeenCalled();
   });
 });

@@ -300,6 +300,19 @@ function createGameStepScene(
     transition: config.transition ? { ...config.transition } : undefined,
   };
 
+  const dropZoneWidget = seedWidget('drop-zone', scene.id, 7, {
+    name: 'Goal Zone',
+    frame: config.layout.dropZone,
+    props: {
+      width: config.dropZone.width,
+      height: config.dropZone.height,
+      hitPadding: config.dropZone.hitPadding,
+      debugOutline: config.dropZone.debugOutline,
+      matchActionMap: JSON.stringify({ [step.expectedTokenId]: matchActionId }),
+    },
+    style: { accentColor: expectedToken.accent },
+  });
+
   const widgets = [
     seedWidget('shape', scene.id, 0, {
       name: 'Backdrop',
@@ -355,18 +368,7 @@ function createGameStepScene(
       props: { src: heroToken.src, alt: heroToken.label },
       style: { backgroundColor: '#1c2b44', fit: 'cover', borderRadius: 24 },
     }),
-    seedWidget('drop-zone', scene.id, 7, {
-      name: 'Goal Zone',
-      frame: config.layout.dropZone,
-      props: {
-        width: config.dropZone.width,
-        height: config.dropZone.height,
-        hitPadding: config.dropZone.hitPadding,
-        debugOutline: config.dropZone.debugOutline,
-        matchActionMap: JSON.stringify({ [step.expectedTokenId]: matchActionId }),
-      },
-      style: { accentColor: expectedToken.accent },
-    }),
+    dropZoneWidget,
     seedWidget('text', scene.id, 8, {
       name: 'Question',
       frame: config.layout.question,
@@ -382,6 +384,7 @@ function createGameStepScene(
       name: 'Token Pool',
       frame: config.layout.tokenPool,
       props: {
+        dropTargetId: dropZoneWidget.id,
         tokenSize: config.tokenPool.tokenSize,
         gap: config.tokenPool.gap,
         tokens: tokenPoolJson,

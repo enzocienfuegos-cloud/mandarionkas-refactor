@@ -7,12 +7,26 @@ import type { DragTokenItem } from './drag-token-pool.types';
 import { subscribeTokenDrag } from './token-drag-runtime';
 
 function parseActionMap(raw: unknown): Record<string, string> {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return Object.entries(raw as Record<string, unknown>).reduce<Record<string, string>>((acc, [key, value]) => {
+      if (typeof value === 'string' && value.trim()) acc[key] = value;
+      return acc;
+    }, {});
+  }
   try {
     const parsed = JSON.parse(String(raw ?? '{}'));
     return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, string> : {};
   } catch {
     return {};
   }
+}
+
+function resolveFallbackActionId(node: WidgetNode, tokenId: string): string | undefined {
+  const map = parseActionMap(node.props.matchActionMap);
+  const mappedActionId = map[tokenId];
+  if (mappedActionId) return mappedActionId;
+  const legacyActionId = String(node.props.onMatchAction ?? '').trim();
+  return legacyActionId || undefined;
 }
 
 const dropZoneShellStyle: CSSProperties = {
@@ -72,6 +86,17 @@ function resolveTokenTargetSceneId(
   return tokens.find((token) => token.id === tokenId)?.targetSceneId;
 }
 
+function acceptsTokenSource(
+  ctx: RenderContext,
+  dropZoneWidgetId: string,
+  sourceWidgetId: string,
+): boolean {
+  const sourceWidget = ctx.widgetsById[sourceWidgetId];
+  if (!sourceWidget || sourceWidget.type !== 'drag-token-pool') return false;
+  const configuredDropTargetId = String(sourceWidget.props.dropTargetId ?? '').trim();
+  return !configuredDropTargetId || configuredDropTargetId === dropZoneWidgetId;
+}
+
 function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }) {
   const [isOver, setIsOver] = useState(false);
   const zoneRef = useRef<HTMLDivElement | null>(null);
@@ -81,8 +106,6 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
   const height = Math.max(20, Number(node.props.height ?? 120));
   const hitPadding = Math.max(0, Number(node.props.hitPadding ?? 16));
   const debugOutline = Boolean(node.props.debugOutline ?? true);
-  const matchActionMap = parseActionMap(node.props.matchActionMap);
-
   useEffect(() => {
     const invalidateRect = () => {
       cachedRectRef.current = null;
@@ -129,12 +152,12 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
 
       const rect = element.getBoundingClientRect();
       const inside = detail.clientX >= rect.left && detail.clientX <= rect.right && detail.clientY >= rect.top && detail.clientY <= rect.bottom;
-      if (detail.phase === 'end' && inside) {
+      if (detail.phase === 'end' && inside && acceptsTokenSource(ctx, node.id, detail.sourceWidgetId)) {
         const targetSceneId = resolveTokenTargetSceneId(ctx, detail.sourceWidgetId, detail.tokenId);
         if (targetSceneId) {
           ctx.goToScene?.(targetSceneId);
         } else {
-          const actionId = matchActionMap[detail.tokenId];
+          const actionId = resolveFallbackActionId(node, detail.tokenId);
           if (actionId) {
             ctx.executeAction?.(actionId);
           } else {
@@ -153,7 +176,7 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
       unsubscribe();
       removeInvalidationListeners();
     };
-  }, [ctx, matchActionMap]);
+  }, [ctx, node]);
 
   return (
     <div style={dropZoneShellStyle}>

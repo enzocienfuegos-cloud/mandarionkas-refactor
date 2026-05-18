@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { resolveAssetDeliveryUrl } from '../../assets/policy';
 import type { AssetRecord } from '../../assets/types';
-import type { WidgetNode } from '../../domain/document/types';
 import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { usePlatformSnapshot } from '../../platform/runtime';
 import { useStudioStore } from '../../core/store/use-studio-store';
-import type { SceneNode } from '../../domain/document/types';
+import type { SceneNode, WidgetNode } from '../../domain/document/types';
 import { listAssets } from '../../repositories/asset';
 import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events';
 import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
@@ -44,6 +43,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
   const scenes = useStudioStore((state) => state.document.scenes);
+  const sceneWidgets = useStudioStore((state) => Object.values(state.document.widgets).filter((widget) => widget.sceneId === node.sceneId));
   const tokens: DragTokenItem[] = Array.isArray(node.props.tokens) ? node.props.tokens as DragTokenItem[] : [];
   const disabledIds = Array.isArray(node.props.disabledIds) ? node.props.disabledIds.map((value) => String(value)) : [];
   const tokenSize = Math.max(TOKEN_SIZE_MIN, Math.min(TOKEN_SIZE_MAX, Number(node.props.tokenSize ?? 72)));
@@ -120,6 +120,10 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   };
 
   const availableScenes: SceneNode[] = scenes.filter((scene) => scene.id !== node.sceneId);
+  const availableDropZones = sceneWidgets.filter((widget): widget is WidgetNode => widget.type === 'drop-zone' && widget.id !== node.id);
+  const selectedDropZoneId = String(node.props.dropTargetId ?? '').trim();
+  const activeDropZone = availableDropZones.find((widget) => widget.id === selectedDropZoneId) ?? availableDropZones[0];
+  const effectiveDropTargetId = activeDropZone?.id ?? '';
 
   return (
     <section className="section section-premium">
@@ -136,7 +140,20 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
               <option value="square">Square</option>
             </select>
           </div>
-          <div><label>Drop target id</label><input value={String(node.props.dropTargetId ?? '')} onChange={(event) => updateWidgetProps(node.id, { dropTargetId: event.target.value })} /></div>
+          <div>
+            <label>Drop zone</label>
+            <select
+              value={effectiveDropTargetId}
+              onChange={(event) => updateWidgetProps(node.id, { dropTargetId: event.target.value || undefined })}
+            >
+              <option value="">No linked drop zone</option>
+              {availableDropZones.map((widget) => (
+                <option key={widget.id} value={widget.id}>
+                  {widget.name || `Drop zone ${widget.id.slice(0, 6)}`}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label>Image max size (%)</label>
             <input
@@ -151,6 +168,54 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
             />
           </div>
         </div>
+        {activeDropZone ? (
+          <>
+            <strong>Drag area</strong>
+            <div className="fields-grid">
+              <div>
+                <label>Width</label>
+                <input
+                  type="number"
+                  min={20}
+                  max={400}
+                  step={4}
+                  value={Number(activeDropZone.props.width ?? 120)}
+                  onChange={(event) => updateWidgetProps(activeDropZone.id, { width: Number(event.target.value) })}
+                />
+              </div>
+              <div>
+                <label>Height</label>
+                <input
+                  type="number"
+                  min={20}
+                  max={400}
+                  step={4}
+                  value={Number(activeDropZone.props.height ?? 120)}
+                  onChange={(event) => updateWidgetProps(activeDropZone.id, { height: Number(event.target.value) })}
+                />
+              </div>
+              <div>
+                <label>Hit padding</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={60}
+                  step={2}
+                  value={Number(activeDropZone.props.hitPadding ?? 16)}
+                  onChange={(event) => updateWidgetProps(activeDropZone.id, { hitPadding: Number(event.target.value) })}
+                />
+              </div>
+            </div>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={Boolean(activeDropZone.props.debugOutline ?? true)}
+                onChange={(event) => updateWidgetProps(activeDropZone.id, { debugOutline: event.target.checked })}
+              />
+              Show drag area outline
+            </label>
+          </>
+        ) : null}
         <label className="checkbox-row">
           <input
             type="checkbox"
