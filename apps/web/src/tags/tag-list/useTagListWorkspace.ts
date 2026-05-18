@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { loadAuthMe, loadWorkspaces, switchWorkspace } from '../../shared/workspaces';
+import { loadAuthMe, loadWorkspaces, switchWorkspace, WORKSPACE_CHANGED_EVENT } from '../../shared/workspaces';
 import { EMPTY_CREATE_FORM, type CreateTagForm, type Tag } from './types';
 import { hasSignalGap } from './utils';
 
@@ -93,6 +93,24 @@ export function useTagListWorkspace({
   };
 
   useEffect(load, []);
+
+  useEffect(() => {
+    const handleWorkspaceChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ workspaceId?: string | null }>).detail;
+      setActiveWorkspaceId(detail?.workspaceId ?? '');
+    };
+    window.addEventListener(WORKSPACE_CHANGED_EVENT, handleWorkspaceChange);
+    return () => window.removeEventListener(WORKSPACE_CHANGED_EVENT, handleWorkspaceChange);
+  }, []);
+
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    setFilters((current) => (
+      current.selectedClientId === activeWorkspaceId
+        ? current
+        : { ...current, selectedClientId: activeWorkspaceId }
+    ));
+  }, [activeWorkspaceId]);
 
   useEffect(() => {
     if (openCreateFromQuery) {

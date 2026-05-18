@@ -96,6 +96,7 @@ export default function TagList() {
   const {
     clients,
     campaigns,
+    activeWorkspaceId,
     selectedClientId,
     setSelectedClientId,
     tagSearch,
@@ -153,7 +154,7 @@ export default function TagList() {
           return;
         }
         const nextFilters = view.filters ?? {};
-        setSelectedClientId(String(nextFilters.selectedClientId ?? ''));
+        setSelectedClientId(String(nextFilters.selectedClientId ?? activeWorkspaceId ?? ''));
         setTagSearch(String(nextFilters.tagSearch ?? ''));
         const nextStatus = ['all', 'active', 'paused', 'draft', 'archived', 'qa'].includes(String(nextFilters.statusFilter))
           ? String(nextFilters.statusFilter)
@@ -174,6 +175,7 @@ export default function TagList() {
       cancelled = true;
     };
   }, [
+    activeWorkspaceId,
     currentViewId,
     setNeedsQaOnly,
     setSearchParams,
@@ -380,7 +382,7 @@ export default function TagList() {
         }}
         activeFilterCount={[selectedClientId, statusFilter !== 'all', tagSearch.trim()].filter(Boolean).length}
         onResetAll={() => {
-          setSelectedClientId('');
+          setSelectedClientId(activeWorkspaceId);
           setStatusFilter('all');
           setNeedsQaOnly(false);
           setTagSearch('');

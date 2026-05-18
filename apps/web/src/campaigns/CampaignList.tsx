@@ -48,6 +48,14 @@ export default function CampaignList() {
   } = useCampaignData();
   useEffect(() => { filters.setSearch(searchQueryParam); }, [filters.setSearch, searchQueryParam]);
   useEffect(() => {
+    if (!activeWorkspaceId) return;
+    filters.setSelectedClientIds((current) => (
+      current.length === 1 && current[0] === activeWorkspaceId
+        ? current
+        : [activeWorkspaceId]
+    ));
+  }, [activeWorkspaceId, filters.setSelectedClientIds]);
+  useEffect(() => {
     if (!currentViewId) return;
     let cancelled = false;
     void getSavedView(currentViewId)
@@ -62,7 +70,7 @@ export default function CampaignList() {
           return;
         }
         const nextFilters = view.filters ?? {};
-        filters.setSelectedClientIds(nextFilters.clientId ? [String(nextFilters.clientId)] : []);
+        filters.setSelectedClientIds(nextFilters.clientId ? [String(nextFilters.clientId)] : activeWorkspaceId ? [activeWorkspaceId] : []);
         filters.setSearch(String(nextFilters.search ?? ''));
         filters.setStatusFilter((['all', 'live', 'paused', 'ready', 'draft', 'archived'].includes(String(nextFilters.status))
           ? nextFilters.status
@@ -84,6 +92,7 @@ export default function CampaignList() {
       cancelled = true;
     };
   }, [
+    activeWorkspaceId,
     currentViewId,
     filters.setSearch,
     filters.setSelectedClientIds,
@@ -378,7 +387,10 @@ export default function CampaignList() {
               placeholder: 'Search campaign, advertiser, owner',
             }}
             activeFilterCount={filters.activeFilterCount}
-            onResetAll={filters.resetAll}
+            onResetAll={() => {
+              filters.resetAll();
+              if (activeWorkspaceId) filters.setSelectedClientIds([activeWorkspaceId]);
+            }}
           />
 
           {/* ── Metrics ── */}

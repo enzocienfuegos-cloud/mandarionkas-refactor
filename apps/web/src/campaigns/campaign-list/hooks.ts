@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { loadAuthMe, loadWorkspaces } from '../../shared/workspaces';
+import { loadAuthMe, loadWorkspaces, WORKSPACE_CHANGED_EVENT } from '../../shared/workspaces';
 import { deriveSpendMetrics, resolveSpendViewValue, type CostMetadata } from '../../shared/costing';
 import type { Campaign, CampaignRow, CampaignSpendView, CampaignStatus } from './types';
 import { formatCompactMoney, formatDateRange, toNumber } from './utils';
@@ -102,6 +102,15 @@ export function useCampaignData() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const handleWorkspaceChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ workspaceId?: string | null }>).detail;
+      setActiveWorkspaceId(detail?.workspaceId ?? '');
+    };
+    window.addEventListener(WORKSPACE_CHANGED_EVENT, handleWorkspaceChange);
+    return () => window.removeEventListener(WORKSPACE_CHANGED_EVENT, handleWorkspaceChange);
+  }, []);
 
   return {
     campaigns,
