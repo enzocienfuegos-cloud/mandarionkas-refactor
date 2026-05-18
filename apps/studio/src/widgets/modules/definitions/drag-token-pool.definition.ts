@@ -3,7 +3,7 @@ import { createModuleDefinition } from '../module-definition-factory';
 import { renderDragTokenPoolStage } from '../drag-token-pool.renderer';
 import { DragTokenPoolInspector } from '../drag-token-pool.inspector';
 import { DragTokenPoolThumb } from '../../registry/widget-thumbnails';
-import { DEFAULT_TOKEN_SHAPE } from '../drag-token-pool.types';
+import { DEFAULT_TOKEN_IMAGE_MAX_SIZE_PERCENT, DEFAULT_TOKEN_SHAPE } from '../drag-token-pool.types';
 
 export const DragTokenPoolDefinition = createModuleDefinition({
   type: 'drag-token-pool',
@@ -11,7 +11,17 @@ export const DragTokenPoolDefinition = createModuleDefinition({
   category: 'interactive',
   thumbnail: DragTokenPoolThumb,
   frame: { x: 20, y: 20, width: 280, height: 96, rotation: 0 },
-  props: { tokens: [], disabledIds: [], dropTargetId: '', tokenSize: 72, gap: 16, tokenShape: DEFAULT_TOKEN_SHAPE },
+  props: {
+    tokens: [],
+    disabledIds: [],
+    dropTargetId: '',
+    tokenSize: 72,
+    gap: 16,
+    tokenShape: DEFAULT_TOKEN_SHAPE,
+    hideAccentForImageTokens: false,
+    hideShapeForImageTokens: false,
+    tokenImageMaxSizePercent: DEFAULT_TOKEN_IMAGE_MAX_SIZE_PERCENT,
+  },
   style: { backgroundColor: 'transparent', accentColor: '#ffffff', color: '#ffffff' },
   renderStage: renderDragTokenPoolStage,
   renderInspector: (node) => createElement(DragTokenPoolInspector, { node }),

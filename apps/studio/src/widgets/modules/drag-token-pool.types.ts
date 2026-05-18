@@ -15,6 +15,9 @@ export const MAX_TOKENS = 12;
 export const TOKEN_SIZE_MIN = 48;
 export const TOKEN_SIZE_MAX = 160;
 export const DEFAULT_TOKEN_SHAPE: TokenShape = 'circle';
+export const TOKEN_IMAGE_MAX_SIZE_PERCENT_MIN = 40;
+export const TOKEN_IMAGE_MAX_SIZE_PERCENT_MAX = 100;
+export const DEFAULT_TOKEN_IMAGE_MAX_SIZE_PERCENT = 82;
 
 export function generateTokenId(): string {
   return `tok_${Math.random().toString(36).slice(2, 10)}`;
@@ -30,4 +33,10 @@ export function tokenShapeToBorderRadius(shape: TokenShape): string {
     default:
       return '50%';
   }
+}
+
+export function clampTokenImageMaxSizePercent(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return DEFAULT_TOKEN_IMAGE_MAX_SIZE_PERCENT;
+  return Math.max(TOKEN_IMAGE_MAX_SIZE_PERCENT_MIN, Math.min(TOKEN_IMAGE_MAX_SIZE_PERCENT_MAX, Math.round(numeric)));
 }

@@ -5,7 +5,12 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
 import { emitTokenDrag } from './token-drag-runtime';
-import { tokenShapeToBorderRadius, type DragTokenItem, type TokenShape } from './drag-token-pool.types';
+import {
+  clampTokenImageMaxSizePercent,
+  tokenShapeToBorderRadius,
+  type DragTokenItem,
+  type TokenShape,
+} from './drag-token-pool.types';
 
 const dragTokenPoolShellStyle: CSSProperties = {
   width: '100%',
@@ -40,17 +45,6 @@ const dragTokenBaseStyle: CSSProperties = {
   position: 'relative',
 };
 
-const dragTokenImageStyle: CSSProperties = {
-  width: '100%',
-  height: '100%',
-  objectFit: 'cover',
-};
-
-const dragTokenGhostImageStyle: CSSProperties = {
-  ...dragTokenImageStyle,
-  pointerEvents: 'none',
-};
-
 const dragTokenGhostBaseStyle: CSSProperties = {
   position: 'fixed',
   overflow: 'hidden',
@@ -80,14 +74,15 @@ function buildDragTokenStyle(
   accentColor: string | undefined,
   isDisabled: boolean,
   radius: string,
+  hideFrame: boolean,
 ): CSSProperties {
   return {
     ...dragTokenBaseStyle,
     borderRadius: radius,
     width: tokenSize,
     height: tokenSize,
-    border: `2px solid ${accentColor ?? 'var(--white-a-35)'}`,
-    boxShadow: isDisabled ? 'none' : `0 0 14px ${accentColor ?? 'var(--white-a-24)'}`,
+    border: hideFrame ? 'none' : `2px solid ${accentColor ?? 'var(--white-a-35)'}`,
+    boxShadow: hideFrame || isDisabled ? 'none' : `0 0 14px ${accentColor ?? 'var(--white-a-24)'}`,
     opacity: isDisabled ? 0.35 : 1,
     cursor: isDisabled ? 'not-allowed' : 'grab',
   };
@@ -98,6 +93,7 @@ function buildDragTokenGhostStyle(
   tokenSize: number,
   accentColor: string | undefined,
   radius: string,
+  hideFrame: boolean,
 ): CSSProperties {
   return {
     ...dragTokenGhostBaseStyle,
@@ -106,8 +102,22 @@ function buildDragTokenGhostStyle(
     top: pointerPosition.y,
     width: tokenSize,
     height: tokenSize,
-    border: `2px solid ${accentColor ?? 'var(--white-a-35)'}`,
-    boxShadow: `0 14px 30px hsl(0 0% 0% / 0.28), 0 0 18px ${accentColor ?? 'var(--white-a-24)'}`,
+    border: hideFrame ? 'none' : `2px solid ${accentColor ?? 'var(--white-a-35)'}`,
+    boxShadow: hideFrame
+      ? '0 14px 30px hsl(0 0% 0% / 0.22)'
+      : `0 14px 30px hsl(0 0% 0% / 0.28), 0 0 18px ${accentColor ?? 'var(--white-a-24)'}`,
+  };
+}
+
+function buildDragTokenArtworkStyle(imageMaxSizePercent: number, hideShape: boolean): CSSProperties {
+  const imageSize = `${imageMaxSizePercent}%`;
+  return {
+    maxWidth: imageSize,
+    maxHeight: imageSize,
+    width: imageSize,
+    height: imageSize,
+    objectFit: 'contain',
+    borderRadius: hideShape ? '0' : 'inherit',
   };
 }
 
@@ -122,6 +132,9 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
   const tokenShape: TokenShape = node.props.tokenShape === 'square' || node.props.tokenShape === 'rounded' || node.props.tokenShape === 'circle'
     ? node.props.tokenShape
     : 'circle';
+  const hideAccentForImageTokens = node.props.hideAccentForImageTokens === true;
+  const hideShapeForImageTokens = node.props.hideShapeForImageTokens === true;
+  const tokenImageMaxSizePercent = clampTokenImageMaxSizePercent(node.props.tokenImageMaxSizePercent);
   const radius = tokenShapeToBorderRadius(tokenShape);
 
   useEffect(() => {
@@ -170,6 +183,10 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
       <div style={buildDragTokenTrackStyle(gap)}>
         {tokens.map((token) => {
           const isDisabled = disabled.has(token.id);
+          const hasTokenImage = Boolean(token.imageUrl);
+          const hideFrame = hasTokenImage && hideAccentForImageTokens;
+          const hideShape = hasTokenImage && hideShapeForImageTokens;
+          const effectiveRadius = hideShape ? '0' : radius;
           return (
             <div
               key={token.id}
@@ -187,7 +204,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                   clientY: event.clientY,
                 });
               }}
-              style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, radius)}
+              style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, effectiveRadius, hideFrame)}
             >
               {token.baseImageUrl ? (
                 <img
@@ -199,44 +216,61 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                 />
               ) : null}
               <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-                {token.imageUrl ? <img src={token.imageUrl} alt={token.label} draggable={false} style={dragTokenImageStyle} /> : token.label}
+                {token.imageUrl ? (
+                  <img
+                    src={token.imageUrl}
+                    alt={token.label}
+                    draggable={false}
+                    style={buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape)}
+                  />
+                ) : token.label}
               </span>
             </div>
           );
         })}
       </div>
-      {draggingId && pointerPosition ? createPortal(
+      {draggingId && pointerPosition ? (() => {
+        const draggingToken = tokens.find((token) => token.id === draggingId);
+        if (!draggingToken) return null;
+        const hasTokenImage = Boolean(draggingToken.imageUrl);
+        const hideFrame = hasTokenImage && hideAccentForImageTokens;
+        const hideShape = hasTokenImage && hideShapeForImageTokens;
+        const effectiveRadius = hideShape ? '0' : radius;
+        return createPortal(
         <div
           style={buildDragTokenGhostStyle(
             pointerPosition,
             tokenSize,
-            tokens.find((token) => token.id === draggingId)?.accentColor,
-            radius,
+            draggingToken.accentColor,
+            effectiveRadius,
+            hideFrame,
           )}
         >
-          {(() => {
-            const token = tokens.find((item) => item.id === draggingId);
-            if (!token) return null;
-            return (
-              <>
-                {token.baseImageUrl ? (
-                  <img
-                    src={token.baseImageUrl}
-                    alt=""
-                    aria-hidden="true"
-                    draggable={false}
-                    style={{ ...dragTokenGhostImageStyle, position: 'absolute', inset: 0, zIndex: 0 }}
-                  />
-                ) : null}
-                <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-                  {token.imageUrl ? <img src={token.imageUrl} alt={token.label} draggable={false} style={dragTokenGhostImageStyle} /> : token.label}
-                </span>
-              </>
-            );
-          })()}
+          <>
+            {draggingToken.baseImageUrl ? (
+              <img
+                src={draggingToken.baseImageUrl}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                style={{ position: 'absolute', inset: 0, zIndex: 0, width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }}
+              />
+            ) : null}
+            <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+              {draggingToken.imageUrl ? (
+                <img
+                  src={draggingToken.imageUrl}
+                  alt={draggingToken.label}
+                  draggable={false}
+                  style={{ ...buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape), pointerEvents: 'none' }}
+                />
+              ) : draggingToken.label}
+            </span>
+          </>
         </div>,
         document.body,
-      ) : null}
+        );
+      })() : null}
     </div>
   );
 }

@@ -10,10 +10,14 @@ import { subscribeToAssetLibraryChanges } from '../../repositories/asset/events'
 import { AssetPickerButton } from '../../shared/ui/AssetPickerButton';
 import { Button } from '../../shared/ui/Button';
 import {
+  clampTokenImageMaxSizePercent,
+  DEFAULT_TOKEN_IMAGE_MAX_SIZE_PERCENT,
   DEFAULT_TOKEN_SHAPE,
   generateTokenId,
   MAX_TOKENS,
   MIN_TOKENS,
+  TOKEN_IMAGE_MAX_SIZE_PERCENT_MAX,
+  TOKEN_IMAGE_MAX_SIZE_PERCENT_MIN,
   TOKEN_SIZE_MAX,
   TOKEN_SIZE_MIN,
   type DragTokenItem,
@@ -33,6 +37,9 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const tokenShape: TokenShape = node.props.tokenShape === 'circle' || node.props.tokenShape === 'square' || node.props.tokenShape === 'rounded'
     ? node.props.tokenShape
     : DEFAULT_TOKEN_SHAPE;
+  const hideAccentForImageTokens = node.props.hideAccentForImageTokens === true;
+  const hideShapeForImageTokens = node.props.hideShapeForImageTokens === true;
+  const tokenImageMaxSizePercent = clampTokenImageMaxSizePercent(node.props.tokenImageMaxSizePercent ?? DEFAULT_TOKEN_IMAGE_MAX_SIZE_PERCENT);
 
   useEffect(() => {
     if (!platform.session.isAuthenticated || !platform.session.sessionId) {
@@ -114,7 +121,36 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
             </select>
           </div>
           <div><label>Drop target id</label><input value={String(node.props.dropTargetId ?? '')} onChange={(event) => updateWidgetProps(node.id, { dropTargetId: event.target.value })} /></div>
+          <div>
+            <label>Image max size (%)</label>
+            <input
+              aria-label="Image max size (%)"
+              type="number"
+              min={TOKEN_IMAGE_MAX_SIZE_PERCENT_MIN}
+              max={TOKEN_IMAGE_MAX_SIZE_PERCENT_MAX}
+              value={tokenImageMaxSizePercent}
+              onChange={(event) => updateWidgetProps(node.id, {
+                tokenImageMaxSizePercent: clampTokenImageMaxSizePercent(event.target.value),
+              })}
+            />
+          </div>
         </div>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={hideAccentForImageTokens}
+            onChange={(event) => updateWidgetProps(node.id, { hideAccentForImageTokens: event.target.checked })}
+          />
+          Hide accent color when token image exists
+        </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={hideShapeForImageTokens}
+            onChange={(event) => updateWidgetProps(node.id, { hideShapeForImageTokens: event.target.checked })}
+          />
+          Hide shape when token image exists
+        </label>
         <strong>{`Tokens (${tokens.length}/${MAX_TOKENS})`}</strong>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
           {tokens.map((token, index) => (

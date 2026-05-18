@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DragTokenPoolInspector } from '../../../widgets/modules/drag-token-pool.inspector';
 import type { WidgetNode } from '../../../domain/document/types';
@@ -33,6 +33,9 @@ function createNode(overrides: Partial<WidgetNode['props']> = {}): WidgetNode {
       tokenSize: 72,
       gap: 16,
       tokenShape: 'circle',
+      hideAccentForImageTokens: false,
+      hideShapeForImageTokens: false,
+      tokenImageMaxSizePercent: 82,
       ...overrides,
     },
     style: {},
@@ -79,5 +82,13 @@ describe('DragTokenPoolInspector', () => {
       ],
     })} />);
     expect((screen.getByRole('button', { name: '×' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('renders image behavior controls and updates them', () => {
+    render(<DragTokenPoolInspector node={createNode()} />);
+
+    expect(screen.getByLabelText('Hide accent color when token image exists')).toBeTruthy();
+    expect(screen.getByLabelText('Hide shape when token image exists')).toBeTruthy();
+    expect(screen.getByLabelText('Image max size (%)')).toBeTruthy();
   });
 });
