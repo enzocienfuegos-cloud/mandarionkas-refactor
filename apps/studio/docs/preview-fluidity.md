@@ -218,6 +218,54 @@ pagando walk completo del grafo + encode interno de strings en V8.
 La correccion fue reemplazar ese hash caro por `buildMotionSignature(plans)`,
 una firma corta basada solo en campos estables:
 
+## The autosave signature trap (Sprint S59)
+
+S58 arreglo el `JSON.stringify(...)` equivocado. El editor seguia pesado porque
+`AutosaveGate.tsx` seguia suscripto a:
+
+```tsx
+useStudioStore(createPersistenceSignature)
+```
+
+Y `createPersistenceSignature(state)` hacia `JSON.stringify(...)` del snapshot
+persistible entero del documento. Como los selectors del store corren en cada
+dispatch, eso significaba serializar el documento completo al hacer hover,
+playhead updates, typing o cualquier otra accion del editor.
+
+### Regla: nunca usar JSON.stringify como signature de un selector
+
+En el autosave, la señal correcta no es un hash del state sino la referencia
+inmutable de `state.document`.
+
+```tsx
+// MAL
+const sig = useStudioStore(createPersistenceSignature);
+
+// BIEN
+const documentRef = useStudioStore((state) => state.document);
+```
+
+`AutosaveGate` ahora:
+
+1. se suscribe por referencia a `state.document`
+2. debouncea por `700ms`
+3. llama `createPersistenceSnapshot(state)` solo en el flush real
+4. evita por completo `JSON.stringify(...)` en el selector path
+
+### Comparacion persistible fuera del hot path
+
+Los flows no calientes que todavia necesitan comparar snapshots persistibles
+(por ejemplo, recover/clear draft) usan `arePersistenceSnapshotsEqual(...)`,
+que compara el snapshot estructuralmente sin convertirlo en string gigante.
+
+### Guardrail
+
+`lint:json-stringify` ahora detecta:
+
+- `useMemo(() => JSON.stringify(...))`
+- `JSON.stringify(...)` dentro de selectors de `useStudioStore` / `useStudioStoreRef`
+- funciones exportadas con `JSON.stringify(...)` fuera de los prefixes permitidos
+
 - `plan.id`
 - `plan.trigger`
 - `plan.durationMs`

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInitialState } from '../../domain/document/factories';
-import { createPersistenceSignature, createPersistenceSnapshot } from '../../core/persistence/persistence-snapshot';
+import { arePersistenceSnapshotsEqual, createPersistenceSnapshot } from '../../core/persistence/persistence-snapshot';
 import { reduceBySlices } from '../../core/store/reducers';
 
 describe('persistence snapshot', () => {
@@ -25,20 +25,20 @@ describe('persistence snapshot', () => {
     expect(snapshot.ui.inspectorFocus).toBeUndefined();
   });
 
-  it('keeps the persistence signature stable across runtime-only changes', () => {
+  it('keeps the persistence snapshot stable across runtime-only changes', () => {
     const base = createInitialState();
     let runtimeChanged = reduceBySlices(base, { type: 'SET_PREVIEW_MODE', previewMode: true });
     runtimeChanged = reduceBySlices(runtimeChanged, { type: 'SET_PLAYHEAD', playheadMs: 1200 });
     runtimeChanged = reduceBySlices(runtimeChanged, { type: 'SET_HOVERED_WIDGET', widgetId: 'widget_1' });
 
-    expect(createPersistenceSignature(runtimeChanged)).toBe(createPersistenceSignature(base));
+    expect(arePersistenceSnapshotsEqual(runtimeChanged, base)).toBe(true);
   });
 
   it('treats preview frame selection as persistent project state', () => {
     const base = createInitialState();
     const withFrame = reduceBySlices(base, { type: 'SET_PREVIEW_CONTEXT', previewContext: 'article' });
 
-    expect(createPersistenceSignature(withFrame)).not.toBe(createPersistenceSignature(base));
+    expect(arePersistenceSnapshotsEqual(withFrame, base)).toBe(false);
     expect(createPersistenceSnapshot(withFrame).ui.previewContext).toBe('article');
   });
 });

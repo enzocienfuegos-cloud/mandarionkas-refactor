@@ -9,8 +9,9 @@ de transporte (autosave, save manual, exportación de versión).
 
 - `createPersistenceSnapshot(state)` → copia limpia del estado sin ruido de UI
   (playhead, hover, preview mode). Es lo que se envía al servidor.
-- `createPersistenceSignature(state)` → string JSON del snapshot, usado para
-  detección de cambios (dirty check) sin comparación profunda de objetos.
+- `arePersistenceSnapshotsEqual(left, right)` → comparación estructural del
+  snapshot persistible. Para detectar cambios en UI/store, preferir referencias
+  inmutables del slice `state.document` en lugar de serializar el estado.
 
 ## Qué NO va aquí
 

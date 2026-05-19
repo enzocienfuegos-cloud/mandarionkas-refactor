@@ -27,5 +27,8 @@
 - [DONE S58] `MotionLayer` elimina `JSON.stringify(plans)` del render path y usa `buildMotionSignature(plans)` como firma barata para remount de GSAP.
 - [DONE S58] Scratch editor/runtime dejan de depender de `document.getCSSCanvasContext` y `-webkit-canvas(...)`; el path cross-browser usa canvas DOM directo o `mask-image: url(blob:...)` segun el tipo de cover.
 - [DONE S58] `lint:json-stringify` bloquea `JSON.stringify(...)` dentro de `useMemo` en codigo React productivo.
+- [DONE S59] `AutosaveGate` ya no llama `JSON.stringify(state)` por dispatch; detecta cambios persistibles via referencia de `state.document`.
+- [DONE S59] `createPersistenceSignature` fue eliminada del codigo productivo.
+- [DONE S59] `lint:json-stringify` ahora detecta tambien selectors de store y funciones exportadas con `JSON.stringify(...)` fuera de rutas permitidas.
 - [DONE S57] `lint:canvas-encoding` bloquea `toDataURL(...)` en codigo productivo fuera de pipelines de assets.
 - [DONE S57] `scratch-no-canvas-encoding` verifica que el flow de scratch no invoque `HTMLCanvasElement.prototype.toDataURL`.

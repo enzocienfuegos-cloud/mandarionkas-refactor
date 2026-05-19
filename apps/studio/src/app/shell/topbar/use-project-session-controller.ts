@@ -6,7 +6,7 @@ import type { ProjectSessionController, TopBarStudioSnapshot, WorkspaceControlle
 import { useStudioSessionActions } from '../../../hooks/use-studio-actions';
 import { getProjectRepositoryMode, setProjectRepositoryMode } from '../../../repositories/mode';
 import type { ProjectStarterId } from './project-starters';
-import { createPersistenceSignature, createPersistenceSnapshot } from '../../../core/persistence/persistence-snapshot';
+import { arePersistenceSnapshotsEqual, createPersistenceSnapshot } from '../../../core/persistence/persistence-snapshot';
 import { createInitialState } from '../../../domain/document/factories';
 
 export function useProjectSessionController(snapshot: TopBarStudioSnapshot, workspace: Pick<WorkspaceController, 'activeClientId' | 'clients' | 'canCreateProjects' | 'handleActiveClientChange'>): ProjectSessionController {
@@ -16,7 +16,7 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
   const [newProjectPresetId, setNewProjectPresetId] = useState('custom');
   const [newProjectStarterId, setNewProjectStarterId] = useState<ProjectSessionController['newProjectStarterId']>('blank');
   const [autosaveAvailable, setAutosaveAvailable] = useState(false);
-  const [suppressedAutosaveSignature, setSuppressedAutosaveSignature] = useState<string | undefined>(undefined);
+  const [suppressedAutosaveSnapshot, setSuppressedAutosaveSnapshot] = useState<ReturnType<typeof createPersistenceSnapshot> | undefined>(undefined);
   const [versions, setVersions] = useState<ProjectSessionController['versions']>([]);
   const [selectedVersionId, setSelectedVersionId] = useState('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -67,8 +67,7 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
           setAutosaveAvailable(false);
           return;
         }
-        const signature = createPersistenceSignature(draft);
-        setAutosaveAvailable(signature !== suppressedAutosaveSignature);
+        setAutosaveAvailable(!suppressedAutosaveSnapshot || !arePersistenceSnapshotsEqual(draft, suppressedAutosaveSnapshot));
       })
       .catch(() => {
         if (!cancelled) setAutosaveAvailable(false);
@@ -76,7 +75,7 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
     return () => {
       cancelled = true;
     };
-  }, [projectTick, snapshot.activeProjectId, snapshot.lastAutosavedAt, suppressedAutosaveSignature]);
+  }, [projectTick, snapshot.activeProjectId, snapshot.lastAutosavedAt, suppressedAutosaveSnapshot]);
 
   function refreshProjects(): void {
     setProjectTick((value) => value + 1);
@@ -280,14 +279,14 @@ export function useProjectSessionController(snapshot: TopBarStudioSnapshot, work
       await workspace.handleActiveClientChange(draftClientId);
     }
     sessionActions.replaceState(draft);
-    setSuppressedAutosaveSignature(undefined);
+    setSuppressedAutosaveSnapshot(undefined);
     setAutosaveAvailable(true);
   }
 
   async function handleClearDraft(): Promise<void> {
-    const currentSignature = createPersistenceSignature(createPersistenceSnapshot(snapshot.state));
+    const currentSnapshot = createPersistenceSnapshot(snapshot.state);
     await clearAutosaveDraft();
-    setSuppressedAutosaveSignature(currentSignature);
+    setSuppressedAutosaveSnapshot(currentSnapshot);
     setAutosaveAvailable(false);
   }
 
