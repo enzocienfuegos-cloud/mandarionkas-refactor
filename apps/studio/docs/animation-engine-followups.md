@@ -47,3 +47,8 @@
 - [DONE S63] `DiagnosticsSection`, `ExportSection` y `ShareHandoffSection` ya no ejecutan `buildExportPreflight(...)` en render.
 - [DONE S63] `triggerExportPreflight(...)` se mantiene solo como handler explicito.
 - [DONE S63] `lint:no-export-in-render` bloquea reintroduccion del pipeline de export en render paths.
+- [DONE S64] `TopBarStatus.tsx` y `StatusChip.tsx` fueron eliminados como dead code.
+- [DONE S64] `use-export-readiness-controller.ts` convierte readiness/handoff/diagnostics en getters lazy.
+- [DONE S64] `TopBarExportControls` solo evalua handoff cuando el canal activo es `mraid`.
+- [DONE S64] `DiagnosticsSection`, `ExportSection` y `ReleaseSettingsSection` consumen readiness/handoff/diagnostics via getters lazy.
+- [DONE S64] `lint:no-export-in-render` detecta tambien object literals eager y los builders indirectos del topbar.

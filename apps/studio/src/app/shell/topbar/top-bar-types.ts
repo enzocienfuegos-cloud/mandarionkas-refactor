@@ -109,9 +109,9 @@ export type CollaborationController = {
 
 export type ExportReadinessController = {
   exportIssues: ExportValidationIssue[];
-  readiness: ReturnType<typeof import('../../../export/engine').buildExportReadiness>;
-  handoff: ReturnType<typeof import('../../../export/engine').buildExportHandoff>;
-  diagnostics: ReturnType<typeof import('../../../domain/document/diagnostics').buildDiagnosticSummary>;
+  getReadiness: () => ReturnType<typeof import('../../../export/engine').buildExportReadiness>;
+  getHandoff: () => ReturnType<typeof import('../../../export/engine').buildExportHandoff>;
+  getDiagnostics: () => ReturnType<typeof import('../../../domain/document/diagnostics').buildDiagnosticSummary>;
   resolvedZipStatus: 'idle' | 'exporting' | 'success' | 'error';
   resolvedZipMessage?: string;
   triggerExportHtml(state: StudioState): void;

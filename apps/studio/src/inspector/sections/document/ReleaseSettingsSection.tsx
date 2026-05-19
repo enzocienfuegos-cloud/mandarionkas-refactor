@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
-import { buildExportHandoff, buildExportReadiness } from '../../../export/engine';
+import { useExportReadinessController } from '../../../app/shell/topbar/use-export-readiness-controller';
+import { useTopBarStudioSnapshot } from '../../../app/shell/topbar/use-top-bar-studio-snapshot';
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
 import { createInspectorField } from '../../contract-driven';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
@@ -10,11 +12,14 @@ export function ReleaseSettingsSection(): JSX.Element {
   }
 
   const state = useStudioStoreSnapshot();
+  const exportController = useExportReadinessController(useTopBarStudioSnapshot());
   const { updateReleaseSettings } = useDocumentActions();
   const release = state.document.metadata.release;
-  const readiness = buildExportReadiness(state);
-  const handoff = buildExportHandoff(state);
-  const mraidHandoff = release.targetChannel === 'mraid' ? handoff.mraid : undefined;
+  const readiness = useMemo(() => exportController.getReadiness(), [exportController.getReadiness, state.document]);
+  const mraidHandoff = useMemo(() => {
+    if (release.targetChannel !== 'mraid') return undefined;
+    return exportController.getHandoff().mraid;
+  }, [exportController.getHandoff, release.targetChannel, state.document]);
 
   return (
     <div className="field-stack">

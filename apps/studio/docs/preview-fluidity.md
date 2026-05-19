@@ -425,3 +425,53 @@ Las funciones llamadas desde el playback tick no deben:
 `parentChainByWidgetId` se mueve a un cache global en `WeakMap`, indexado por
 las referencias de `widgets` y `widgetsById`, para evitar rebuilds completos
 innecesarios en cada invalidacion React del stage.
+
+## Lazy readiness + dead code (Sprint S64)
+
+S63 saco el preflight directo del render path, pero el topbar todavia ejecutaba
+trabajo caro por una via indirecta:
+
+- `buildExportHandoff(...)`
+- `buildExportReadiness(...)`
+- `buildDiagnosticSummary(...)`
+
+el problema era que `useExportReadinessController(...)` retornaba esos valores
+ya calculados, y `useTopBarController()` se instanciaba desde multiples
+consumers del shell.
+
+### Cambio
+
+`useExportReadinessController(...)` ahora mantiene:
+
+- `exportIssues` como chequeo eager liviano
+- `getReadiness()`
+- `getHandoff()`
+- `getDiagnostics()`
+
+como getters lazy respaldados por `stateRef.current`.
+
+Con eso:
+
+- el topbar deja de correr handoff/readiness/diagnostics en cada render
+- `TopBarExportControls` solo calcula handoff si el canal actual es `mraid`
+- los panels del inspector calculan readiness/handoff/diagnostics cuando estan
+  montados y realmente lo necesitan
+
+### Dead code eliminado
+
+Se removieron completamente:
+
+- `TopBarStatus.tsx`
+- `StatusChip.tsx`
+
+Eran consumers muertos que mantenian vivo trabajo caro sin aportar UI real.
+
+### Guardrail
+
+`lint:no-export-in-render` ahora detecta tambien:
+
+- `buildExportReadiness(...)`
+- `buildExportHandoff(...)`
+- `buildDiagnosticSummary(...)`
+- el patron `key: buildExport*(...)` dentro de object literals retornados por
+  hooks

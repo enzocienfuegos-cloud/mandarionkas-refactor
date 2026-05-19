@@ -405,6 +405,8 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const maskSyncPendingRef = useRef(false);
   const maskSyncQueuedRef = useRef(false);
   const maskSyncFrameRef = useRef<number | null>(null);
+  const maskRevokeFrameRef = useRef<number | null>(null);
+  const pendingMaskRevokesRef = useRef<string[]>([]);
   const [maskUrl, setMaskUrl] = useState('');
   const [scratchCompleted, setScratchCompleted] = useState(false);
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
@@ -415,10 +417,37 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
   const boxShadow = shadowConfigToBoxShadow(readShadowFromStyle(node.style));
 
+  const flushPendingMaskRevokes = () => {
+    const pendingUrls = pendingMaskRevokesRef.current;
+    pendingMaskRevokesRef.current = [];
+    maskRevokeFrameRef.current = null;
+    for (const pendingUrl of pendingUrls) {
+      revokeMaskUrl(pendingUrl);
+    }
+  };
+
+  const scheduleMaskUrlRevoke = (maskUrlToRevoke: string) => {
+    if (!maskUrlToRevoke || maskUrlToRevoke === maskUrlRef.current) return;
+    if (!pendingMaskRevokesRef.current.includes(maskUrlToRevoke)) {
+      pendingMaskRevokesRef.current.push(maskUrlToRevoke);
+    }
+    if (typeof window === 'undefined') {
+      flushPendingMaskRevokes();
+      return;
+    }
+    if (maskRevokeFrameRef.current !== null) return;
+    maskRevokeFrameRef.current = window.requestAnimationFrame(() => {
+      flushPendingMaskRevokes();
+    });
+  };
+
   const commitMaskUrl = (nextUrl: string) => {
-    revokeMaskUrl(maskUrlRef.current && maskUrlRef.current !== nextUrl ? maskUrlRef.current : '');
+    const previousMaskUrl = maskUrlRef.current;
     maskUrlRef.current = nextUrl;
     setMaskUrl(nextUrl);
+    if (previousMaskUrl && previousMaskUrl !== nextUrl) {
+      scheduleMaskUrlRevoke(previousMaskUrl);
+    }
   };
 
   const flushMaskPreview = () => {
@@ -496,6 +525,10 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
       if (maskSyncFrameRef.current !== null && typeof window !== 'undefined') {
         window.cancelAnimationFrame(maskSyncFrameRef.current);
       }
+      if (maskRevokeFrameRef.current !== null && typeof window !== 'undefined') {
+        window.cancelAnimationFrame(maskRevokeFrameRef.current);
+      }
+      flushPendingMaskRevokes();
       if (maskUrlRef.current) {
         revokeMaskUrl(maskUrlRef.current);
         maskUrlRef.current = '';

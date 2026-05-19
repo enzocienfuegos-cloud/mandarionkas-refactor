@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
-import { buildDiagnosticSummary, collectDiagnostics } from '../../../domain/document/diagnostics';
-import { buildExportHandoff, buildExportManifest, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
+import { collectDiagnostics } from '../../../domain/document/diagnostics';
+import { buildExportManifest, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
 import { useExportReadinessController } from '../../../app/shell/topbar/use-export-readiness-controller';
 import { useTopBarStudioSnapshot } from '../../../app/shell/topbar/use-top-bar-studio-snapshot';
 import { Button } from '../../../shared/ui/Button';
@@ -15,13 +16,16 @@ export function DiagnosticsSection(): JSX.Element {
 
   const state = useStudioStoreSnapshot();
   const exportController = useExportReadinessController(useTopBarStudioSnapshot());
-  const summary = buildDiagnosticSummary(state);
+  const summary = useMemo(() => exportController.getDiagnostics(), [exportController.getDiagnostics, state.document]);
   const issues = collectDiagnostics(state);
-  const readiness = buildExportReadiness(state);
+  const readiness = useMemo(() => exportController.getReadiness(), [exportController.getReadiness, state.document]);
   const manifest = buildExportManifest(state);
-  const handoff = buildExportHandoff(state);
+  const handoff = useMemo(() => {
+    if (state.document.metadata.release.targetChannel !== 'mraid') return undefined;
+    return exportController.getHandoff().mraid;
+  }, [exportController.getHandoff, state.document]);
   const { pushToast } = useToast();
-  const mraidHandoff = state.document.metadata.release.targetChannel === 'mraid' ? handoff.mraid : undefined;
+  const mraidHandoff = handoff;
   const resolvedBlocked = exportController.resolvedZipStatus === 'exporting';
   const statusIcon = (passed: boolean) => <StudioIcon icon={passed ? StudioIcons.check : StudioIcons.circle} size={12} />;
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { buildDiagnosticSummary } from '../../../domain/document/diagnostics';
 import { validateExport } from '../../../domain/document/export-validation';
 import { buildExportHandoff, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundle, triggerExportZipBundleResolved } from '../../../export/engine';
@@ -8,6 +8,12 @@ import { channelExportLabel } from './export-channels';
 export function useExportReadinessController(snapshot: TopBarStudioSnapshot): ExportReadinessController {
   const [resolvedZipStatus, setResolvedZipStatus] = useState<ExportReadinessController['resolvedZipStatus']>('idle');
   const [resolvedZipMessage, setResolvedZipMessage] = useState<string | undefined>(undefined);
+  const stateRef = useRef(snapshot.state);
+  stateRef.current = snapshot.state;
+  const exportIssues = useMemo(() => validateExport(snapshot.state), [snapshot.state.document]);
+  const getReadiness = useCallback(() => buildExportReadiness(stateRef.current), []);
+  const getHandoff = useCallback(() => buildExportHandoff(stateRef.current), []);
+  const getDiagnostics = useCallback(() => buildDiagnosticSummary(stateRef.current), []);
 
   async function handleResolvedZipExport(state: TopBarStudioSnapshot['state']): Promise<void> {
     const exportLabel = state.document.canvasVariants.length > 1
@@ -26,10 +32,10 @@ export function useExportReadinessController(snapshot: TopBarStudioSnapshot): Ex
   }
 
   return {
-    exportIssues: validateExport(snapshot.state),
-    readiness: buildExportReadiness(snapshot.state),
-    handoff: buildExportHandoff(snapshot.state),
-    diagnostics: buildDiagnosticSummary(snapshot.state),
+    exportIssues,
+    getReadiness,
+    getHandoff,
+    getDiagnostics,
     resolvedZipStatus,
     resolvedZipMessage,
     triggerExportHtml,

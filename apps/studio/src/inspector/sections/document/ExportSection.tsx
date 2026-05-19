@@ -1,6 +1,6 @@
+import { useMemo } from 'react';
 import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
-import { buildExportHandoff, buildExportManifest, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
-import { validateExport } from '../../../domain/document/export-validation';
+import { buildExportManifest, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
 import { useExportReadinessController } from '../../../app/shell/topbar/use-export-readiness-controller';
 import { useTopBarStudioSnapshot } from '../../../app/shell/topbar/use-top-bar-studio-snapshot';
 import { Button } from '../../../shared/ui/Button';
@@ -16,11 +16,14 @@ export function ExportSection(): JSX.Element {
   const state = useStudioStoreSnapshot();
   const exportController = useExportReadinessController(useTopBarStudioSnapshot());
   const manifest = buildExportManifest(state);
-  const readiness = buildExportReadiness(state);
-  const handoff = buildExportHandoff(state);
+  const readiness = useMemo(() => exportController.getReadiness(), [exportController.getReadiness, state.document]);
+  const handoff = useMemo(() => {
+    if (state.document.metadata.release.targetChannel !== 'mraid') return undefined;
+    return exportController.getHandoff().mraid;
+  }, [exportController.getHandoff, state.document]);
   const { pushToast } = useToast();
-  const mraidHandoff = state.document.metadata.release.targetChannel === 'mraid' ? handoff.mraid : undefined;
-  const issues = validateExport(state);
+  const mraidHandoff = handoff;
+  const issues = exportController.exportIssues;
   const errorCount = issues.filter((item) => item.level === 'error').length;
   const warningCount = issues.filter((item) => item.level === 'warning').length;
   const resolvedBlocked = exportController.resolvedZipStatus === 'exporting';
