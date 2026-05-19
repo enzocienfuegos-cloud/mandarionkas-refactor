@@ -77,8 +77,8 @@ function ToggleScratchHarness({ scratchEnabled }: { scratchEnabled: boolean }): 
 
 describe('scratch flow does not use canvas.toDataURL', () => {
   let toDataURLSpy: ReturnType<typeof vi.spyOn>;
-  let getContextSpy: ReturnType<typeof vi.spyOn>;
   let toBlobSpy: ReturnType<typeof vi.spyOn>;
+  let getContextSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     const canvasContexts = new WeakMap<HTMLCanvasElement, CanvasRenderingContext2D>();
@@ -114,13 +114,13 @@ describe('scratch flow does not use canvas.toDataURL', () => {
       return context;
     });
     toDataURLSpy = vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL');
-    toBlobSpy = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(() => undefined);
+    toBlobSpy = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob');
   });
 
   afterEach(() => {
     toDataURLSpy.mockRestore();
-    getContextSpy.mockRestore();
     toBlobSpy.mockRestore();
+    getContextSpy.mockRestore();
   });
 
   it('scratching does not invoke canvas.toDataURL', () => {
@@ -140,20 +140,24 @@ describe('scratch flow does not use canvas.toDataURL', () => {
     fireEvent.pointerUp(scratchHitArea!, { clientX: 140, clientY: 42, pointerId: 1 });
 
     expect(toDataURLSpy).not.toHaveBeenCalled();
+    expect(toBlobSpy).not.toHaveBeenCalled();
   });
 
-  it('keeps a stable opaque mask url while scratching', () => {
+  it('uses a stable inline SVG mask while scratching instead of a blob preview url', () => {
     const { container } = render(<ScratchHarness />);
+    const scratchMaskWrapper = container.querySelector<HTMLElement>('[data-scratch-mask-target]');
+    const scratchMaskPath = container.querySelector<SVGPathElement>('[data-scratch-mask-svg] path');
     const scratchHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
-    const scratchMaskWrapper = scratchHitArea?.previousElementSibling as HTMLDivElement | null;
 
     expect(scratchMaskWrapper).toBeTruthy();
-    expect(scratchMaskWrapper?.style.maskImage || scratchMaskWrapper?.style.webkitMaskImage).toContain('data:image/svg+xml');
+    expect(scratchMaskWrapper?.style.mask || scratchMaskWrapper?.style.webkitMask).toContain('#scratch-mask-scratch_group');
+    expect(scratchMaskPath?.getAttribute('d')).toBe('');
 
     fireEvent.pointerDown(scratchHitArea!, { isPrimary: true, clientX: 16, clientY: 16, pointerId: 1 });
     fireEvent.pointerMove(scratchHitArea!, { clientX: 44, clientY: 28, pointerId: 1 });
 
-    expect(scratchMaskWrapper?.style.maskImage || scratchMaskWrapper?.style.webkitMaskImage).toContain('data:image/svg+xml');
+    expect(scratchMaskWrapper?.style.mask || scratchMaskWrapper?.style.webkitMask).toContain('#scratch-mask-scratch_group');
+    expect(scratchMaskPath?.getAttribute('d')).toContain('M');
   });
 
   it('does not wrap scratch cover children in MotionLayer compositor nodes', () => {

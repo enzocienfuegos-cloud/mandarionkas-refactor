@@ -102,7 +102,10 @@ describe('group scratch export', () => {
     expect(html).toContain('widget-group-scratch');
     expect(html).toContain('class="scratch-reveal-shell"');
     expect(html).toContain('data-scratch-shell');
+    expect(html).toContain('data-scratch-mask-svg');
+    expect(html).toContain('data-scratch-mask-path');
     expect(html).toContain('data-scratch-mask-target');
+    expect(html).toContain('mask:url(#scratch-mask-group_1)');
     expect(html).toContain('data-scratch-auto-reveal-threshold="10"');
     expect(html).toContain('data-scratch-milestones="[]"');
     expect(html).toContain('data-scratch-reveal-target-mode="auto"');
@@ -111,6 +114,8 @@ describe('group scratch export', () => {
     expect(html).toContain('Scratch me first');
     expect(html).toContain('Shop now');
     expect(html).toContain('data-scratch-canvas');
+    expect(html).not.toContain('data-scratch-mask-canvas');
+    expect(html).not.toMatch(/url\(["']?blob:/);
   });
 
   it('serializes scratch milestones in ascending order', () => {

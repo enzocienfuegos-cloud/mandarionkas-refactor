@@ -1,0 +1,166 @@
+/** @vitest-environment jsdom */
+import { fireEvent, render } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { WidgetNode } from '../../../domain/document/types';
+import type { RenderContext } from '../../../canvas/stage/render-context';
+import { renderGroupWidget } from '../../../widgets/group/group.renderer';
+
+function createScratchGroup(autoRevealThresholdPercent = 0): WidgetNode {
+  return {
+    id: 'scratch_group',
+    type: 'group',
+    name: 'Scratch group',
+    sceneId: 'scene_1',
+    zIndex: 3,
+    frame: { x: 0, y: 0, width: 320, height: 180, rotation: 0 },
+    style: {
+      accentColor: '#8b5cf6',
+      color: '#ffffff',
+      borderRadius: 18,
+      opacity: 1,
+    },
+    props: {
+      title: 'Scratch group',
+      scratchEnabled: true,
+      scratchRadius: 24,
+      autoRevealThresholdPercent,
+    },
+    timeline: { startMs: 0, endMs: 1000 },
+    childIds: [],
+  };
+}
+
+function createScratchHarness(options?: {
+  autoRevealThresholdPercent?: number;
+  triggerWidgetAction?: RenderContext['triggerWidgetAction'];
+}): JSX.Element {
+  const node = createScratchGroup(options?.autoRevealThresholdPercent ?? 0);
+  const ctx = {
+    sceneId: 'scene_1',
+    widgetsById: { [node.id]: node },
+    previewMode: true,
+    isReproducing: false,
+    playheadMs: 0,
+    hovered: false,
+    active: false,
+    triggerWidgetAction: options?.triggerWidgetAction ?? vi.fn(),
+  } as unknown as RenderContext;
+  return renderGroupWidget(node, ctx);
+}
+
+describe('scratch pointer throughput', () => {
+  let getContextSpy: ReturnType<typeof vi.spyOn>;
+  let createObjectURLSpy: ReturnType<typeof vi.fn>;
+  let revokeObjectURLSpy: ReturnType<typeof vi.fn>;
+  let originalCreateObjectURL: typeof URL.createObjectURL;
+  let originalRevokeObjectURL: typeof URL.revokeObjectURL;
+  let imageDataReads = 0;
+
+  beforeEach(() => {
+    imageDataReads = 0;
+    originalCreateObjectURL = URL.createObjectURL;
+    originalRevokeObjectURL = URL.revokeObjectURL;
+    createObjectURLSpy = vi.fn(() => 'blob:mock');
+    revokeObjectURLSpy = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, writable: true, value: createObjectURLSpy });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, writable: true, value: revokeObjectURLSpy });
+
+    const canvasContexts = new WeakMap<HTMLCanvasElement, CanvasRenderingContext2D>();
+    getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function getContext(type: string) {
+      if (type !== '2d') return null;
+      let context = canvasContexts.get(this);
+      if (!context) {
+        const contextLike = {
+          canvas: this,
+          clearRect: vi.fn(),
+          fillRect: vi.fn(),
+          save: vi.fn(),
+          restore: vi.fn(),
+          beginPath: vi.fn(),
+          moveTo: vi.fn(),
+          lineTo: vi.fn(),
+          stroke: vi.fn(),
+          arc: vi.fn(),
+          fill: vi.fn(),
+          ellipse: vi.fn(),
+          getImageData: vi.fn(() => {
+            imageDataReads += 1;
+            const total = Math.max(4, this.width * this.height * 4);
+            const data = new Uint8ClampedArray(total);
+            data.fill(255);
+            if (imageDataReads >= 4) {
+              for (let index = 3; index < data.length; index += 4) data[index] = 0;
+            }
+            return { data };
+          }),
+          set fillStyle(_value: string) {},
+          set globalCompositeOperation(_value: string) {},
+          set lineCap(_value: string) {},
+          set lineJoin(_value: string) {},
+          set lineWidth(_value: number) {},
+        } as unknown as CanvasRenderingContext2D;
+        context = contextLike;
+        canvasContexts.set(this, context);
+      }
+      return context;
+    });
+  });
+
+  afterEach(() => {
+    getContextSpy.mockRestore();
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, writable: true, value: originalCreateObjectURL });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, writable: true, value: originalRevokeObjectURL });
+  });
+
+  it('accumulates a long SVG path without blob URLs during sustained scratching', () => {
+    const { container } = render(createScratchHarness());
+    const scratchHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
+    const scratchMaskPath = container.querySelector<SVGPathElement>('[data-scratch-mask-svg] path');
+
+    expect(scratchHitArea).toBeTruthy();
+    expect(scratchMaskPath).toBeTruthy();
+
+    fireEvent.pointerDown(scratchHitArea!, { isPrimary: true, clientX: 10, clientY: 10, pointerId: 1 });
+    for (let index = 0; index < 200; index += 1) {
+      fireEvent.pointerMove(scratchHitArea!, {
+        clientX: 12 + index,
+        clientY: 10 + (index % 20),
+        pointerId: 1,
+      });
+    }
+    fireEvent.pointerUp(scratchHitArea!, { clientX: 212, clientY: 25, pointerId: 1 });
+
+    const pathData = scratchMaskPath?.getAttribute('d') ?? '';
+    const segmentCount = (pathData.match(/\bM\s/g) ?? []).length;
+
+    expect(segmentCount).toBeGreaterThanOrEqual(180);
+    expect(createObjectURLSpy).not.toHaveBeenCalled();
+    expect(revokeObjectURLSpy).not.toHaveBeenCalled();
+  });
+
+  it('fires scratch-complete exactly once when the threshold is crossed under heavy pointer traffic', () => {
+    const triggerWidgetAction = vi.fn();
+    const { container } = render(createScratchHarness({
+      autoRevealThresholdPercent: 30,
+      triggerWidgetAction,
+    }));
+    const scratchHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
+
+    expect(scratchHitArea).toBeTruthy();
+
+    fireEvent.pointerDown(scratchHitArea!, { isPrimary: true, clientX: 16, clientY: 16, pointerId: 1 });
+    for (let index = 0; index < 200; index += 1) {
+      fireEvent.pointerMove(scratchHitArea!, {
+        clientX: 16 + index,
+        clientY: 16 + (index % 10),
+        pointerId: 1,
+      });
+    }
+    fireEvent.pointerUp(scratchHitArea!, { clientX: 220, clientY: 30, pointerId: 1 });
+
+    const completionCalls = triggerWidgetAction.mock.calls.filter(([trigger]) => trigger === 'scratch-complete');
+    expect(completionCalls).toHaveLength(1);
+    expect(createObjectURLSpy).not.toHaveBeenCalled();
+    expect(revokeObjectURLSpy).not.toHaveBeenCalled();
+  });
+});
