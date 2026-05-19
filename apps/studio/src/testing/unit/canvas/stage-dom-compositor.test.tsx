@@ -320,4 +320,78 @@ describe('StageSurface DOM compositor path', () => {
     expect(coverTextNode?.style.display).toBe('none');
     expect(targetGroupNode?.style.display).toBe('');
   });
+
+  it('keeps internal target descendants hidden while scratching, then swaps from the scratch shell to the live target subtree after completion', () => {
+    const scratchGroup = createWidget('scratch_group');
+    scratchGroup.type = 'group';
+    scratchGroup.zIndex = 5;
+    scratchGroup.props = { scratchEnabled: true, revealTargetMode: 'widget', revealTargetId: 'target_group' };
+    scratchGroup.childIds = ['cover_group'];
+    scratchGroup.frame = { x: 0, y: 0, width: 220, height: 140, rotation: 0 };
+
+    const coverGroup = createWidget('cover_group');
+    coverGroup.type = 'group';
+    coverGroup.parentId = 'scratch_group';
+    coverGroup.zIndex = 6;
+    coverGroup.childIds = ['target_group', 'cover_text'];
+    coverGroup.frame = { x: 10, y: 10, width: 180, height: 100, rotation: 0 };
+
+    const targetGroup = createWidget('target_group');
+    targetGroup.type = 'group';
+    targetGroup.parentId = 'cover_group';
+    targetGroup.zIndex = 1;
+    targetGroup.childIds = ['target_card_1'];
+    targetGroup.frame = { x: 18, y: 14, width: 120, height: 80, rotation: 0 };
+
+    const targetCard1 = createWidget('target_card_1');
+    targetCard1.parentId = 'target_group';
+    targetCard1.zIndex = 2;
+    targetCard1.frame = { x: 12, y: 18, width: 80, height: 60, rotation: 0 };
+
+    const coverText = createWidget('cover_text');
+    coverText.parentId = 'cover_group';
+    coverText.zIndex = 7;
+    coverText.frame = { x: 20, y: 20, width: 120, height: 40, rotation: 0 };
+
+    const { container } = render(
+      <PlayheadRefProvider>
+        <StageSurface
+          {...buildProps({
+            previewMode: true,
+            isPlaying: false,
+            widgets: [scratchGroup, coverGroup, targetGroup, targetCard1, coverText],
+            widgetsById: {
+              scratch_group: scratchGroup,
+              cover_group: coverGroup,
+              target_group: targetGroup,
+              target_card_1: targetCard1,
+              cover_text: coverText,
+            },
+          })}
+        />
+      </PlayheadRefProvider>,
+    );
+
+    const scratchNode = container.querySelector<HTMLElement>('[data-stage-widget-id="scratch_group"]');
+    const coverGroupNode = container.querySelector<HTMLElement>('[data-stage-widget-id="cover_group"]');
+    const targetGroupNode = container.querySelector<HTMLElement>('[data-stage-widget-id="target_group"]');
+    const targetCardNode = container.querySelector<HTMLElement>('[data-stage-widget-id="target_card_1"]');
+
+    expect(scratchNode?.style.display).toBe('');
+    expect(coverGroupNode?.style.display).toBe('none');
+    expect(targetGroupNode?.style.display).toBe('none');
+    expect(targetCardNode?.style.display).toBe('none');
+
+    const scratchProps = stageWidgetProps.find((entry) => entry.node.id === 'scratch_group');
+    expect(scratchProps).toBeTruthy();
+
+    act(() => {
+      scratchProps.onWidgetTrigger('scratch_group', 'scratch-complete', { completedAtMs: 320 });
+    });
+
+    expect(scratchNode?.style.display).toBe('none');
+    expect(coverGroupNode?.style.display).toBe('none');
+    expect(targetGroupNode?.style.display).toBe('');
+    expect(targetCardNode?.style.display).toBe('');
+  });
 });

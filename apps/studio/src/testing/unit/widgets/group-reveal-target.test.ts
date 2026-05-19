@@ -5,6 +5,7 @@ import {
   getScratchRevealTargetMode,
   isRevealTargetCandidate,
   isWidgetTargetedByScratchGroup,
+  resolveScratchInternalTargetIds,
   resolveScratchRevealTargets,
 } from '../../../widgets/group/group-reveal-target';
 
@@ -114,7 +115,7 @@ describe('group reveal target', () => {
     }).map((widget) => widget.id)).toEqual(['image_1']);
   });
 
-  it('excludes the scratch group subtree from reveal target candidates', () => {
+  it('allows selecting a descendant widget as the internal scratch target', () => {
     const scratchGroup = createWidget({
       id: 'scratch_group',
       type: 'group',
@@ -134,11 +135,53 @@ describe('group reveal target', () => {
       scratch_group: scratchGroup,
       cover_text: coverText,
       reveal_text: revealText,
-    })).toBe(false);
+    })).toBe(true);
     expect(isRevealTargetCandidate(scratchGroup, revealText, {
       scratch_group: scratchGroup,
       cover_text: coverText,
       reveal_text: revealText,
     })).toBe(true);
+  });
+
+  it('resolves internal scratch target descendants when the selected target lives inside the scratch group', () => {
+    const scratchGroup = createWidget({
+      id: 'scratch_group',
+      type: 'group',
+      props: {
+        scratchEnabled: true,
+        revealTargetMode: 'widget',
+        revealTargetId: 'target_group',
+      },
+      childIds: ['cover_group'],
+    });
+    const coverGroup = createWidget({
+      id: 'cover_group',
+      type: 'group',
+      parentId: 'scratch_group',
+      childIds: ['target_group'],
+    });
+    const targetGroup = createWidget({
+      id: 'target_group',
+      type: 'group',
+      parentId: 'cover_group',
+      childIds: ['target_text'],
+    });
+    const targetText = createWidget({
+      id: 'target_text',
+      type: 'text',
+      parentId: 'target_group',
+    });
+
+    const widgetsById = {
+      scratch_group: scratchGroup,
+      cover_group: coverGroup,
+      target_group: targetGroup,
+      target_text: targetText,
+    };
+
+    expect(resolveScratchRevealTargets(scratchGroup, [scratchGroup, coverGroup, targetGroup, targetText], widgetsById).map((widget) => widget.id))
+      .toEqual(['target_group', 'target_text']);
+    expect(Array.from(resolveScratchInternalTargetIds(scratchGroup, widgetsById)).sort())
+      .toEqual(['target_group', 'target_text']);
   });
 });

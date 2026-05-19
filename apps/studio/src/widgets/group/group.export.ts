@@ -9,12 +9,17 @@ import {
   DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD,
   type ScratchMilestone,
 } from './group-scratch-constants';
+import { resolveScratchInternalTargetIds } from './group-reveal-target';
 
 function renderGroupScratchChildren(
   node: WidgetNode,
   state: StudioState,
   assetPathMap: Record<string, string>,
   baseFrame: WidgetNode['frame'],
+  options?: {
+    includedIds?: ReadonlySet<string>;
+    excludedIds?: ReadonlySet<string>;
+  },
 ): string {
   const resolvedWidgets = buildResolvedWidgetsById(state.document);
   const renderScratchCoverLeaf = (current: WidgetNode): string => {
@@ -69,7 +74,8 @@ function renderGroupScratchChildren(
   };
 
   function renderNodeTree(current: WidgetNode, visited = new Set<string>()): string[] {
-    if (visited.has(current.id) || current.hidden) return [];
+    if (visited.has(current.id) || current.hidden || options?.excludedIds?.has(current.id)) return [];
+    if (options?.includedIds && !options.includedIds.has(current.id)) return [];
     visited.add(current.id);
 
     if (current.type === 'group' && current.childIds?.length) {
@@ -84,12 +90,36 @@ function renderGroupScratchChildren(
     return [renderScratchCoverLeaf(current)];
   }
 
-  return (node.childIds ?? [])
-    .map((childId) => resolvedWidgets[childId])
-    .filter((child): child is WidgetNode => Boolean(child))
-    .sort((left, right) => left.zIndex - right.zIndex)
-    .flatMap((child) => renderNodeTree(child))
-    .join('\n');
+  const roots = (() => {
+    if (!options?.includedIds) {
+      return (node.childIds ?? [])
+        .map((childId) => resolvedWidgets[childId])
+        .filter((child): child is WidgetNode => Boolean(child))
+        .filter((child) => !options?.excludedIds?.has(child.id))
+        .sort((left, right) => left.zIndex - right.zIndex);
+    }
+
+    const targetRoots: WidgetNode[] = [];
+    const visited = new Set<string>();
+    const collectRoots = (widgetId: string): void => {
+      if (visited.has(widgetId)) return;
+      visited.add(widgetId);
+      const widget = resolvedWidgets[widgetId];
+      if (!widget) return;
+      if (options.includedIds?.has(widget.id)) {
+        if (!widget.parentId || !options.includedIds.has(widget.parentId)) {
+          targetRoots.push(widget);
+        }
+        return;
+      }
+      (widget.childIds ?? []).forEach(collectRoots);
+    };
+
+    (node.childIds ?? []).forEach(collectRoots);
+    return targetRoots.sort((left, right) => left.zIndex - right.zIndex);
+  })();
+
+  return roots.flatMap((child) => renderNodeTree(child)).join('\n');
 }
 
 function resolveScratchGroupExportFrame(node: WidgetNode, state: StudioState): WidgetNode['frame'] {
@@ -153,6 +183,7 @@ export function renderGroupExport(
     : [];
   const sortedMilestones = [...milestones].sort((left, right) => left.thresholdPercent - right.thresholdPercent);
   const milestonesJson = escapeHtml(JSON.stringify(sortedMilestones));
+  const internalTargetIds = resolveScratchInternalTargetIds(node, buildResolvedWidgetsById(state.document));
   const revealTargetMode = escapeHtml(String(node.props.revealTargetMode ?? 'auto'));
   const revealTargetId = escapeHtml(String(node.props.revealTargetId ?? ''));
   const replayTargetMotionOnReveal = node.props.replayTargetMotionOnReveal !== false;
@@ -191,11 +222,14 @@ export function renderGroupExport(
       data-scratch-reveal-animation-delay="0"
       style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;background:transparent;"
     >
+      ${internalTargetIds.size
+    ? `<div data-scratch-target-content style="position:absolute;inset:0;pointer-events:none;z-index:0;">${renderGroupScratchChildren(node, state, assetPathMap, frame, { includedIds: internalTargetIds })}</div>`
+    : ''}
       <div
         data-scratch-mask-target
         style="position:absolute;inset:0;pointer-events:none;${coverBlur > 0 ? `filter:blur(${coverBlur}px);` : ''}"
       >
-        ${renderGroupScratchChildren(node, state, assetPathMap, frame)}
+        ${renderGroupScratchChildren(node, state, assetPathMap, frame, { excludedIds: internalTargetIds })}
       </div>
       <canvas data-scratch-canvas style="position:absolute;inset:0;z-index:1;width:100%;height:100%;cursor:crosshair;touch-action:none;outline:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"></canvas>
     </div>

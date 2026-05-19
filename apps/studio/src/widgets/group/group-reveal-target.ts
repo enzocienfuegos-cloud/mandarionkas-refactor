@@ -25,6 +25,23 @@ export function isWidgetDescendantOf(targetWidgetId: string, ancestorWidgetId: s
   return false;
 }
 
+function collectWidgetSubtreeIds(rootWidgetId: string, widgetsById: Record<string, WidgetNode>): Set<string> {
+  const subtreeIds = new Set<string>();
+  const visited = new Set<string>();
+
+  const visit = (widgetId: string): void => {
+    if (visited.has(widgetId)) return;
+    visited.add(widgetId);
+    const widget = widgetsById[widgetId];
+    if (!widget) return;
+    subtreeIds.add(widget.id);
+    (widget.childIds ?? []).forEach(visit);
+  };
+
+  visit(rootWidgetId);
+  return subtreeIds;
+}
+
 export function isWidgetTargetedByScratchGroup(group: WidgetNode, widget: WidgetNode, widgetsById: Record<string, WidgetNode>): boolean {
   const mode = getScratchRevealTargetMode(group);
   const targetId = getScratchRevealTargetId(group);
@@ -61,9 +78,8 @@ export function resolveScratchRevealTargets(
   const targetId = getScratchRevealTargetId(group);
 
   return sceneWidgets.filter((candidate) => {
-    if (isScratchCoverDescendant(group, candidate, widgetsById)) return false;
-
     if (mode === 'scene') {
+      if (isScratchCoverDescendant(group, candidate, widgetsById)) return false;
       return Boolean(targetId) && candidate.sceneId === targetId;
     }
 
@@ -71,6 +87,7 @@ export function resolveScratchRevealTargets(
       return Boolean(targetId) && (candidate.id === targetId || isWidgetDescendantOf(candidate.id, targetId, widgetsById));
     }
 
+    if (isScratchCoverDescendant(group, candidate, widgetsById)) return false;
     if (mode !== 'auto') return false;
     if (Number(group.zIndex ?? 0) <= Number(candidate.zIndex ?? 0)) return false;
     return rectsOverlap(group.frame, candidate.frame);
@@ -80,6 +97,13 @@ export function resolveScratchRevealTargets(
 export function isRevealTargetCandidate(group: WidgetNode, candidate: WidgetNode, widgetsById: Record<string, WidgetNode>): boolean {
   if (candidate.id === group.id) return false;
   if (candidate.sceneId !== group.sceneId) return false;
-  if (isWidgetDescendantOf(candidate.id, group.id, widgetsById)) return false;
   return true;
+}
+
+export function resolveScratchInternalTargetIds(group: WidgetNode, widgetsById: Record<string, WidgetNode>): Set<string> {
+  const mode = getScratchRevealTargetMode(group);
+  const targetId = getScratchRevealTargetId(group);
+  if (mode !== 'widget' || !targetId) return new Set<string>();
+  if (!isWidgetDescendantOf(targetId, group.id, widgetsById)) return new Set<string>();
+  return collectWidgetSubtreeIds(targetId, widgetsById);
 }

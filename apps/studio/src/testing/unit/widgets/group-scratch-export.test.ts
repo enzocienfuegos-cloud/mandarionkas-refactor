@@ -192,6 +192,41 @@ describe('group scratch export', () => {
     expect(html).toContain('height:100px');
   });
 
+  it('renders a dedicated static target preview layer and excludes that subtree from the scratch cover when the target is inside the scratch group', () => {
+    const state = createState();
+    const targetGroup: WidgetNode = {
+      id: 'target_group',
+      type: 'group',
+      name: 'Target group',
+      sceneId: 'scene_1',
+      zIndex: 1,
+      parentId: 'group_1',
+      frame: { x: 18, y: 14, width: 180, height: 100, rotation: 0 },
+      props: { title: 'Target group' },
+      style: { backgroundColor: '#ffffff', borderRadius: 20, opacity: 1 },
+      timeline: { startMs: 0, endMs: 1000 },
+      childIds: ['text_1'],
+    };
+
+    state.document.widgets.group_1.childIds = ['target_group', 'cta_1'];
+    state.document.widgets.text_1.parentId = 'target_group';
+    state.document.widgets.group_1.props.revealTargetMode = 'widget';
+    state.document.widgets.group_1.props.revealTargetId = 'target_group';
+    state.document.widgets.target_group = targetGroup;
+    state.document.scenes[0].widgetIds = ['group_1', 'target_group', 'text_1', 'cta_1'];
+
+    const html = renderGroupExport(state.document.widgets.group_1, state);
+
+    expect(html).toContain('data-scratch-target-content');
+    expect(html).toContain('data-scratch-cover-widget-id="target_group"');
+    const targetPreviewIndex = html.indexOf('data-scratch-target-content');
+    const maskTargetIndex = html.indexOf('data-scratch-mask-target');
+    const targetGroupInMaskIndex = html.indexOf('data-scratch-cover-widget-id="target_group"', maskTargetIndex);
+    expect(targetPreviewIndex).toBeGreaterThan(-1);
+    expect(maskTargetIndex).toBeGreaterThan(-1);
+    expect(targetGroupInMaskIndex).toBe(-1);
+  });
+
   it('expands the scratch group export frame when children extend outside the original group bounds', () => {
     const state = createState();
     state.document.widgets.group_1.frame = { x: 40, y: 60, width: 120, height: 80, rotation: 0 };

@@ -176,13 +176,13 @@ function isRuntimeWidgetDescendantOf(scene: ExportRuntimeScene, widget: ExportRu
 
 function isCoveredByScratchGroup(scene: ExportRuntimeScene, scratchWidget: ExportRuntimeWidget, widget: ExportRuntimeWidget): boolean {
   if (scratchWidget.id === widget.id) return false;
-  if (isRuntimeWidgetDescendantOf(scene, widget, scratchWidget.id)) return false;
   const targetMode = String(scratchWidget.props?.revealTargetMode ?? 'auto').trim().toLowerCase();
   const targetId = String(scratchWidget.props?.revealTargetId ?? '').trim();
   if (targetMode === 'scene') return widget.sceneId === targetId;
   if (targetMode === 'widget' && targetId) {
     return widget.id === targetId || isRuntimeWidgetDescendantOf(scene, widget, targetId);
   }
+  if (isRuntimeWidgetDescendantOf(scene, widget, scratchWidget.id)) return false;
   if (targetMode !== 'auto') return false;
   if (Number(scratchWidget.zIndex ?? 0) <= Number(widget.zIndex ?? 0)) return false;
   return rectsOverlap(scratchWidget.frame, widget.frame);
@@ -223,6 +223,30 @@ function resolveScratchSubtreeWidgets(scene: ExportRuntimeScene, scratchWidget: 
 
   visit(scratchWidget.id);
   return result;
+}
+
+function resolveScratchInternalTargetIds(scene: ExportRuntimeScene, scratchWidget: ExportRuntimeWidget): Set<string> {
+  const targetMode = String(scratchWidget.props?.revealTargetMode ?? 'auto').trim().toLowerCase();
+  const targetId = String(scratchWidget.props?.revealTargetId ?? '').trim();
+  if (targetMode !== 'widget' || !targetId) return new Set<string>();
+
+  const widgetsById = Object.fromEntries(scene.widgets.map((entry) => [entry.id, entry] as const));
+  const targetWidget = widgetsById[targetId];
+  if (!targetWidget || !isRuntimeWidgetDescendantOf(scene, targetWidget, scratchWidget.id)) return new Set<string>();
+
+  const subtreeIds = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (widgetId: string): void => {
+    if (visited.has(widgetId)) return;
+    visited.add(widgetId);
+    const widget = widgetsById[widgetId];
+    if (!widget) return;
+    subtreeIds.add(widget.id);
+    (widget.childIds ?? []).forEach(visit);
+  };
+
+  visit(targetId);
+  return subtreeIds;
 }
 
 function findRuntimeWidgetNodes(widgetId: string): HTMLElement[] {

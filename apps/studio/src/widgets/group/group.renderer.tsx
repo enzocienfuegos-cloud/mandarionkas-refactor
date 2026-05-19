@@ -10,6 +10,7 @@ import { useLatestRef } from '../../shared/hooks';
 import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
 import { isScratchGroupActive } from './group-scratch-activation';
 import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
+import { resolveScratchInternalTargetIds } from './group-reveal-target';
 
 const groupBaseStyle: CSSProperties = {
   width: '100%',
@@ -247,15 +248,16 @@ function resolveScratchCoverOpacity({
   return Math.max(0, Math.min(1, opacity));
 }
 
-function renderScratchCoverNode(
+function renderScratchDuplicatedNode(
   node: WidgetNode,
   rootFrame: WidgetNode['frame'],
   rootGroupId: string,
   ctx: RenderContext,
   playheadMs: number,
+  excludedIds?: ReadonlySet<string>,
   visited = new Set<string>(),
 ): JSX.Element[] {
-  if (visited.has(node.id) || !isWidgetVisibleAt(node, playheadMs)) return [];
+  if (visited.has(node.id) || excludedIds?.has(node.id) || !isWidgetVisibleAt(node, playheadMs)) return [];
   visited.add(node.id);
 
   if (node.type === 'group' && node.childIds?.length) {
@@ -263,7 +265,7 @@ function renderScratchCoverNode(
       .map((childId) => ctx.widgetsById[childId])
       .filter((child): child is WidgetNode => Boolean(child))
       .sort((left, right) => left.zIndex - right.zIndex)
-      .flatMap((child) => renderScratchCoverNode(child, rootFrame, rootGroupId, ctx, playheadMs, visited));
+      .flatMap((child) => renderScratchDuplicatedNode(child, rootFrame, rootGroupId, ctx, playheadMs, excludedIds, visited));
 
     return [
       (
@@ -364,20 +366,61 @@ function GroupScratchCoverChildren({
   node,
   ctx,
   playheadMs,
+  excludedIds,
 }: {
   node: WidgetNode;
   ctx: RenderContext;
   playheadMs: number;
+  excludedIds?: ReadonlySet<string>;
 }): JSX.Element | null {
   const childWidgets = (node.childIds ?? [])
     .map((childId) => ctx.widgetsById[childId])
     .filter((child): child is WidgetNode => Boolean(child))
+    .filter((child) => !excludedIds?.has(child.id))
     .sort((left, right) => left.zIndex - right.zIndex);
 
-  const scratchNodes = childWidgets.flatMap((child) => renderScratchCoverNode(child, node.frame, node.id, ctx, playheadMs));
+  const scratchNodes = childWidgets.flatMap((child) => renderScratchDuplicatedNode(child, node.frame, node.id, ctx, playheadMs, excludedIds));
   if (!scratchNodes.length) return null;
 
   return <>{scratchNodes}</>;
+}
+
+function GroupScratchTargetChildren({
+  node,
+  ctx,
+  playheadMs,
+  includedIds,
+}: {
+  node: WidgetNode;
+  ctx: RenderContext;
+  playheadMs: number;
+  includedIds: ReadonlySet<string>;
+}): JSX.Element | null {
+  if (!includedIds.size) return null;
+
+  const targetRootWidgets: WidgetNode[] = [];
+  const visited = new Set<string>();
+  const collectRoots = (widgetId: string): void => {
+    if (visited.has(widgetId)) return;
+    visited.add(widgetId);
+    const widget = ctx.widgetsById[widgetId];
+    if (!widget) return;
+    if (includedIds.has(widget.id)) {
+      if (!widget.parentId || !includedIds.has(widget.parentId)) {
+        targetRootWidgets.push(widget);
+      }
+      return;
+    }
+    (widget.childIds ?? []).forEach(collectRoots);
+  };
+
+  (node.childIds ?? []).forEach(collectRoots);
+  targetRootWidgets.sort((left, right) => left.zIndex - right.zIndex);
+
+  const targetNodes = targetRootWidgets.flatMap((child) => renderScratchDuplicatedNode(child, node.frame, node.id, ctx, playheadMs));
+  if (!targetNodes.length) return null;
+
+  return <>{targetNodes}</>;
 }
 
 function canUseObjectUrls(): boolean {
@@ -430,6 +473,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
   const boxShadow = shadowConfigToBoxShadow(readShadowFromStyle(node.style));
   const opaqueMaskUrl = createOpaqueScratchMaskUrl();
+  const internalTargetIds = resolveScratchInternalTargetIds(node, ctx.widgetsById);
 
   const flushPendingMaskRevokes = () => {
     const pendingUrls = pendingMaskRevokesRef.current;
@@ -622,13 +666,44 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     });
   };
 
-  const scratchContent = <GroupScratchCoverChildren node={node} ctx={ctx} playheadMs={playheadMs} />;
+  const targetContent = (
+    <GroupScratchTargetChildren
+      node={node}
+      ctx={ctx}
+      playheadMs={playheadMs}
+      includedIds={internalTargetIds}
+    />
+  );
+  const scratchContent = (
+    <GroupScratchCoverChildren
+      node={node}
+      ctx={ctx}
+      playheadMs={playheadMs}
+      excludedIds={internalTargetIds}
+    />
+  );
 
   return (
     <div ref={shellRef} style={{ ...scratchShellStyle, borderRadius: Number(node.style.borderRadius ?? 18), boxShadow }}>
+      {targetContent ? (
+        <div
+          data-scratch-target-layer
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 0,
+            pointerEvents: 'none',
+          }}
+        >
+          {targetContent}
+        </div>
+      ) : null}
       <canvas ref={maskCanvasRef} style={scratchCanvasStyle} aria-hidden="true" />
       {scratchContent ? (
-        <div style={scratchCompleted ? { display: 'none' } : { ...buildScratchMaskStyle(maskUrl || opaqueMaskUrl, coverBlur) }}>
+        <div
+          data-scratch-cover-layer
+          style={scratchCompleted ? { display: 'none' } : { ...buildScratchMaskStyle(maskUrl || opaqueMaskUrl, coverBlur) }}
+        >
           {scratchContent}
         </div>
       ) : null}

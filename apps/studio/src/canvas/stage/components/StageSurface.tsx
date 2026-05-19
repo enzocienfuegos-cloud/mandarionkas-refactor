@@ -15,6 +15,7 @@ import {
   getScratchRevealTargetId,
   getScratchRevealTargetMode,
   isWidgetDescendantOf,
+  resolveScratchInternalTargetIds,
   resolveScratchRevealTargets,
 } from '../../../widgets/group/group-reveal-target';
 import { playbackEngine } from '../../../hooks/use-playback-engine';
@@ -178,6 +179,7 @@ export function StageSurface({
     return scratchGroups.map((group) => {
       const mode = getScratchRevealTargetMode(group);
       const targetIds = new Set(resolveScratchRevealTargets(group, sceneWidgets, widgetsById).map((widget) => widget.id));
+      const internalTargetIds = resolveScratchInternalTargetIds(group, widgetsById);
       const coveredIds = new Set(
         widgetsInScene
           .filter((widget) => isVisuallyCoveredByScratchGroup(group, widget, widgetsById))
@@ -195,6 +197,7 @@ export function StageSurface({
         group,
         mode,
         targetIds,
+        internalTargetIds,
         coveredIds,
         scratchSubtreeIds,
         scratchDescendantIds,
@@ -427,8 +430,13 @@ export function StageSurface({
               playheadMs: ms,
             });
             if (!scratchActive) continue;
-            if (plan.scratchDescendantIds.has(widget.id)) return false;
-            if (scratchCompleted && widget.id === scratchGroup.id) return false;
+            if (scratchCompleted) {
+              if (widget.id === scratchGroup.id) return false;
+              if (plan.internalTargetIds.has(widget.id)) return true;
+              if (plan.scratchDescendantIds.has(widget.id)) return false;
+            } else if (plan.scratchDescendantIds.has(widget.id)) {
+              return false;
+            }
             if (plan.mode === 'scene') continue;
             if (plan.coveredIds.has(widget.id) && !plan.targetIds.has(widget.id)) return false;
           }
