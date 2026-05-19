@@ -1,10 +1,10 @@
 // render-tokenized: brand/theme split enforced by lint-color-literals.mjs
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
-import { emitTokenDrag } from './token-drag-runtime';
+import { emitTokenDrag, type TokenDragDetail } from './token-drag-runtime';
 import {
   clampTokenImageFocal,
   clampTokenImageMaxSizePercent,
@@ -12,6 +12,7 @@ import {
   DEFAULT_TOKEN_IMAGE_FOCAL_X,
   DEFAULT_TOKEN_IMAGE_FOCAL_Y,
   normalizeTokenImageFit,
+  parseDragTokenItems,
   tokenShapeToBorderRadius,
   type DragTokenItem,
   type TokenImageFit,
@@ -120,6 +121,18 @@ function applyGhostTransform(ghostNode: HTMLDivElement, x: number, y: number): v
   ghostNode.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) scale(1.06)`;
 }
 
+function buildTokenDragPayload(
+  node: WidgetNode,
+  token: DragTokenItem | undefined,
+): Pick<TokenDragDetail, 'dropTargetId' | 'targetSceneId' | 'targetActionId'> {
+  const dropTargetId = String(node.props.dropTargetId ?? '').trim() || undefined;
+  return {
+    dropTargetId,
+    targetSceneId: token?.targetSceneId,
+    targetActionId: token?.targetActionId,
+  };
+}
+
 function buildDragTokenArtworkStyle(
   imageMaxSizePercent: number,
   hideShape: boolean,
@@ -149,7 +162,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
   const ghostRef = useRef<HTMLDivElement | null>(null);
   const rafIdRef = useRef<number | null>(null);
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
-  const tokens: DragTokenItem[] = Array.isArray(node.props.tokens) ? node.props.tokens as DragTokenItem[] : [];
+  const tokens = useMemo(() => parseDragTokenItems(node.props.tokens), [node.props.tokens]);
   const tokenSize = Math.max(32, Number(node.props.tokenSize ?? 72));
   const gap = Math.max(4, Number(node.props.gap ?? 16));
   const disabled = new Set(Array.isArray(node.props.disabledIds) ? node.props.disabledIds.map((value) => String(value)) : []);
@@ -185,6 +198,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
         sourceWidgetId: node.id,
         clientX: event.clientX,
         clientY: event.clientY,
+        ...buildTokenDragPayload(node, tokens.find((token) => token.id === current.tokenId)),
       });
     };
 
@@ -201,6 +215,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
         sourceWidgetId: node.id,
         clientX: event.clientX,
         clientY: event.clientY,
+        ...buildTokenDragPayload(node, tokens.find((token) => token.id === current.tokenId)),
       });
       pointerStateRef.current = null;
       lastPointerRef.current = null;
@@ -222,7 +237,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
         rafIdRef.current = null;
       }
     };
-  }, [draggingId, node.id]);
+  }, [draggingId, node.id, node.props.dropTargetId, tokens]);
 
   const ghostCallbackRef = (element: HTMLDivElement | null) => {
     ghostRef.current = element;
@@ -260,6 +275,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
                   sourceWidgetId: node.id,
                   clientX: event.clientX,
                   clientY: event.clientY,
+                  ...buildTokenDragPayload(node, token),
                 });
               }}
               style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, effectiveRadius, hideFrame)}

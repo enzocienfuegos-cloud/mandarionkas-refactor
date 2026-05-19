@@ -3,8 +3,8 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
-import type { DragTokenItem } from './drag-token-pool.types';
-import { subscribeTokenDrag } from './token-drag-runtime';
+import { parseDragTokenItems } from './drag-token-pool.types';
+import { subscribeTokenDrag, type TokenDragDetail } from './token-drag-runtime';
 import { useLatestRef } from '../../shared/hooks';
 
 function parseActionMap(raw: unknown): Record<string, string> {
@@ -99,13 +99,24 @@ function buildDropZoneLabelStyle(isVisible: boolean): CSSProperties {
 
 function resolveTokenDropTargets(
   ctx: RenderContext,
-  sourceWidgetId: string,
-  tokenId: string,
+  detail: TokenDragDetail,
 ): { targetSceneId?: string; targetActionId?: string } {
-  const sourceWidget = ctx.widgetsById[sourceWidgetId];
+  const eventTargetActionId = typeof detail.targetActionId === 'string' && detail.targetActionId.trim()
+    ? detail.targetActionId
+    : undefined;
+  const eventTargetSceneId = typeof detail.targetSceneId === 'string' && detail.targetSceneId.trim()
+    ? detail.targetSceneId
+    : undefined;
+  if (eventTargetActionId || eventTargetSceneId) {
+    return {
+      targetActionId: eventTargetActionId,
+      targetSceneId: eventTargetActionId ? undefined : eventTargetSceneId,
+    };
+  }
+
+  const sourceWidget = ctx.widgetsById[detail.sourceWidgetId];
   if (!sourceWidget || sourceWidget.type !== 'drag-token-pool') return {};
-  const tokens = Array.isArray(sourceWidget.props.tokens) ? sourceWidget.props.tokens as DragTokenItem[] : [];
-  const token = tokens.find((item) => item.id === tokenId);
+  const token = parseDragTokenItems(sourceWidget.props.tokens).find((item) => item.id === detail.tokenId);
   return {
     targetSceneId: token?.targetSceneId,
     targetActionId: typeof token?.targetActionId === 'string' && token.targetActionId.trim()
@@ -117,9 +128,11 @@ function resolveTokenDropTargets(
 function acceptsTokenSource(
   ctx: RenderContext,
   dropZoneWidgetId: string,
-  sourceWidgetId: string,
+  detail: TokenDragDetail,
 ): boolean {
-  const sourceWidget = ctx.widgetsById[sourceWidgetId];
+  const eventDropTargetId = String(detail.dropTargetId ?? '').trim();
+  if (eventDropTargetId) return eventDropTargetId === dropZoneWidgetId;
+  const sourceWidget = ctx.widgetsById[detail.sourceWidgetId];
   if (!sourceWidget || sourceWidget.type !== 'drag-token-pool') return false;
   const configuredDropTargetId = String(sourceWidget.props.dropTargetId ?? '').trim();
   return !configuredDropTargetId || configuredDropTargetId === dropZoneWidgetId;
@@ -182,8 +195,8 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
 
       const rect = element.getBoundingClientRect();
       const inside = detail.clientX >= rect.left && detail.clientX <= rect.right && detail.clientY >= rect.top && detail.clientY <= rect.bottom;
-      if (detail.phase === 'end' && inside && acceptsTokenSource(ctxRef.current, nodeRef.current.id, detail.sourceWidgetId)) {
-        const { targetActionId, targetSceneId } = resolveTokenDropTargets(ctxRef.current, detail.sourceWidgetId, detail.tokenId);
+      if (detail.phase === 'end' && inside && acceptsTokenSource(ctxRef.current, nodeRef.current.id, detail)) {
+        const { targetActionId, targetSceneId } = resolveTokenDropTargets(ctxRef.current, detail);
         if (targetActionId) {
           ctxRef.current.executeAction?.(targetActionId);
         } else if (targetSceneId) {

@@ -49,6 +49,27 @@ function createTokenPool(tokens: Array<Record<string, unknown>>, props: Partial<
   };
 }
 
+function mockDropZoneRect(container: HTMLElement): void {
+  const shell = container.firstElementChild as HTMLDivElement | null;
+  const zone = shell?.firstElementChild as HTMLDivElement | null;
+  expect(zone).toBeTruthy();
+
+  Object.defineProperty(zone!, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({
+      left: 0,
+      top: 0,
+      right: 160,
+      bottom: 160,
+      width: 160,
+      height: 160,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    }),
+  });
+}
+
 function createContext(widgetsById: Record<string, WidgetNode>, overrides: Partial<RenderContext> = {}): RenderContext {
   return {
     previewMode: true,
@@ -112,6 +133,60 @@ describe('drop zone scene targeting', () => {
     });
 
     expect(goToScene).toHaveBeenCalledWith('scene_2');
+    expect(executeAction).not.toHaveBeenCalled();
+  });
+
+  it('routes a dropped token when the token pool still stores legacy JSON string tokens', () => {
+    const tokenPool = createTokenPool([], {
+      tokens: JSON.stringify([{ id: 'tok_legacy', label: 'Legacy token', targetSceneId: 'scene_legacy_next' }]),
+    });
+    const goToScene = vi.fn();
+    const executeAction = vi.fn();
+    const ctx = createContext(
+      {
+        [tokenPool.id]: tokenPool,
+      },
+      { goToScene, executeAction },
+    );
+
+    const { container } = render(renderDropZoneStage(createDropZone(), ctx));
+    mockDropZoneRect(container);
+
+    act(() => {
+      emitTokenDrag({
+        phase: 'end',
+        tokenId: 'tok_legacy',
+        sourceWidgetId: tokenPool.id,
+        clientX: 80,
+        clientY: 80,
+      });
+    });
+
+    expect(goToScene).toHaveBeenCalledWith('scene_legacy_next');
+    expect(executeAction).not.toHaveBeenCalled();
+  });
+
+  it('uses the drag event token target even if the source pool is no longer in the current scene context', () => {
+    const goToScene = vi.fn();
+    const executeAction = vi.fn();
+    const ctx = createContext({}, { goToScene, executeAction });
+
+    const { container } = render(renderDropZoneStage(createDropZone(), ctx));
+    mockDropZoneRect(container);
+
+    act(() => {
+      emitTokenDrag({
+        phase: 'end',
+        tokenId: 'tok_snapshot',
+        sourceWidgetId: 'pool_from_previous_render',
+        dropTargetId: 'drop_1',
+        targetSceneId: 'scene_from_event',
+        clientX: 80,
+        clientY: 80,
+      });
+    });
+
+    expect(goToScene).toHaveBeenCalledWith('scene_from_event');
     expect(executeAction).not.toHaveBeenCalled();
   });
 

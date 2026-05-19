@@ -24,6 +24,7 @@ import {
   MAX_TOKENS,
   MIN_TOKENS,
   normalizeTokenImageFit,
+  parseDragTokenItems,
   TOKEN_IMAGE_FIT_OPTIONS,
   TOKEN_IMAGE_FOCAL_MAX,
   TOKEN_IMAGE_FOCAL_MIN,
@@ -58,7 +59,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   });
   const primaryWidgetId = useStudioStore((state) => state.document.selection.primaryWidgetId);
   const pendingDropZoneRef = useRef<{ frame: { x: number; y: number; width: number; height: number }; anchorWidgetId?: string } | null>(null);
-  const tokens: DragTokenItem[] = Array.isArray(node.props.tokens) ? node.props.tokens as DragTokenItem[] : [];
+  const tokens = parseDragTokenItems(node.props.tokens);
   const disabledIds = Array.isArray(node.props.disabledIds) ? node.props.disabledIds.map((value) => String(value)) : [];
   const tokenSize = Math.max(TOKEN_SIZE_MIN, Math.min(TOKEN_SIZE_MAX, Number(node.props.tokenSize ?? 72)));
   const gap = Math.max(4, Math.min(60, Number(node.props.gap ?? 16)));

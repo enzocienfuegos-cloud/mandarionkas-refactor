@@ -49,9 +49,22 @@ describe('world cup template library', () => {
     const parsedTokens = Array.isArray(firstPool?.props.tokens) ? firstPool?.props.tokens : JSON.parse(String(firstPool?.props.tokens ?? '[]'));
     const expectedToken = Array.isArray(parsedTokens) ? parsedTokens.find((token) => token?.id === firstStepExpectedTokenId) : undefined;
     const secondSceneId = state.document.scenes[1]?.id;
+    const expectedStepTargets = [
+      { tokenId: 'buenachos', sceneIndex: 0, targetIndex: 1 },
+      { tokenId: 'gustitos', sceneIndex: 1, targetIndex: 2 },
+      { tokenId: 'quesitrix', sceneIndex: 2, targetIndex: 3 },
+    ];
 
     expect(hash).toBe(EXPECTED_DOCUMENT_SHA256);
     expect(json.length).toBe(EXPECTED_DOCUMENT_LENGTH);
     expect(expectedToken?.targetSceneId).toBe(secondSceneId);
+    expectedStepTargets.forEach(({ tokenId, sceneIndex, targetIndex }) => {
+      const scene = state.document.scenes[sceneIndex];
+      const targetScene = state.document.scenes[targetIndex];
+      const pool = Object.values(state.document.widgets).find((widget) => widget.sceneId === scene?.id && widget.type === 'drag-token-pool');
+      const tokens = Array.isArray(pool?.props.tokens) ? pool?.props.tokens : JSON.parse(String(pool?.props.tokens ?? '[]'));
+      const token = Array.isArray(tokens) ? tokens.find((item) => item?.id === tokenId) : undefined;
+      expect(token?.targetSceneId).toBe(targetScene?.id);
+    });
   });
 });

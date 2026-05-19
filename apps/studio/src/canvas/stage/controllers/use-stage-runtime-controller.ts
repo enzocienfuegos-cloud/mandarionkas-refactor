@@ -28,6 +28,7 @@ export function useStageRuntimeController(args: {
   useEffect(() => {
     if (!scene.durationMs || !isPlaying) return;
 
+    const sceneIdForTick = scene.id;
     let rafId = 0;
     let lastTimestamp: number | null = null;
     let lastSyncedMs = playheadMsRef.current;
@@ -76,10 +77,12 @@ export function useStageRuntimeController(args: {
     rafId = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(rafId);
-      timelineActionsRef.current.setPlayhead(playbackEngine.getCurrentMs());
-      playbackEngine.flushReact('seek');
+      if (fullStateRef.current.document.selection.activeSceneId === sceneIdForTick) {
+        timelineActionsRef.current.setPlayhead(playbackEngine.getCurrentMs());
+        playbackEngine.flushReact('seek');
+      }
     };
-  }, [fullStateRef, isPlaying, scene.durationMs]);
+  }, [fullStateRef, isPlaying, scene.id, scene.durationMs]);
 
   useEffect(() => {
     if (isPlaying) return;

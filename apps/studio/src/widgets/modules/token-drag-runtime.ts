@@ -6,6 +6,9 @@ export type TokenDragDetail = {
   sourceWidgetId: string;
   clientX: number;
   clientY: number;
+  dropTargetId?: string;
+  targetSceneId?: string;
+  targetActionId?: string;
 };
 
 const TOKEN_DRAG_EVENT = 'smx:token-drag';

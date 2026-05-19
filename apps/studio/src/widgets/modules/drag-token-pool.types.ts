@@ -17,6 +17,35 @@ export type DragTokenItem = {
   baseImageFocalY?: number;
 };
 
+function normalizeDragTokenItem(raw: unknown): DragTokenItem | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const item = raw as Record<string, unknown>;
+  const id = String(item.id ?? '').trim();
+  if (!id) return undefined;
+  const label = String(item.label ?? id).trim() || id;
+  return {
+    ...(item as DragTokenItem),
+    id,
+    label,
+    targetSceneId: typeof item.targetSceneId === 'string' && item.targetSceneId.trim() ? item.targetSceneId : undefined,
+    targetActionId: typeof item.targetActionId === 'string' && item.targetActionId.trim() ? item.targetActionId : undefined,
+  };
+}
+
+export function parseDragTokenItems(raw: unknown): DragTokenItem[] {
+  const value = typeof raw === 'string'
+    ? (() => {
+        try {
+          return JSON.parse(raw) as unknown;
+        } catch {
+          return [];
+        }
+      })()
+    : raw;
+  if (!Array.isArray(value)) return [];
+  return value.map(normalizeDragTokenItem).filter((item): item is DragTokenItem => Boolean(item));
+}
+
 export const MIN_TOKENS = 1;
 export const MAX_TOKENS = 12;
 export const TOKEN_SIZE_MIN = 48;
