@@ -316,7 +316,7 @@ describe('scratch milestones', () => {
     handle.dispose();
   });
 
-  it('keeps live internal targets hidden until completion when the scratch group provides its own static target preview', () => {
+  it('keeps live internal targets mounted behind the Canvas cover for progressive reveal', () => {
     const engine = createEngineStub();
     const sceneManager = createSceneManagerStub();
     const runtimeModel = createRuntimeModel(
@@ -419,16 +419,17 @@ describe('scratch milestones', () => {
 
     const handle = mountScratchReveal(engine, runtimeModel, sceneManager);
 
-    expect((document.querySelector('[data-widget-id="cover_group"]') as HTMLElement).style.display).toBe('none');
-    expect((document.querySelector('[data-widget-id="target_group"]') as HTMLElement).style.display).toBe('none');
-    expect((document.querySelector('[data-widget-id="target_card_1"]') as HTMLElement).style.display).toBe('none');
+    expect((document.querySelector('[data-widget-id="cover_group"]') as HTMLElement).style.display).toBe('');
+    expect((document.querySelector('[data-widget-id="target_group"]') as HTMLElement).style.display).toBe('');
+    expect((document.querySelector('[data-widget-id="target_card_1"]') as HTMLElement).style.display).toBe('');
+    expect((document.querySelector('[data-widget-id="cover_text"]') as HTMLElement).style.display).toBe('none');
 
     dispatchScratchPointerEvent(shell, 'pointerdown', 10, 10);
     dispatchScratchPointerEvent(shell, 'pointermove', 50, 30);
 
     expect(shell.classList.contains('is-scratch-complete')).toBe(true);
     expect((document.querySelector('[data-widget-id="scratch_group"]') as HTMLElement).style.display).toBe('none');
-    expect((document.querySelector('[data-widget-id="cover_group"]') as HTMLElement).style.display).toBe('none');
+    expect((document.querySelector('[data-widget-id="cover_group"]') as HTMLElement).style.display).toBe('');
     expect((document.querySelector('[data-widget-id="target_group"]') as HTMLElement).style.display).toBe('');
     expect((document.querySelector('[data-widget-id="target_card_1"]') as HTMLElement).style.display).toBe('');
 

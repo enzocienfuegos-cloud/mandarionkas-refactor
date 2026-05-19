@@ -1,167 +1,51 @@
-import { buildResolvedWidgetsById } from '../../domain/document/canvas-variants';
 import type { StudioState, WidgetNode } from '../../domain/document/types';
 import { exportTokens as exportPalette } from '../../export/export-tokens';
 import { escapeHtml, renderGenericExport } from '../registry/export-helpers';
-import { getWidgetDefinition } from '../registry/widget-registry';
 import { getScratchActivationDelayMs } from './group-scratch-activation';
 import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
 import {
   DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD,
   type ScratchMilestone,
 } from './group-scratch-constants';
-import { resolveScratchInternalTargetIds } from './group-reveal-target';
+import { buildResolvedWidgetsById } from '../../domain/document/canvas-variants';
 
-function renderGroupScratchChildren(
-  node: WidgetNode,
-  state: StudioState,
-  assetPathMap: Record<string, string>,
-  baseFrame: WidgetNode['frame'],
-  options?: {
-    includedIds?: ReadonlySet<string>;
-    excludedIds?: ReadonlySet<string>;
-  },
-): string {
-  const resolvedWidgets = buildResolvedWidgetsById(state.document);
-  const renderScratchCoverLeaf = (current: WidgetNode): string => {
-    const relativeFrame = {
-      ...current.frame,
-      x: current.frame.x - baseFrame.x,
-      y: current.frame.y - baseFrame.y,
-    };
-    const wrapperStyle = [
-      `position:absolute`,
-      `left:${relativeFrame.x}px`,
-      `top:${relativeFrame.y}px`,
-      `width:${relativeFrame.width}px`,
-      `height:${relativeFrame.height}px`,
-      `z-index:${current.zIndex}`,
-      `opacity:${Number(current.style.opacity ?? 1)}`,
-      `transform:rotate(${relativeFrame.rotation}deg)`,
-      `transform-origin:center`,
-      `pointer-events:none`,
-      `box-sizing:border-box`,
-    ].join(';');
-    const embeddedChild: WidgetNode = {
-      ...current,
-      frame: {
-        ...current.frame,
-        x: 0,
-        y: 0,
-        rotation: 0,
-      },
-      style: {
-        ...current.style,
-        opacity: 1,
-      },
-      props: current.type === 'group'
-        ? {
-            ...current.props,
-            scratchEnabled: false,
-          }
-        : current.props,
-    };
-    const definition = getWidgetDefinition(embeddedChild.type);
-    const childHtml = definition.renderExport
-      ? definition.renderExport(embeddedChild, state, assetPathMap)
-      : renderGenericExport(embeddedChild, embeddedChild.name, embeddedChild.type);
-
-    return `<div
-      data-scratch-cover-widget-id="${escapeHtml(current.id)}"
-      data-scratch-origin-x="${baseFrame.x}"
-      data-scratch-origin-y="${baseFrame.y}"
-      style="${wrapperStyle}"
-    ><div data-scratch-cover-motion-id="${escapeHtml(current.id)}" style="position:relative;width:100%;height:100%;">${childHtml}</div></div>`;
-  };
-
-  function renderNodeTree(current: WidgetNode, visited = new Set<string>()): string[] {
-    if (visited.has(current.id) || current.hidden || options?.excludedIds?.has(current.id)) return [];
-    if (options?.includedIds && !options.includedIds.has(current.id)) return [];
-    visited.add(current.id);
-
-    if (current.type === 'group' && current.childIds?.length) {
-      const childNodes = current.childIds
-        .map((childId) => resolvedWidgets[childId])
-        .filter((child): child is WidgetNode => Boolean(child))
-        .sort((left, right) => left.zIndex - right.zIndex)
-        .flatMap((child) => renderNodeTree(child, visited));
-      return [renderScratchCoverLeaf(current), ...childNodes];
-    }
-
-    return [renderScratchCoverLeaf(current)];
-  }
-
-  const roots = (() => {
-    if (!options?.includedIds) {
-      return (node.childIds ?? [])
-        .map((childId) => resolvedWidgets[childId])
-        .filter((child): child is WidgetNode => Boolean(child))
-        .filter((child) => !options?.excludedIds?.has(child.id))
-        .sort((left, right) => left.zIndex - right.zIndex);
-    }
-
-    const targetRoots: WidgetNode[] = [];
-    const visited = new Set<string>();
-    const collectRoots = (widgetId: string): void => {
-      if (visited.has(widgetId)) return;
-      visited.add(widgetId);
-      const widget = resolvedWidgets[widgetId];
-      if (!widget) return;
-      if (options.includedIds?.has(widget.id)) {
-        if (!widget.parentId || !options.includedIds.has(widget.parentId)) {
-          targetRoots.push(widget);
-        }
-        return;
-      }
-      (widget.childIds ?? []).forEach(collectRoots);
-    };
-
-    (node.childIds ?? []).forEach(collectRoots);
-    return targetRoots.sort((left, right) => left.zIndex - right.zIndex);
-  })();
-
-  return roots.flatMap((child) => renderNodeTree(child)).join('\n');
+function isTransparentPaint(value: unknown): boolean {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return !normalized
+    || normalized === 'transparent'
+    || normalized === 'none'
+    || normalized === 'rgba(0,0,0,0)'
+    || normalized === 'rgba(0, 0, 0, 0)';
 }
 
-function resolveScratchGroupExportFrame(node: WidgetNode, state: StudioState): WidgetNode['frame'] {
-  const resolvedWidgets = buildResolvedWidgetsById(state.document);
-  const baseFrame = node.frame;
-  function collectFrames(current: WidgetNode, visited = new Set<string>()): WidgetNode['frame'][] {
-    if (visited.has(current.id) || current.hidden) return [];
-    visited.add(current.id);
-    if (current.type === 'group' && current.childIds?.length) {
-      return current.childIds
-        .map((childId) => resolvedWidgets[childId])
-        .filter((child): child is WidgetNode => Boolean(child))
-        .flatMap((child) => collectFrames(child, visited));
-    }
-    return [current.frame];
-  }
+function isPlainWhite(value: unknown): boolean {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized === '#fff'
+    || normalized === '#ffffff'
+    || normalized === 'white'
+    || normalized === 'rgb(255,255,255)'
+    || normalized === 'rgb(255, 255, 255)'
+    || normalized === 'rgba(255,255,255,1)'
+    || normalized === 'rgba(255, 255, 255, 1)';
+}
 
-  const childFrames = (node.childIds ?? [])
-    .map((childId) => resolvedWidgets[childId])
-    .filter((child): child is WidgetNode => Boolean(child))
-    .flatMap((child) => collectFrames(child));
+function resolveScratchCoverColor(node: WidgetNode): string {
+  const explicitCoverColor = String(node.props.scratchCoverColor ?? '').trim();
+  if (!isTransparentPaint(explicitCoverColor)) return explicitCoverColor;
 
-  if (!childFrames.length) return baseFrame;
+  const background = String(node.style.backgroundColor ?? '').trim();
+  if (!isTransparentPaint(background)) return background;
 
-  const minX = Math.min(baseFrame.x, ...childFrames.map((frame) => frame.x));
-  const minY = Math.min(baseFrame.y, ...childFrames.map((frame) => frame.y));
-  const maxX = Math.max(baseFrame.x + baseFrame.width, ...childFrames.map((frame) => frame.x + frame.width));
-  const maxY = Math.max(baseFrame.y + baseFrame.height, ...childFrames.map((frame) => frame.y + frame.height));
+  const accent = String(node.style.accentColor ?? exportPalette.orange).trim();
+  if (!isTransparentPaint(accent) && !isPlainWhite(accent)) return accent;
 
-  return {
-    ...baseFrame,
-    x: minX,
-    y: minY,
-    width: maxX - minX,
-    height: maxY - minY,
-  };
+  return 'rgba(245, 158, 11, 0.94)';
 }
 
 export function renderGroupExport(
   node: WidgetNode,
   state?: StudioState,
-  assetPathMap: Record<string, string> = {},
+  _assetPathMap: Record<string, string> = {},
 ): string {
   const boxShadow = escapeHtml(shadowConfigToBoxShadow(readShadowFromStyle(node.style)));
   if (!node.props.scratchEnabled || !state) {
@@ -169,22 +53,20 @@ export function renderGroupExport(
   }
 
   const style = node.style ?? {};
-  const accent = String(style.accentColor ?? exportPalette.orange);
-  const frame = resolveScratchGroupExportFrame(node, state);
+  const frame = node.frame;
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
   const autoRevealThresholdPercent = Math.max(
     0,
     Math.min(100, Number(node.props.autoRevealThresholdPercent ?? DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD)),
   );
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
+  const coverColor = resolveScratchCoverColor(node);
   const scratchActivationDelayMs = getScratchActivationDelayMs(node, buildResolvedWidgetsById(state.document));
   const milestones: ScratchMilestone[] = Array.isArray(node.props.scratchMilestones)
     ? (node.props.scratchMilestones as ScratchMilestone[])
     : [];
   const sortedMilestones = [...milestones].sort((left, right) => left.thresholdPercent - right.thresholdPercent);
   const milestonesJson = escapeHtml(JSON.stringify(sortedMilestones));
-  const internalTargetIds = resolveScratchInternalTargetIds(node, buildResolvedWidgetsById(state.document));
-  const maskId = escapeHtml(`scratch-mask-${node.id}`);
   const revealTargetMode = escapeHtml(String(node.props.revealTargetMode ?? 'auto'));
   const revealTargetId = escapeHtml(String(node.props.revealTargetId ?? ''));
   const replayTargetMotionOnReveal = node.props.replayTargetMotionOnReveal !== false;
@@ -215,7 +97,7 @@ export function renderGroupExport(
       data-scratch-reveal-target-mode="${revealTargetMode}"
       data-scratch-reveal-target-id="${revealTargetId}"
       data-scratch-replay-target-motion-on-reveal="${replayTargetMotionOnReveal ? 'true' : 'false'}"
-      data-scratch-accent="${escapeHtml(accent)}"
+      data-scratch-cover-color="${escapeHtml(coverColor)}"
       data-scratch-cover-blur="${coverBlur}"
       data-scratch-activation-delay="${scratchActivationDelayMs}"
       data-scratch-reveal-animation="none"
@@ -223,31 +105,17 @@ export function renderGroupExport(
       data-scratch-reveal-animation-delay="0"
       style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;background:transparent;"
     >
-      <svg
-        data-scratch-mask-svg
-        viewBox="0 0 ${frame.width} ${frame.height}"
-        preserveAspectRatio="none"
-        style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;"
+      <canvas
+        data-scratch-canvas
+        data-scratch-cover-layer
         aria-hidden="true"
-        focusable="false"
-      >
-        <defs>
-          <mask id="${maskId}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" mask-type="luminance">
-            <rect data-scratch-mask-rect x="0" y="0" width="${frame.width}" height="${frame.height}" fill="white"></rect>
-            <path data-scratch-mask-path d="" stroke="black" stroke-width="${scratchRadius * 2}" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
-          </mask>
-        </defs>
-      </svg>
-      ${internalTargetIds.size
-    ? `<div data-scratch-target-content style="position:absolute;inset:0;pointer-events:none;z-index:0;">${renderGroupScratchChildren(node, state, assetPathMap, frame, { includedIds: internalTargetIds })}</div>`
-    : ''}
+        style="position:absolute;inset:0;z-index:1;width:100%;height:100%;pointer-events:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"
+      ></canvas>
       <div
-        data-scratch-mask-target
-        style="position:absolute;inset:0;pointer-events:none;mask:url(#${maskId});-webkit-mask:url(#${maskId});-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;${coverBlur > 0 ? `filter:blur(${coverBlur}px);` : ''}"
-      >
-        ${renderGroupScratchChildren(node, state, assetPathMap, frame, { excludedIds: internalTargetIds })}
-      </div>
-      <canvas data-scratch-canvas style="position:absolute;inset:0;z-index:1;width:100%;height:100%;cursor:crosshair;touch-action:none;outline:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"></canvas>
+        data-scratch-hit-area
+        data-scratch-completed="false"
+        style="position:absolute;inset:0;z-index:2;cursor:crosshair;touch-action:none;outline:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"
+      ></div>
     </div>
   </div>`;
 }

@@ -12,7 +12,6 @@ import { useAnimationEngine } from '../../../motion/animation-engine';
 import { buildScratchRevealMetadata } from '../../../motion/animation-engine/reveal-replay';
 import { isScratchGroupActive } from '../../../widgets/group/group-scratch-activation';
 import {
-  getScratchRevealTargetId,
   getScratchRevealTargetMode,
   isWidgetDescendantOf,
   resolveScratchInternalTargetIds,
@@ -52,6 +51,24 @@ function isVisuallyCoveredByScratchGroup(
   if (isScratchCoverSubtreeWidget(scratchGroup, candidate, widgetsById)) return false;
   if (Number(scratchGroup.zIndex ?? 0) <= Number(candidate.zIndex ?? 0)) return false;
   return rectsOverlap(scratchGroup.frame, candidate.frame);
+}
+
+function resolveScratchInternalTargetDisplayIds(
+  scratchGroup: WidgetNode,
+  internalTargetIds: ReadonlySet<string>,
+  widgetsById: Record<string, WidgetNode>,
+): Set<string> {
+  const displayIds = new Set(internalTargetIds);
+  internalTargetIds.forEach((targetId) => {
+    let currentParentId = widgetsById[targetId]?.parentId;
+    const visited = new Set<string>();
+    while (currentParentId && currentParentId !== scratchGroup.id && !visited.has(currentParentId)) {
+      visited.add(currentParentId);
+      displayIds.add(currentParentId);
+      currentParentId = widgetsById[currentParentId]?.parentId;
+    }
+  });
+  return displayIds;
 }
 
 export type StageSurfaceProps = {
@@ -180,6 +197,7 @@ export function StageSurface({
       const mode = getScratchRevealTargetMode(group);
       const targetIds = new Set(resolveScratchRevealTargets(group, sceneWidgets, widgetsById).map((widget) => widget.id));
       const internalTargetIds = resolveScratchInternalTargetIds(group, widgetsById);
+      const internalTargetDisplayIds = resolveScratchInternalTargetDisplayIds(group, internalTargetIds, widgetsById);
       const coveredIds = new Set(
         widgetsInScene
           .filter((widget) => isVisuallyCoveredByScratchGroup(group, widget, widgetsById))
@@ -198,6 +216,7 @@ export function StageSurface({
         mode,
         targetIds,
         internalTargetIds,
+        internalTargetDisplayIds,
         coveredIds,
         scratchSubtreeIds,
         scratchDescendantIds,
@@ -432,9 +451,10 @@ export function StageSurface({
             if (!scratchActive) continue;
             if (scratchCompleted) {
               if (widget.id === scratchGroup.id) return false;
-              if (plan.internalTargetIds.has(widget.id)) return true;
+              if (plan.internalTargetDisplayIds.has(widget.id)) return true;
               if (plan.scratchDescendantIds.has(widget.id)) return false;
             } else if (plan.scratchDescendantIds.has(widget.id)) {
+              if (plan.internalTargetDisplayIds.has(widget.id)) return true;
               return false;
             }
             if (plan.mode === 'scene') continue;

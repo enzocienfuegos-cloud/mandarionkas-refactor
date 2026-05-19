@@ -1,6 +1,5 @@
 import { getActiveFeedRecord } from '../domain/document/resolvers';
 import type { StudioState } from '../domain/document/types';
-import { buildResolvedWidgetsById } from '../domain/document/canvas-variants';
 import { buildFontFaceCss } from '../assets/font-family';
 import { renderWidgetExport } from '../widgets/modules/export-registry';
 import type { GamHtml5AdapterResult, GenericHtml5AdapterResult, GoogleDisplayAdapterResult, MraidAdapterResult, PlayableExportAdapterResult, VastSimidAdapterResult } from './adapters';
@@ -117,20 +116,8 @@ function sceneHtml(
   assetPathMap: Record<string, string>,
   visibleByDefault = false,
 ): string {
-  const widgetsById = buildResolvedWidgetsById(state.document);
-  const isCoveredByScratchGroup = (widgetId: string): boolean => {
-    let currentParentId = widgetsById[widgetId]?.parentId;
-    while (currentParentId) {
-      const parent = widgetsById[currentParentId];
-      if (!parent) return false;
-      if (parent.type === 'group' && Boolean(parent.props.scratchEnabled)) return true;
-      currentParentId = parent.parentId;
-    }
-    return false;
-  };
-
   const widgets = scene.widgets
-    .filter((widget) => !widget.hidden && !isCoveredByScratchGroup(widget.id))
+    .filter((widget) => !widget.hidden)
     .sort((a, b) => a.zIndex - b.zIndex);
   return `
     <section class="scene" data-scene-id="${scene.id}" data-scene-order="${scene.order}" style="position:absolute;inset:0;width:${canvas.width}px;height:${canvas.height}px;background:${escapeHtml(canvas.backgroundColor)};overflow:hidden;display:${visibleByDefault ? 'block' : 'none'};">

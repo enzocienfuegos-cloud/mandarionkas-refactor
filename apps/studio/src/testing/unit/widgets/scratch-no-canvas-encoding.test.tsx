@@ -143,30 +143,23 @@ describe('scratch flow does not use canvas.toDataURL', () => {
     expect(toBlobSpy).not.toHaveBeenCalled();
   });
 
-  it('uses a stable inline SVG mask while scratching instead of a blob preview url', () => {
+  it('uses a single Canvas cover while scratching instead of SVG or blob masks', () => {
     const { container } = render(<ScratchHarness />);
-    const scratchMaskWrapper = container.querySelector<HTMLElement>('[data-scratch-mask-target]');
-    const scratchMaskSvg = container.querySelector<SVGSVGElement>('[data-scratch-mask-svg]');
-    const scratchMaskRect = container.querySelector<SVGRectElement>('[data-scratch-mask-svg] rect');
-    const scratchMaskPath = container.querySelector<SVGPathElement>('[data-scratch-mask-svg] path');
+    const scratchCanvas = container.querySelector<HTMLCanvasElement>('[data-scratch-canvas]');
     const scratchHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
 
-    expect(scratchMaskWrapper).toBeTruthy();
-    expect(scratchMaskSvg?.getAttribute('width')).toBeNull();
-    expect(scratchMaskSvg?.getAttribute('height')).toBeNull();
-    expect(scratchMaskSvg?.getAttribute('viewBox')).toBe('0 0 320 180');
-    expect(scratchMaskSvg?.style.width).toBe('100%');
-    expect(scratchMaskSvg?.style.height).toBe('100%');
-    expect(scratchMaskRect?.getAttribute('width')).toBe('320');
-    expect(scratchMaskRect?.getAttribute('height')).toBe('180');
-    expect(scratchMaskWrapper?.style.mask || scratchMaskWrapper?.style.webkitMask).toContain('#scratch-mask-scratch_group');
-    expect(scratchMaskPath?.getAttribute('d')).toBe('');
+    expect(scratchCanvas).toBeTruthy();
+    expect(scratchCanvas?.dataset.scratchCoverLayer).toBe('true');
+    expect(scratchCanvas?.style.width).toBe('100%');
+    expect(scratchCanvas?.style.height).toBe('100%');
+    expect(container.querySelector('[data-scratch-mask-svg]')).toBeNull();
+    expect(container.querySelector('[data-scratch-mask-target]')).toBeNull();
 
     fireEvent.pointerDown(scratchHitArea!, { isPrimary: true, clientX: 16, clientY: 16, pointerId: 1 });
     fireEvent.pointerMove(scratchHitArea!, { clientX: 44, clientY: 28, pointerId: 1 });
 
-    expect(scratchMaskWrapper?.style.mask || scratchMaskWrapper?.style.webkitMask).toContain('#scratch-mask-scratch_group');
-    expect(scratchMaskPath?.getAttribute('d')).toContain('M');
+    expect(toDataURLSpy).not.toHaveBeenCalled();
+    expect(toBlobSpy).not.toHaveBeenCalled();
   });
 
   it('does not wrap scratch cover children in MotionLayer compositor nodes', () => {

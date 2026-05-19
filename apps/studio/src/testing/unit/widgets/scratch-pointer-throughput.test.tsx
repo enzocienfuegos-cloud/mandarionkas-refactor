@@ -132,13 +132,14 @@ describe('scratch pointer throughput', () => {
     resizeObserverCallback = null;
   });
 
-  it('accumulates a long SVG path without blob URLs during sustained scratching', () => {
+  it('scratches the Canvas cover without SVG paths or blob URLs during sustained scratching', () => {
     const { container } = render(createScratchHarness());
     const scratchHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
-    const scratchMaskPath = container.querySelector<SVGPathElement>('[data-scratch-mask-svg] path');
+    const scratchCanvas = container.querySelector<HTMLCanvasElement>('[data-scratch-canvas]');
 
     expect(scratchHitArea).toBeTruthy();
-    expect(scratchMaskPath).toBeTruthy();
+    expect(scratchCanvas).toBeTruthy();
+    expect(container.querySelector('[data-scratch-mask-svg]')).toBeNull();
 
     fireEvent.pointerDown(scratchHitArea!, { isPrimary: true, clientX: 10, clientY: 10, pointerId: 1 });
     for (let index = 0; index < 200; index += 1) {
@@ -150,10 +151,7 @@ describe('scratch pointer throughput', () => {
     }
     fireEvent.pointerUp(scratchHitArea!, { clientX: 212, clientY: 25, pointerId: 1 });
 
-    const pathData = scratchMaskPath?.getAttribute('d') ?? '';
-    const segmentCount = (pathData.match(/\bM\s/g) ?? []).length;
-
-    expect(segmentCount).toBeGreaterThanOrEqual(180);
+    expect(imageDataReads).toBeGreaterThan(0);
     expect(createObjectURLSpy).not.toHaveBeenCalled();
     expect(revokeObjectURLSpy).not.toHaveBeenCalled();
   });
@@ -204,7 +202,7 @@ describe('scratch pointer throughput', () => {
 
     const coverLayer = container.querySelector<HTMLElement>('[data-scratch-cover-layer]');
     const completedHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
-    expect(coverLayer?.style.display).toBe('none');
+    expect(coverLayer?.style.opacity).toBe('0');
     expect(completedHitArea?.dataset.scratchCompleted).toBe('true');
 
     resizeObserverCallback?.([], {} as ResizeObserver);
@@ -218,7 +216,7 @@ describe('scratch pointer throughput', () => {
     const resizedHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
     const completionCalls = triggerWidgetAction.mock.calls.filter(([trigger]) => trigger === 'scratch-complete');
 
-    expect(resizedCoverLayer?.style.display).toBe('none');
+    expect(resizedCoverLayer?.style.opacity).toBe('0');
     expect(resizedHitArea?.dataset.scratchCompleted).toBe('true');
     expect(completionCalls).toHaveLength(1);
   });

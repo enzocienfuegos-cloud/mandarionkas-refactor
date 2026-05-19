@@ -23,8 +23,7 @@ const EVENT_TRIGGERS: readonly AnimationTrigger[] = [
 ];
 
 function findMotionNode(widgetId: string): HTMLElement | null {
-  return document.querySelector(`[data-scratch-cover-motion-id="${widgetId}"]`)
-    ?? document.querySelector(`[data-widget-layer-id="${widgetId}"]`)
+  return document.querySelector(`[data-widget-layer-id="${widgetId}"]`)
     ?? document.querySelector(`[data-widget-id="${widgetId}"]`);
 }
 
@@ -36,16 +35,9 @@ function buildWidgetIndex(runtimeModel: ExportRuntimeModel): Record<string, Expo
 
 function isCoveredByScratchGroup(scene: ExportRuntimeScene, scratchWidget: ExportRuntimeWidget, widget: ExportRuntimeWidget): boolean {
   if (scratchWidget.id === widget.id) return false;
-  let scratchParentId = widget.parentId;
-  const scratchVisited = new Set<string>();
-  const scratchSceneWidgetsById = Object.fromEntries(scene.widgets.map((entry) => [entry.id, entry] as const));
-  while (scratchParentId && !scratchVisited.has(scratchParentId)) {
-    if (scratchParentId === scratchWidget.id) return false;
-    scratchVisited.add(scratchParentId);
-    scratchParentId = scratchSceneWidgetsById[scratchParentId]?.parentId;
-  }
   const targetMode = String(scratchWidget.props?.revealTargetMode ?? 'auto').trim().toLowerCase();
   const targetId = String(scratchWidget.props?.revealTargetId ?? '').trim();
+  const scratchSceneWidgetsById = Object.fromEntries(scene.widgets.map((entry) => [entry.id, entry] as const));
   if (targetMode === 'scene') return widget.sceneId === targetId;
   if (targetMode === 'widget' && targetId) {
     if (widget.id === targetId) return true;
@@ -57,6 +49,13 @@ function isCoveredByScratchGroup(scene: ExportRuntimeScene, scratchWidget: Expor
       currentParentId = scratchSceneWidgetsById[currentParentId]?.parentId;
     }
     return false;
+  }
+  let scratchParentId = widget.parentId;
+  const scratchVisited = new Set<string>();
+  while (scratchParentId && !scratchVisited.has(scratchParentId)) {
+    if (scratchParentId === scratchWidget.id) return false;
+    scratchVisited.add(scratchParentId);
+    scratchParentId = scratchSceneWidgetsById[scratchParentId]?.parentId;
   }
   if (targetMode !== 'auto') return false;
   if (Number(scratchWidget.zIndex ?? 0) <= Number(widget.zIndex ?? 0)) return false;
@@ -80,8 +79,7 @@ function isWaitingForScratchReveal(scene: ExportRuntimeScene, widget: ExportRunt
 }
 
 function syncTimelineWidget(widget: ExportRuntimeWidget, playheadMs: number): void {
-  const node = document.querySelector(`[data-scratch-cover-widget-id="${widget.id}"]`)
-    ?? document.querySelector(`[data-widget-id="${widget.id}"]`);
+  const node = document.querySelector(`[data-widget-id="${widget.id}"]`);
   if (!(node instanceof HTMLElement)) return;
   const keyframes = [...(widget.timeline.keyframes ?? [])].sort((left, right) => left.atMs - right.atMs);
   if (!keyframes.length) return;

@@ -96,29 +96,27 @@ function createState(): StudioState {
 }
 
 describe('group scratch export', () => {
-  it('renders a scratch shell when the group is scratch-enabled', () => {
+  it('renders a single Canvas scratch shell when the group is scratch-enabled', () => {
     const html = renderGroupExport(createGroupWidget(), createState());
 
     expect(html).toContain('widget-group-scratch');
     expect(html).toContain('class="scratch-reveal-shell"');
     expect(html).toContain('data-scratch-shell');
-    expect(html).toContain('data-scratch-mask-svg');
-    expect(html).toContain('viewBox="0 0 220 160"');
-    expect(html).toContain('preserveAspectRatio="none"');
-    expect(html).toContain('style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;"');
-    expect(html).toContain('data-scratch-mask-rect x="0" y="0" width="220" height="160"');
-    expect(html).toContain('data-scratch-mask-path');
-    expect(html).toContain('data-scratch-mask-target');
-    expect(html).toContain('mask:url(#scratch-mask-group_1)');
+    expect(html).toContain('data-scratch-canvas');
+    expect(html).toContain('data-scratch-cover-layer');
+    expect(html).toContain('data-scratch-hit-area');
     expect(html).toContain('data-scratch-auto-reveal-threshold="10"');
     expect(html).toContain('data-scratch-milestones="[]"');
     expect(html).toContain('data-scratch-reveal-target-mode="auto"');
     expect(html).toContain('data-scratch-reveal-target-id=""');
     expect(html).toContain('data-scratch-replay-target-motion-on-reveal="true"');
-    expect(html).toContain('Scratch me first');
-    expect(html).toContain('Shop now');
-    expect(html).toContain('data-scratch-canvas');
-    expect(html).not.toContain('data-scratch-mask-canvas');
+    expect(html).toContain('data-scratch-cover-color="#8b5cf6"');
+    expect(html).not.toContain('data-scratch-mask-svg');
+    expect(html).not.toContain('data-scratch-mask-target');
+    expect(html).not.toContain('data-scratch-target-content');
+    expect(html).not.toContain('data-scratch-cover-widget-id');
+    expect(html).not.toContain('Scratch me first');
+    expect(html).not.toContain('Shop now');
     expect(html).not.toMatch(/url\(["']?blob:/);
   });
 
@@ -149,59 +147,7 @@ describe('group scratch export', () => {
     expect(html).toContain('data-scratch-replay-target-motion-on-reveal="false"');
   });
 
-  it('wraps scratch cover children so grouped animations survive export runtime', () => {
-    const state = createState();
-    state.document.widgets.text_1.motion = {
-      templateId: 'float',
-      config: { durationMs: 1800 },
-    } as any;
-    state.document.widgets.text_1.timeline = {
-      startMs: 0,
-      endMs: 1000,
-      keyframes: [
-        { id: 'kf_1', property: 'x', atMs: 0, value: 12, easing: 'linear' },
-        { id: 'kf_2', property: 'x', atMs: 1000, value: 80, easing: 'ease-out' },
-      ],
-    } as any;
-    const html = renderGroupExport(state.document.widgets.group_1, state);
-
-    expect(html).toContain('data-scratch-cover-widget-id="text_1"');
-    expect(html).toContain('data-scratch-cover-motion-id="text_1"');
-    expect(html).toContain('data-scratch-origin-x="0"');
-    expect(html).toContain('data-scratch-origin-y="0"');
-    expect(html).toContain('left:12px');
-    expect(html).toContain('position:absolute;left:0px;top:0px');
-  });
-
-  it('includes nested group shells in the scratch cover export, not only leaf widgets', () => {
-    const state = createState();
-    const cardGroup: WidgetNode = {
-      id: 'card_group',
-      type: 'group',
-      name: 'Card group',
-      sceneId: 'scene_1',
-      zIndex: 1,
-      parentId: 'group_1',
-      frame: { x: 18, y: 14, width: 180, height: 100, rotation: 0 },
-      props: { title: 'Card group' },
-      style: { backgroundColor: '#ffffff', borderRadius: 20, opacity: 1 },
-      timeline: { startMs: 0, endMs: 1000 },
-      childIds: ['text_1'],
-    };
-
-    state.document.widgets.group_1.childIds = ['card_group', 'cta_1'];
-    state.document.widgets.text_1.parentId = 'card_group';
-    state.document.widgets.card_group = cardGroup;
-    state.document.scenes[0].widgetIds = ['group_1', 'card_group', 'text_1', 'cta_1'];
-
-    const html = renderGroupExport(state.document.widgets.group_1, state);
-
-    expect(html).toContain('data-scratch-cover-widget-id="card_group"');
-    expect(html).toContain('width:180px');
-    expect(html).toContain('height:100px');
-  });
-
-  it('renders a dedicated static target preview layer and excludes that subtree from the scratch cover when the target is inside the scratch group', () => {
+  it('does not clone internal target content into the scratch shell', () => {
     const state = createState();
     const targetGroup: WidgetNode = {
       id: 'target_group',
@@ -226,26 +172,22 @@ describe('group scratch export', () => {
 
     const html = renderGroupExport(state.document.widgets.group_1, state);
 
-    expect(html).toContain('data-scratch-target-content');
-    expect(html).toContain('data-scratch-cover-widget-id="target_group"');
-    const targetPreviewIndex = html.indexOf('data-scratch-target-content');
-    const maskTargetIndex = html.indexOf('data-scratch-mask-target');
-    const targetGroupInMaskIndex = html.indexOf('data-scratch-cover-widget-id="target_group"', maskTargetIndex);
-    expect(targetPreviewIndex).toBeGreaterThan(-1);
-    expect(maskTargetIndex).toBeGreaterThan(-1);
-    expect(targetGroupInMaskIndex).toBe(-1);
+    expect(html).toContain('data-scratch-reveal-target-mode="widget"');
+    expect(html).toContain('data-scratch-reveal-target-id="target_group"');
+    expect(html).not.toContain('data-scratch-target-content');
+    expect(html).not.toContain('data-scratch-cover-widget-id="target_group"');
   });
 
-  it('expands the scratch group export frame when children extend outside the original group bounds', () => {
+  it('uses the parent group frame for the Canvas overlay', () => {
     const state = createState();
     state.document.widgets.group_1.frame = { x: 40, y: 60, width: 120, height: 80, rotation: 0 };
     state.document.widgets.text_1.frame = { x: 12, y: 16, width: 220, height: 48, rotation: 0 };
     const html = renderGroupExport(state.document.widgets.group_1, state);
 
-    expect(html).toContain('left:12px');
-    expect(html).toContain('top:16px');
-    expect(html).toContain('width:220px');
-    expect(html).toContain('height:124px');
+    expect(html).toContain('left:40px');
+    expect(html).toContain('top:60px');
+    expect(html).toContain('width:120px');
+    expect(html).toContain('height:80px');
   });
 
   it('falls back to the regular group export when scratch is disabled', () => {
