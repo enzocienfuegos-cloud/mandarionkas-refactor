@@ -732,15 +732,19 @@ function useScratchGroupActiveState(node: WidgetNode, ctx: RenderContext): boole
 }
 
 export function renderGroupWidget(node: WidgetNode, ctx: RenderContext): JSX.Element {
-  if (node.props.scratchEnabled) {
-    const scratchGroupActive = useScratchGroupActiveState(node, ctx);
-    if (!ctx.previewMode) {
-      return <div style={scratchEditorOverlayStyle} />;
-    }
-    if (!scratchGroupActive) {
-      return renderDefaultGroup(node, ctx);
-    }
-    return <ScratchGroupRenderer node={node} ctx={ctx} />;
+  const scratchGroupActive = useScratchGroupActiveState(node, ctx);
+
+  if (!node.props.scratchEnabled) {
+    return renderDefaultGroup(node, ctx);
   }
-  return renderDefaultGroup(node, ctx);
+
+  if (!ctx.previewMode) {
+    return <div style={scratchEditorOverlayStyle} />;
+  }
+
+  if (!scratchGroupActive) {
+    return renderDefaultGroup(node, ctx);
+  }
+
+  return <ScratchGroupRenderer node={node} ctx={ctx} />;
 }

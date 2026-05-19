@@ -68,6 +68,13 @@ function ScratchHarness(): JSX.Element {
   return renderGroupWidget(node, ctx);
 }
 
+function ToggleScratchHarness({ scratchEnabled }: { scratchEnabled: boolean }): JSX.Element {
+  const node = createScratchGroup();
+  node.props.scratchEnabled = scratchEnabled;
+  const ctx = createRenderContext(node);
+  return renderGroupWidget(node, ctx);
+}
+
 describe('scratch flow does not use canvas.toDataURL', () => {
   let toDataURLSpy: ReturnType<typeof vi.spyOn>;
   let getContextSpy: ReturnType<typeof vi.spyOn>;
@@ -154,5 +161,14 @@ describe('scratch flow does not use canvas.toDataURL', () => {
 
     expect(container.querySelector('[data-scratch-hit-area]')).toBeTruthy();
     expect(container.querySelector('.stage-widget-compositor-motion')).toBeNull();
+  });
+
+  it('does not trip React hooks when scratch is toggled on after initial render', () => {
+    const { rerender, container } = render(<ToggleScratchHarness scratchEnabled={false} />);
+
+    expect(container.querySelector('[data-scratch-hit-area]')).toBeNull();
+
+    expect(() => rerender(<ToggleScratchHarness scratchEnabled />)).not.toThrow();
+    expect(container.querySelector('[data-scratch-hit-area]')).toBeTruthy();
   });
 });
