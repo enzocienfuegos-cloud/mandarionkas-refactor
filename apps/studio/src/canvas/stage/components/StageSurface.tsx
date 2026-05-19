@@ -173,25 +173,51 @@ export function StageSurface({
     () => widgets.filter((widget) => widget.type === 'group' && Boolean(widget.props.scratchEnabled)),
     [widgets],
   );
+  const scratchVisibilityPlans = useMemo(() => {
+    const widgetsInScene = Object.values(widgetsById).filter((widget) => widget.sceneId === sceneId);
+    return scratchGroups.map((group) => {
+      const mode = getScratchRevealTargetMode(group);
+      const targetIds = new Set(resolveScratchRevealTargets(group, sceneWidgets, widgetsById).map((widget) => widget.id));
+      const coveredIds = new Set(
+        widgetsInScene
+          .filter((widget) => isVisuallyCoveredByScratchGroup(group, widget, widgetsById))
+          .map((widget) => widget.id),
+      );
+      const scratchSubtreeIds = new Set<string>(
+        widgetsInScene
+          .filter((widget) => isScratchCoverSubtreeWidget(group, widget, widgetsById))
+          .map((widget) => widget.id),
+      );
+      const scratchDescendantIds = new Set(scratchSubtreeIds);
+      scratchDescendantIds.delete(group.id);
+
+      return {
+        group,
+        mode,
+        targetIds,
+        coveredIds,
+        scratchSubtreeIds,
+        scratchDescendantIds,
+      };
+    });
+  }, [sceneId, sceneWidgets, scratchGroups, widgetsById]);
   const scratchTargetGroupIds = useMemo(() => {
     const nextIds = new Set<string>();
-    scratchGroups.forEach((group) => {
-      if (getScratchRevealTargetMode(group) !== 'widget') return;
-      const targetId = getScratchRevealTargetId(group);
-      if (!targetId) return;
-      const targetWidget = widgetsById[targetId];
-      if (targetWidget?.type !== 'group') return;
-      nextIds.add(targetWidget.id);
-      Object.values(widgetsById).forEach((candidate) => {
-        if (candidate.type !== 'group') return;
-        if (candidate.id === targetWidget.id) return;
-        if (isWidgetDescendantOf(candidate.id, targetWidget.id, widgetsById)) {
-          nextIds.add(candidate.id);
+    scratchVisibilityPlans.forEach((plan) => {
+      plan.targetIds.forEach((targetId) => {
+        let currentId: string | undefined = targetId;
+        const visited = new Set<string>();
+        while (currentId && !visited.has(currentId)) {
+          visited.add(currentId);
+          const currentWidget: WidgetNode | undefined = widgetsById[currentId];
+          if (!currentWidget) break;
+          if (currentWidget.type === 'group') nextIds.add(currentWidget.id);
+          currentId = currentWidget.parentId;
         }
       });
     });
     return nextIds;
-  }, [scratchGroups, widgetsById]);
+  }, [scratchVisibilityPlans, widgetsById]);
 
   const stableWidgetTrigger = useCallback((widgetId: string, trigger: ActionNode['trigger'], metadata?: Record<string, unknown>) => {
     const deps = widgetTriggerDepsRef.current;
@@ -392,7 +418,8 @@ export function StageSurface({
         }
 
         const scratchVisibilityOverride = (() => {
-          for (const scratchGroup of scratchGroups) {
+          for (const plan of scratchVisibilityPlans) {
+            const scratchGroup = plan.group;
             const scratchCompleted = Boolean(completedScratchGroupIdsRef.current[scratchGroup.id]);
             const scratchActive = scratchCompleted || isScratchGroupActive({
               group: scratchGroup,
@@ -400,20 +427,10 @@ export function StageSurface({
               playheadMs: ms,
             });
             if (!scratchActive) continue;
-            if (getScratchRevealTargetMode(scratchGroup) !== 'widget') continue;
-            const targetId = getScratchRevealTargetId(scratchGroup);
-            if (!targetId) continue;
-            const targetMatch = widget.id === targetId || isWidgetDescendantOf(widget.id, targetId, widgetsById);
-            const covered = isVisuallyCoveredByScratchGroup(scratchGroup, widget, widgetsById);
-            const scratchSubtree = isScratchCoverSubtreeWidget(scratchGroup, widget, widgetsById);
-
-            if (!scratchCompleted) {
-              if (covered && !targetMatch) return false;
-              continue;
-            }
-
-            if (scratchSubtree) return false;
-            if (covered && !targetMatch) return false;
+            if (plan.scratchDescendantIds.has(widget.id)) return false;
+            if (scratchCompleted && widget.id === scratchGroup.id) return false;
+            if (plan.mode === 'scene') continue;
+            if (plan.coveredIds.has(widget.id) && !plan.targetIds.has(widget.id)) return false;
           }
           return true;
         })();
@@ -504,7 +521,7 @@ export function StageSurface({
     parentChainByWidgetId,
     playbackReactiveWidgets,
     sceneDurationMs,
-    scratchGroups,
+    scratchVisibilityPlans,
     widgetAnimationState,
     widgets,
     widgetsById,

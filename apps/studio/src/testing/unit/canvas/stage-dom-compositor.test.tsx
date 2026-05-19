@@ -269,4 +269,55 @@ describe('StageSurface DOM compositor path', () => {
     expect(container.querySelector('[data-stage-widget-id="target_group"]')).toBeTruthy();
     expect(container.querySelector('[data-stage-widget-id="target_card_group"]')).toBeTruthy();
   });
+
+  it('hides real scratch subtree descendants while the scratch cover is active so only the masked cover copy stays visible', () => {
+    const scratchGroup = createWidget('scratch_group');
+    scratchGroup.type = 'group';
+    scratchGroup.zIndex = 5;
+    scratchGroup.props = { scratchEnabled: true, revealTargetMode: 'widget', revealTargetId: 'target_group' };
+    scratchGroup.childIds = ['cover_text'];
+    scratchGroup.frame = { x: 0, y: 0, width: 220, height: 140, rotation: 0 };
+
+    const coverText = createWidget('cover_text');
+    coverText.parentId = 'scratch_group';
+    coverText.zIndex = 6;
+    coverText.frame = { x: 20, y: 20, width: 120, height: 40, rotation: 0 };
+
+    const targetGroup = createWidget('target_group');
+    targetGroup.type = 'group';
+    targetGroup.childIds = ['target_card_1'];
+    targetGroup.zIndex = 1;
+    targetGroup.frame = { x: 0, y: 0, width: 220, height: 140, rotation: 0 };
+
+    const targetCard1 = createWidget('target_card_1');
+    targetCard1.parentId = 'target_group';
+    targetCard1.zIndex = 2;
+    targetCard1.frame = { x: 12, y: 18, width: 80, height: 60, rotation: 0 };
+
+    const { container } = render(
+      <PlayheadRefProvider>
+        <StageSurface
+          {...buildProps({
+            previewMode: true,
+            isPlaying: false,
+            widgets: [targetGroup, targetCard1, scratchGroup, coverText],
+            widgetsById: {
+              scratch_group: scratchGroup,
+              cover_text: coverText,
+              target_group: targetGroup,
+              target_card_1: targetCard1,
+            },
+          })}
+        />
+      </PlayheadRefProvider>,
+    );
+
+    const scratchNode = container.querySelector<HTMLElement>('[data-stage-widget-id="scratch_group"]');
+    const coverTextNode = container.querySelector<HTMLElement>('[data-stage-widget-id="cover_text"]');
+    const targetGroupNode = container.querySelector<HTMLElement>('[data-stage-widget-id="target_group"]');
+
+    expect(scratchNode?.style.display).toBe('');
+    expect(coverTextNode?.style.display).toBe('none');
+    expect(targetGroupNode?.style.display).toBe('');
+  });
 });

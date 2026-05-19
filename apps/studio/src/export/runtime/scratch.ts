@@ -207,6 +207,24 @@ function resolveCoveredScratchWidgets(scene: ExportRuntimeScene, scratchWidget: 
   return scene.widgets.filter((widget) => isVisuallyCoveredByScratchShell(scene, scratchWidget, widget));
 }
 
+function resolveScratchSubtreeWidgets(scene: ExportRuntimeScene, scratchWidget: ExportRuntimeWidget): ExportRuntimeWidget[] {
+  const widgetsById = Object.fromEntries(scene.widgets.map((entry) => [entry.id, entry] as const));
+  const visited = new Set<string>();
+  const result: ExportRuntimeWidget[] = [];
+
+  const visit = (widgetId: string): void => {
+    if (visited.has(widgetId)) return;
+    visited.add(widgetId);
+    const widget = widgetsById[widgetId];
+    if (!widget) return;
+    result.push(widget);
+    (widget.childIds ?? []).forEach(visit);
+  };
+
+  visit(scratchWidget.id);
+  return result;
+}
+
 function findRuntimeWidgetNodes(widgetId: string): HTMLElement[] {
   return [
     ...document.querySelectorAll<HTMLElement>(`[data-widget-id="${widgetId}"]`),
@@ -404,23 +422,35 @@ export function mountScratchReveal(
     const targetIds = scene && scratchWidget
       ? new Set(resolveScratchTargets(scene, scratchWidget).map((widget) => widget.id))
       : new Set<string>();
-
-    if (scene && scratchWidget && revealTargetMode === 'widget' && revealTargetId) {
-      resolveCoveredScratchWidgets(scene, scratchWidget).forEach((widget) => {
-        if (targetIds.has(widget.id)) return;
-        findRuntimeWidgetNodes(widget.id).forEach((node) => {
-          if (!visibilitySnapshots.has(node)) {
-            visibilitySnapshots.set(node, {
-              display: node.style.display,
-              visibility: node.style.visibility,
-              pointerEvents: node.style.pointerEvents,
-            });
-          }
-          node.style.display = 'none';
-          node.style.visibility = 'hidden';
-          node.style.pointerEvents = 'none';
-        });
+    const scratchSubtreeIds = scene && scratchWidget
+      ? new Set(resolveScratchSubtreeWidgets(scene, scratchWidget).map((widget) => widget.id))
+      : new Set<string>();
+    const captureVisibilitySnapshot = (node: HTMLElement): void => {
+      if (visibilitySnapshots.has(node)) return;
+      visibilitySnapshots.set(node, {
+        display: node.style.display,
+        visibility: node.style.visibility,
+        pointerEvents: node.style.pointerEvents,
       });
+    };
+    const hideRuntimeNode = (node: HTMLElement): void => {
+      captureVisibilitySnapshot(node);
+      node.style.display = 'none';
+      node.style.visibility = 'hidden';
+      node.style.pointerEvents = 'none';
+    };
+
+    if (scene && scratchWidget) {
+      scratchSubtreeIds.forEach((widgetId) => {
+        if (widgetId === scratchWidget.id) return;
+        findRuntimeWidgetNodes(widgetId).forEach(hideRuntimeNode);
+      });
+      if (revealTargetMode !== 'scene') {
+        resolveCoveredScratchWidgets(scene, scratchWidget).forEach((widget) => {
+          if (targetIds.has(widget.id)) return;
+          findRuntimeWidgetNodes(widget.id).forEach(hideRuntimeNode);
+        });
+      }
     }
 
     const emitScratchMilestone = (milestone: ScratchMilestone, perfNow: number): void => {
@@ -464,20 +494,32 @@ export function mountScratchReveal(
       if (!scene || !scratchWidget) return;
       const clock = createEventClock('reveal', completionPerfMs);
       const revealMetadata = buildScratchRevealMetadata(replayTargetMotionOnReveal);
-      if (revealTargetMode === 'widget' && revealTargetId) {
-        resolveCoveredScratchWidgets(scene, scratchWidget).forEach((widget) => {
-          findRuntimeWidgetNodes(widget.id).forEach((node) => {
-            const snapshot = visibilitySnapshots.get(node);
-            if (!snapshot) return;
-            if (targetIds.has(widget.id)) {
+      findRuntimeWidgetNodes(scratchWidget.id).forEach(hideRuntimeNode);
+      if (revealTargetMode !== 'scene') {
+        scratchSubtreeIds.forEach((widgetId) => {
+          findRuntimeWidgetNodes(widgetId).forEach((node) => {
+            if (targetIds.has(widgetId)) {
+              const snapshot = visibilitySnapshots.get(node);
+              if (!snapshot) return;
               node.style.display = snapshot.display;
               node.style.visibility = snapshot.visibility;
               node.style.pointerEvents = snapshot.pointerEvents;
               return;
             }
-            node.style.display = 'none';
-            node.style.visibility = 'hidden';
-            node.style.pointerEvents = 'none';
+            hideRuntimeNode(node);
+          });
+        });
+        resolveCoveredScratchWidgets(scene, scratchWidget).forEach((widget) => {
+          findRuntimeWidgetNodes(widget.id).forEach((node) => {
+            if (targetIds.has(widget.id)) {
+              const snapshot = visibilitySnapshots.get(node);
+              if (!snapshot) return;
+              node.style.display = snapshot.display;
+              node.style.visibility = snapshot.visibility;
+              node.style.pointerEvents = snapshot.pointerEvents;
+              return;
+            }
+            hideRuntimeNode(node);
           });
         });
       }

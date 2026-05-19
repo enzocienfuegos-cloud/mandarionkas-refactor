@@ -229,6 +229,14 @@ describe('scratch milestones', () => {
             frame: { x: 30, y: 60, width: 90, height: 20, rotation: 0 },
           }),
           createRuntimeWidget({
+            id: 'cover_text',
+            type: 'text',
+            sceneId: 'scene_1',
+            parentId: 'scratch_group',
+            zIndex: 6,
+            frame: { x: 20, y: 20, width: 120, height: 30, rotation: 0 },
+          }),
+          createRuntimeWidget({
             id: 'scratch_group',
             type: 'group',
             sceneId: 'scene_1',
@@ -239,6 +247,7 @@ describe('scratch milestones', () => {
               revealTargetMode: 'widget',
               revealTargetId: 'target_group',
             },
+            childIds: ['cover_text'],
           }),
         ],
       }),
@@ -250,6 +259,8 @@ describe('scratch milestones', () => {
         <div data-scratch-shell></div>
         <canvas data-scratch-canvas></canvas>
       </div>
+      <div data-widget-id="cover_text"></div>
+      <div data-widget-layer-id="cover_text"></div>
       <div data-widget-id="target_group"></div>
       <div data-widget-layer-id="target_group"></div>
       <div data-widget-id="target_card_1"></div>
@@ -284,6 +295,7 @@ describe('scratch milestones', () => {
 
     const handle = mountScratchReveal(engine, runtimeModel, sceneManager);
 
+    expect((document.querySelector('[data-widget-id="cover_text"]') as HTMLElement).style.display).toBe('none');
     expect((document.querySelector('[data-widget-id="target_group"]') as HTMLElement).style.display).toBe('');
     expect((document.querySelector('[data-widget-id="target_card_1"]') as HTMLElement).style.display).toBe('');
     expect((document.querySelector('[data-widget-id="target_card_2"]') as HTMLElement).style.display).toBe('');
@@ -294,6 +306,8 @@ describe('scratch milestones', () => {
 
     expect(shell.classList.contains('is-scratch-complete')).toBe(true);
     expect(canvas.style.display).toBe('none');
+    expect((document.querySelector('[data-widget-id="scratch_group"]') as HTMLElement).style.display).toBe('none');
+    expect((document.querySelector('[data-widget-id="cover_text"]') as HTMLElement).style.display).toBe('none');
     expect((document.querySelector('[data-widget-id="target_group"]') as HTMLElement).style.display).toBe('');
     expect((document.querySelector('[data-widget-id="target_card_1"]') as HTMLElement).style.display).toBe('');
     expect((document.querySelector('[data-widget-id="target_card_2"]') as HTMLElement).style.display).toBe('');
