@@ -12,6 +12,15 @@ import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style
 import { isScratchGroupActive } from './group-scratch-activation';
 import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
 
+type CssCanvasDocument = Document & {
+  getCSSCanvasContext?: (
+    contextId: '2d',
+    name: string,
+    width: number,
+    height: number,
+  ) => CanvasRenderingContext2D | null;
+};
+
 const groupBaseStyle: CSSProperties = {
   width: '100%',
   height: '100%',
@@ -37,15 +46,6 @@ const scratchEditorOverlayStyle: CSSProperties = {
   border: '1px dashed rgba(249, 115, 22, 0.8)',
   borderRadius: 18,
   background: 'transparent',
-  pointerEvents: 'none',
-};
-
-const scratchCanvasStyle: CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  width: '100%',
-  height: '100%',
-  opacity: 0,
   pointerEvents: 'none',
 };
 
@@ -145,15 +145,47 @@ function eraseScratchProgress(
   return (cleared / Math.max(1, progressCanvas.width * progressCanvas.height)) * 100;
 }
 
-function buildScratchMaskStyle(maskUrl: string, blur: number): CSSProperties {
+function getScratchCssCanvasContext(
+  canvasName: string,
+  width: number,
+  height: number,
+): CanvasRenderingContext2D | null {
+  if (typeof document === 'undefined') return null;
+  const attachCanvas = (context: CanvasRenderingContext2D | null): CanvasRenderingContext2D | null => {
+    if (!context) return null;
+    if ('canvas' in context && context.canvas) {
+      context.canvas.width = width;
+      context.canvas.height = height;
+      return context;
+    }
+    const fallbackCanvas = document.createElement('canvas');
+    fallbackCanvas.width = width;
+    fallbackCanvas.height = height;
+    Object.defineProperty(context, 'canvas', {
+      configurable: true,
+      value: fallbackCanvas,
+    });
+    return context;
+  };
+  const cssCanvasDocument = document as CssCanvasDocument;
+  if (typeof cssCanvasDocument.getCSSCanvasContext === 'function') {
+    return attachCanvas(cssCanvasDocument.getCSSCanvasContext('2d', canvasName, width, height));
+  }
+  const fallbackCanvas = document.createElement('canvas');
+  fallbackCanvas.width = width;
+  fallbackCanvas.height = height;
+  return attachCanvas(fallbackCanvas.getContext('2d'));
+}
+
+function buildScratchMaskStyle(maskCanvasName: string, blur: number): CSSProperties {
   return {
     position: 'absolute',
     inset: 0,
     zIndex: 1,
     pointerEvents: 'none',
     filter: blur > 0 ? `blur(${blur}px)` : 'none',
-    WebkitMaskImage: `url("${maskUrl}")`,
-    maskImage: `url("${maskUrl}")`,
+    WebkitMaskImage: `-webkit-canvas(${maskCanvasName})`,
+    maskImage: `-webkit-canvas(${maskCanvasName})`,
     WebkitMaskSize: '100% 100%',
     maskSize: '100% 100%',
     WebkitMaskRepeat: 'no-repeat',
@@ -378,14 +410,14 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const nodeId = node.id;
   const ctxRef = useLatestRef(ctx);
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const maskContextRef = useRef<CanvasRenderingContext2D | null>(null);
   const progressCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pointerActiveRef = useRef(false);
   const scratchCompletedRef = useRef(false);
   const lastScratchPointRef = useRef<{ x: number; y: number } | null>(null);
   const maskSizeRef = useRef({ width: 0, height: 0 });
   const pendingResizeResetRef = useRef(false);
-  const [maskUrl, setMaskUrl] = useState('');
+  const maskCanvasNameRef = useRef(`smx-scratch-mask-${nodeId}-${Math.random().toString(36).slice(2, 10)}`);
   const [scratchCompleted, setScratchCompleted] = useState(false);
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
   const autoRevealThresholdPercent = Math.max(
@@ -395,21 +427,17 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
   const boxShadow = shadowConfigToBoxShadow(readShadowFromStyle(node.style));
 
-  const syncMaskPreview = () => {
-    const canvas = maskCanvasRef.current;
-    if (!canvas) return;
-    setMaskUrl(canvas.toDataURL('image/png'));
-  };
-
   const resetScratchMask = ({ force = false } = {}) => {
-    const canvas = maskCanvasRef.current;
     const shell = shellRef.current;
-    if (!canvas) return;
     const width = Math.max(1, Math.round(shell?.clientWidth ?? node.frame.width ?? 1));
     const height = Math.max(1, Math.round(shell?.clientHeight ?? node.frame.height ?? 1));
     const dimensionsChanged = maskSizeRef.current.width !== width || maskSizeRef.current.height !== height;
     if (!force && !dimensionsChanged) return;
     if (!force && (pointerActiveRef.current || scratchCompletedRef.current)) return;
+    const maskContext = getScratchCssCanvasContext(maskCanvasNameRef.current, width, height);
+    if (!maskContext) return;
+    maskContextRef.current = maskContext;
+    const canvas = maskContext.canvas;
     maskSizeRef.current = { width, height };
     canvas.width = width;
     canvas.height = height;
@@ -419,7 +447,6 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     pendingResizeResetRef.current = false;
     lastScratchPointRef.current = null;
     setScratchCompleted(false);
-    syncMaskPreview();
   };
 
   const flushPendingResizeReset = () => {
@@ -467,7 +494,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   }, [ctxRef]);
 
   const scratchAtEvent = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const canvas = maskCanvasRef.current;
+    const canvas = maskContextRef.current?.canvas;
     if (!canvas || scratchCompleted) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * canvas.width;
@@ -475,7 +502,6 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     const point = { x, y };
     const previousPoint = lastScratchPointRef.current;
     eraseScratchStroke(canvas, previousPoint, point, scratchRadius);
-    syncMaskPreview();
     const progressCanvas = progressCanvasRef.current;
     lastScratchPointRef.current = point;
     if (!progressCanvas || autoRevealThresholdPercent <= 0) return;
@@ -485,7 +511,6 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     pointerActiveRef.current = false;
     scratchCompletedRef.current = true;
     lastScratchPointRef.current = null;
-    setMaskUrl('');
     setScratchCompleted(true);
     ctx.triggerWidgetAction('scratch-complete', {
       clearedPercent,
@@ -498,9 +523,8 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
 
   return (
     <div ref={shellRef} style={{ ...scratchShellStyle, borderRadius: Number(node.style.borderRadius ?? 18), boxShadow }}>
-      <canvas ref={maskCanvasRef} style={scratchCanvasStyle} aria-hidden="true" />
       {scratchContent ? (
-        <div style={scratchCompleted ? { display: 'none' } : !maskUrl ? scratchRevealedContentStyle : buildScratchMaskStyle(maskUrl, coverBlur)}>
+        <div style={scratchCompleted ? { display: 'none' } : { ...scratchRevealedContentStyle, ...buildScratchMaskStyle(maskCanvasNameRef.current, coverBlur) }}>
           {scratchContent}
         </div>
       ) : null}
@@ -517,6 +541,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
             WebkitTapHighlightColor: 'transparent',
             userSelect: 'none',
           }}
+          data-scratch-hit-area
           onPointerDown={(event) => {
             if (!event.isPrimary) return;
             event.preventDefault();

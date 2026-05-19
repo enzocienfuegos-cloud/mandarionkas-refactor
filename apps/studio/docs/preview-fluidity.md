@@ -201,3 +201,38 @@ Reemplazos:
 
 Eso baja el trabajo del loop en escenas donde la mayoria de widgets no tienen
 keyframes ni ventanas de visibilidad especiales.
+
+## The canvas encoding bottleneck (Sprint S57)
+
+Despues de limpiar Stage, GSAP, snapshots y compositor, el trace de Chrome
+mostro que el scratch seguia congelando el thread por un cuello distinto:
+
+```text
+canvas mutation -> canvas.toDataURL('image/png') -> React setState -> CSS mask decode
+```
+
+Cada scratch move pagaba por un encode PNG sincronico y ademas disparaba un
+re-render solo para actualizar el `maskImage`.
+
+### Solucion: live CSS canvas mask
+
+En el scratch group y el export runtime el mask ya no se genera como data URL.
+Ahora el target usa un canvas CSS nombrado (`-webkit-canvas(...)`) como source
+de la mascara, y el scratch solo muta pixeles del canvas vivo.
+
+```text
+canvas mutation -> live CSS canvas mask updates in place
+```
+
+Eso elimina:
+
+- `canvas.toDataURL(...)` del hot path
+- `setState` / `setMaskUrl(...)` por movimiento
+- el encode base64 por cada stroke
+
+### Regla
+
+- Nunca usar `canvas.toDataURL(...)` en hot paths interactivos.
+- Scratch y reveal UIs deben consumir canvas vivo, no PNGs transient.
+- `lint:canvas-encoding` bloquea nuevas regresiones fuera de pipelines de
+  optimizacion de assets.

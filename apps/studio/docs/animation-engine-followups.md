@@ -23,3 +23,7 @@
 - [DONE S56] `usePlaybackMsVisual` queda deprecado y removido de codigo productivo en `group` y `scratch-reveal`.
 - [DONE S56] `StageSurface` pre-computa parent chains y skipea widgets estaticos despues del primer apply.
 - [DONE S56] `lint:playback-live` ahora detecta `usePlaybackMsVisual`, `usePlaybackMsSampled(<100ms)` y `engine.seekScene` dentro de callbacks `subscribeDom`.
+- [DONE S57] Scratch group elimina `canvas.toDataURL(...)` del hot path y usa un CSS canvas vivo como source de la mascara.
+- [DONE S57] Export runtime scratch tambien migra al mismo path de canvas vivo en lugar de encodear PNGs base64.
+- [DONE S57] `lint:canvas-encoding` bloquea `toDataURL(...)` en codigo productivo fuera de pipelines de assets.
+- [DONE S57] `scratch-no-canvas-encoding` verifica que el flow de scratch no invoque `HTMLCanvasElement.prototype.toDataURL`.

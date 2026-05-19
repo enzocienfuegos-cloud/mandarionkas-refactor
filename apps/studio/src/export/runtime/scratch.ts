@@ -15,6 +15,15 @@ type ScratchRuntimeWindow = Window & typeof globalThis & {
   __smxScratchCompletionPerfMsByWidgetId?: Record<string, number>;
 };
 
+type CssCanvasDocument = Document & {
+  getCSSCanvasContext?: (
+    contextId: '2d',
+    name: string,
+    width: number,
+    height: number,
+  ) => CanvasRenderingContext2D | null;
+};
+
 function nowMs(): number {
   return typeof performance !== 'undefined' && typeof performance.now === 'function'
     ? performance.now()
@@ -45,7 +54,7 @@ function paintScratchCover(
   coverImage: string,
   coverBlur: number,
   accent: string,
-  onReady: () => void,
+  onReady?: () => void,
 ): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -59,7 +68,7 @@ function paintScratchCover(
     ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = `${accent}22`;
     ctx.fillRect(0, 0, width, height);
-    onReady();
+    onReady?.();
   };
 
   if (!coverImage) {
@@ -73,7 +82,7 @@ function paintScratchCover(
     ctx.filter = blur > 0 ? `blur(${blur}px)` : 'none';
     ctx.drawImage(image, 0, 0, width, height);
     ctx.filter = 'none';
-    onReady();
+    onReady?.();
   };
 
   const loadImage = (): void => {
@@ -87,11 +96,41 @@ function paintScratchCover(
   loadImage();
 }
 
-function applyScratchMask(maskTarget: HTMLElement | null, maskCanvas: HTMLCanvasElement): void {
+function getScratchCssCanvasContext(
+  canvasName: string,
+  width: number,
+  height: number,
+): CanvasRenderingContext2D | null {
+  const attachCanvas = (context: CanvasRenderingContext2D | null): CanvasRenderingContext2D | null => {
+    if (!context) return null;
+    if ('canvas' in context && context.canvas) {
+      context.canvas.width = width;
+      context.canvas.height = height;
+      return context;
+    }
+    const fallbackCanvas = document.createElement('canvas');
+    fallbackCanvas.width = width;
+    fallbackCanvas.height = height;
+    Object.defineProperty(context, 'canvas', {
+      configurable: true,
+      value: fallbackCanvas,
+    });
+    return context;
+  };
+  const cssCanvasDocument = document as CssCanvasDocument;
+  if (typeof cssCanvasDocument.getCSSCanvasContext === 'function') {
+    return attachCanvas(cssCanvasDocument.getCSSCanvasContext('2d', canvasName, width, height));
+  }
+  const fallbackCanvas = document.createElement('canvas');
+  fallbackCanvas.width = width;
+  fallbackCanvas.height = height;
+  return attachCanvas(fallbackCanvas.getContext('2d'));
+}
+
+function applyScratchMask(maskTarget: HTMLElement | null, canvasName: string): void {
   if (!maskTarget) return;
-  const dataUrl = maskCanvas.toDataURL('image/png');
-  maskTarget.style.webkitMaskImage = `url("${dataUrl}")`;
-  maskTarget.style.maskImage = `url("${dataUrl}")`;
+  maskTarget.style.webkitMaskImage = `-webkit-canvas(${canvasName})`;
+  maskTarget.style.maskImage = `-webkit-canvas(${canvasName})`;
   maskTarget.style.webkitMaskSize = '100% 100%';
   maskTarget.style.maskSize = '100% 100%';
   maskTarget.style.webkitMaskRepeat = 'no-repeat';
@@ -245,15 +284,20 @@ export function mountScratchReveal(
     const maskTarget = root.querySelector<HTMLElement>('[data-scratch-mask-target]');
     const canvas = root.querySelector<HTMLCanvasElement>('[data-scratch-canvas]');
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
     const width = Math.max(1, shell.clientWidth || shell.offsetWidth || canvas.width);
     const height = Math.max(1, shell.clientHeight || shell.offsetHeight || canvas.height);
     canvas.width = width;
     canvas.height = height;
-    initializeScratchMask(canvas);
-    applyScratchMask(maskTarget, canvas);
+    const scratchWidgetId = root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || '';
+    const maskCanvasName = `smx-runtime-scratch-mask-${scratchWidgetId || Math.random().toString(36).slice(2, 10)}`;
+    const maskContext = getScratchCssCanvasContext(maskCanvasName, width, height);
+    if (!maskContext) return;
+    const maskCanvas = maskContext.canvas;
+    maskCanvas.width = width;
+    maskCanvas.height = height;
+    initializeScratchMask(maskCanvas);
+    applyScratchMask(maskTarget, maskCanvasName);
 
     const progressCanvas = createScratchProgressCanvas(width, height);
     if (progressCanvas) {
@@ -302,7 +346,7 @@ export function mountScratchReveal(
       || root.getAttribute('data-scratch-reveal-target-id')
       || '').trim();
 
-    paintScratchCover(canvas, coverImage, coverBlur, accent, () => applyScratchMask(maskTarget, canvas));
+    paintScratchCover(maskCanvas, coverImage, coverBlur, accent);
 
     let completed = false;
     let pointerActive = false;
@@ -319,7 +363,6 @@ export function mountScratchReveal(
     }
 
     const startedAt = nowMs();
-    const scratchWidgetId = root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || '';
     const scene = resolveScratchScene(runtimeModel, scratchWidgetId);
     const scratchWidget = scene?.widgets.find((widget) => widget.id === scratchWidgetId);
     const replayTargetMotionOnReveal = (shell.getAttribute('data-scratch-replay-target-motion-on-reveal')
@@ -377,7 +420,8 @@ export function mountScratchReveal(
         maskTarget.style.webkitMaskImage = 'none';
         maskTarget.style.maskImage = 'none';
       } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const clearContext = maskCanvas.getContext('2d');
+        clearContext?.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
       }
       canvas.style.display = 'none';
 
@@ -416,9 +460,8 @@ export function mountScratchReveal(
       const rect = shell.getBoundingClientRect();
       const point = { x: clientX - rect.left, y: clientY - rect.top };
       const previousPoint = lastScratchPoint;
-      eraseScratchStroke(canvas, previousPoint, point, scratchRadius);
+      eraseScratchStroke(maskCanvas, previousPoint, point, scratchRadius);
       lastScratchPoint = point;
-      applyScratchMask(maskTarget, canvas);
       const progress = progressCanvas
         ? eraseScratchProgress(progressCanvas, previousPoint, point, scratchRadius, width, height)
         : 100;
