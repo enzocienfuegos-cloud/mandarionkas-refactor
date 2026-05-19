@@ -164,6 +164,34 @@ describe('group scratch export', () => {
     expect(html).toContain('position:absolute;left:0px;top:0px');
   });
 
+  it('includes nested group shells in the scratch cover export, not only leaf widgets', () => {
+    const state = createState();
+    const cardGroup: WidgetNode = {
+      id: 'card_group',
+      type: 'group',
+      name: 'Card group',
+      sceneId: 'scene_1',
+      zIndex: 1,
+      parentId: 'group_1',
+      frame: { x: 18, y: 14, width: 180, height: 100, rotation: 0 },
+      props: { title: 'Card group' },
+      style: { backgroundColor: '#ffffff', borderRadius: 20, opacity: 1 },
+      timeline: { startMs: 0, endMs: 1000 },
+      childIds: ['text_1'],
+    };
+
+    state.document.widgets.group_1.childIds = ['card_group', 'cta_1'];
+    state.document.widgets.text_1.parentId = 'card_group';
+    state.document.widgets.card_group = cardGroup;
+    state.document.scenes[0].widgetIds = ['group_1', 'card_group', 'text_1', 'cta_1'];
+
+    const html = renderGroupExport(state.document.widgets.group_1, state);
+
+    expect(html).toContain('data-scratch-cover-widget-id="card_group"');
+    expect(html).toContain('width:180px');
+    expect(html).toContain('height:100px');
+  });
+
   it('expands the scratch group export frame when children extend outside the original group bounds', () => {
     const state = createState();
     state.document.widgets.group_1.frame = { x: 40, y: 60, width: 120, height: 80, rotation: 0 };

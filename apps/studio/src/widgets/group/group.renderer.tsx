@@ -49,13 +49,6 @@ const scratchCanvasStyle: CSSProperties = {
   pointerEvents: 'none',
 };
 
-const scratchRevealedContentStyle: CSSProperties = {
-  position: 'absolute',
-  inset: 0,
-  zIndex: 1,
-  pointerEvents: 'none',
-};
-
 function createScratchProgressCanvas(width: number, height: number): HTMLCanvasElement | null {
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
@@ -267,11 +260,25 @@ function renderScratchCoverNode(
   visited.add(node.id);
 
   if (node.type === 'group' && node.childIds?.length) {
-    return node.childIds
+    const childNodes = node.childIds
       .map((childId) => ctx.widgetsById[childId])
       .filter((child): child is WidgetNode => Boolean(child))
       .sort((left, right) => left.zIndex - right.zIndex)
       .flatMap((child) => renderScratchCoverNode(child, rootFrame, rootGroupId, ctx, playheadMs, visited));
+
+    return [
+      (
+        <ScratchCoverWidget
+          key={node.id}
+          node={node}
+          rootFrame={rootFrame}
+          rootGroupId={rootGroupId}
+          ctx={ctx}
+          playheadMs={playheadMs}
+        />
+      ),
+      ...childNodes,
+    ];
   }
 
   return [
@@ -319,6 +326,12 @@ function ScratchCoverWidget({
       ...node.style,
       opacity: 1,
     },
+    props: node.type === 'group'
+      ? {
+          ...node.props,
+          scratchEnabled: false,
+        }
+      : node.props,
   };
 
   return (
@@ -512,7 +525,9 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     pendingResizeResetRef.current = false;
     lastScratchPointRef.current = null;
     setScratchCompleted(false);
-    commitMaskUrl(opaqueMaskUrl);
+    if (!maskUrlRef.current) {
+      commitMaskUrl(opaqueMaskUrl);
+    }
     scheduleMaskPreview();
   };
 
@@ -524,7 +539,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   };
 
   useLayoutEffect(() => {
-    resetScratchMask({ force: true });
+    resetScratchMask({ force: false });
   }, [node.frame.width, node.frame.height, previewMode]);
 
   useEffect(() => {
@@ -559,6 +574,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   }, [nodeId, previewMode]);
 
   useEffect(() => {
+    if (!previewMode) return undefined;
     let previousPlayheadMs = playbackEngine.getCurrentMs();
     let previousPreviewMode = ctxRef.current.previewMode;
 
@@ -582,7 +598,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     };
 
     return playbackEngine.subscribeDom(checkRewind);
-  }, [ctxRef]);
+  }, [ctxRef, previewMode]);
 
   const scratchAtEvent = (event: ReactPointerEvent<HTMLDivElement>) => {
     const canvas = maskCanvasRef.current;

@@ -48,6 +48,12 @@ function renderGroupScratchChildren(
         ...current.style,
         opacity: 1,
       },
+      props: current.type === 'group'
+        ? {
+            ...current.props,
+            scratchEnabled: false,
+          }
+        : current.props,
     };
     const definition = getWidgetDefinition(embeddedChild.type);
     const childHtml = definition.renderExport
@@ -67,11 +73,12 @@ function renderGroupScratchChildren(
     visited.add(current.id);
 
     if (current.type === 'group' && current.childIds?.length) {
-      return current.childIds
+      const childNodes = current.childIds
         .map((childId) => resolvedWidgets[childId])
         .filter((child): child is WidgetNode => Boolean(child))
         .sort((left, right) => left.zIndex - right.zIndex)
         .flatMap((child) => renderNodeTree(child, visited));
+      return [renderScratchCoverLeaf(current), ...childNodes];
     }
 
     return [renderScratchCoverLeaf(current)];

@@ -87,40 +87,6 @@ function paintScratchCover(
   loadImage();
 }
 
-function applyScratchMask(maskTarget: HTMLElement | null, maskUrl: string): void {
-  if (!maskTarget) return;
-  maskTarget.style.webkitMaskImage = `url("${maskUrl}")`;
-  maskTarget.style.maskImage = `url("${maskUrl}")`;
-  maskTarget.style.webkitMaskSize = '100% 100%';
-  maskTarget.style.maskSize = '100% 100%';
-  maskTarget.style.webkitMaskRepeat = 'no-repeat';
-  maskTarget.style.maskRepeat = 'no-repeat';
-  maskTarget.style.webkitMaskPosition = 'center';
-  maskTarget.style.maskPosition = 'center';
-}
-
-function clearScratchMask(maskTarget: HTMLElement | null): void {
-  if (!maskTarget) return;
-  maskTarget.style.webkitMaskImage = 'none';
-  maskTarget.style.maskImage = 'none';
-}
-
-function canUseObjectUrls(): boolean {
-  return typeof URL !== 'undefined'
-    && typeof URL.createObjectURL === 'function'
-    && typeof URL.revokeObjectURL === 'function';
-}
-
-function revokeMaskUrl(maskUrl: string): void {
-  if (!maskUrl || !canUseObjectUrls()) return;
-  URL.revokeObjectURL(maskUrl);
-}
-
-function createMaskUrl(blob: Blob): string {
-  if (!canUseObjectUrls()) return '';
-  return URL.createObjectURL(blob);
-}
-
 function eraseScratchStroke(
   canvas: HTMLCanvasElement,
   from: { x: number; y: number } | null,
@@ -333,13 +299,45 @@ export function mountScratchReveal(
     let maskSyncQueued = false;
     let maskSyncFrame: number | null = null;
 
+    const applyScratchMask = (nextUrl: string): void => {
+      if (!maskTarget) return;
+      maskTarget.style.webkitMaskImage = `url("${nextUrl}")`;
+      maskTarget.style.maskImage = `url("${nextUrl}")`;
+      maskTarget.style.webkitMaskSize = '100% 100%';
+      maskTarget.style.maskSize = '100% 100%';
+      maskTarget.style.webkitMaskRepeat = 'no-repeat';
+      maskTarget.style.maskRepeat = 'no-repeat';
+      maskTarget.style.webkitMaskPosition = 'center';
+      maskTarget.style.maskPosition = 'center';
+    };
+
+    const clearScratchMask = (): void => {
+      if (!maskTarget) return;
+      maskTarget.style.webkitMaskImage = 'none';
+      maskTarget.style.maskImage = 'none';
+    };
+
+    const canUseObjectUrls = (): boolean => typeof URL !== 'undefined'
+      && typeof URL.createObjectURL === 'function'
+      && typeof URL.revokeObjectURL === 'function';
+
+    const revokeMaskUrl = (maskUrl: string): void => {
+      if (!maskUrl || !canUseObjectUrls()) return;
+      URL.revokeObjectURL(maskUrl);
+    };
+
+    const createMaskUrl = (blob: Blob): string => {
+      if (!canUseObjectUrls()) return '';
+      return URL.createObjectURL(blob);
+    };
+
     const commitMaskUrl = (nextUrl: string): void => {
       revokeMaskUrl(activeMaskUrl && activeMaskUrl !== nextUrl ? activeMaskUrl : '');
       activeMaskUrl = nextUrl;
       if (nextUrl) {
-        applyScratchMask(maskTarget, nextUrl);
+        applyScratchMask(nextUrl);
       } else {
-        clearScratchMask(maskTarget);
+        clearScratchMask();
       }
     };
 
@@ -454,7 +452,7 @@ export function mountScratchReveal(
       if (maskTarget) {
         maskTarget.style.display = 'none';
         maskTarget.style.visibility = 'hidden';
-        clearScratchMask(maskTarget);
+        clearScratchMask();
         revokeMaskUrl(activeMaskUrl);
         activeMaskUrl = '';
       } else {
@@ -569,7 +567,7 @@ export function mountScratchReveal(
         revokeMaskUrl(activeMaskUrl);
         activeMaskUrl = '';
       }
-      clearScratchMask(maskTarget);
+      clearScratchMask();
     });
   });
 
