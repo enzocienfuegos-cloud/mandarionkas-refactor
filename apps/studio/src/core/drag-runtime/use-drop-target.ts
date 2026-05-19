@@ -27,7 +27,6 @@ export function useDropTarget(options: {
           (acceptsRef.current ? acceptsRef.current(state.source) : true);
         setIsOver(over);
       } else {
-        // Drag ended — check if we should fire onDrop
         setIsOver(false);
         const last = store.getLastState();
         if (
@@ -42,13 +41,20 @@ export function useDropTarget(options: {
     return unsubscribe;
   }, [store, targetId]);
 
+  // Store the unregister cleanup so it runs when the element unmounts (ref called with null).
+  // Without this, stale entries accumulated in the hit registry across scene transitions.
+  const unregisterRef = useRef<(() => void) | null>(null);
+
   const ref = useCallback(
     (element: HTMLElement | null) => {
+      if (unregisterRef.current) {
+        unregisterRef.current();
+        unregisterRef.current = null;
+      }
       if (element) {
-        return hitTest.register(targetId, element, { hitPadding });
+        unregisterRef.current = hitTest.register(targetId, element, { hitPadding });
       }
     },
-    // hitPadding and targetId don't change after mount in practice; suppress lint
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [hitTest, targetId, hitPadding],
   ) as RefCallback<HTMLElement>;

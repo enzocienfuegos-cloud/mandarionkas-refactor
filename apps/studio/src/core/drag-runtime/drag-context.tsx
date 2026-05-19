@@ -23,11 +23,13 @@ export function DragProvider({ children }: { children: React.ReactNode }): JSX.E
     const handlePointerUp = (e: PointerEvent) => {
       const state = store.getState();
       if (!state || e.pointerId !== state.pointerId) return;
+      hitTest.stopDrag();
       store.end('commit');
     };
     const handlePointerCancel = (e: PointerEvent) => {
       const state = store.getState();
       if (!state || e.pointerId !== state.pointerId) return;
+      hitTest.stopDrag();
       store.end('cancel');
     };
     window.addEventListener('pointermove', handlePointerMove, { passive: true });

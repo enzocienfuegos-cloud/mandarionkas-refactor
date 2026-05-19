@@ -1,75 +1,36 @@
 type TargetEntry = {
   element: HTMLElement;
   hitPadding: number;
-  cachedRect: DOMRect | null;
-  resizeObserver: ResizeObserver | null;
 };
 
 export type HitTestRegistry = {
   register(targetId: string, element: HTMLElement, options: { hitPadding: number }): () => void;
   beginDrag(): void;
+  stopDrag(): void;
   hitTest(x: number, y: number): string | null;
-  invalidate(): void;
 };
 
 export function createHitTestRegistry(): HitTestRegistry {
   const targets = new Map<string, TargetEntry>();
-  let scrollListener: (() => void) | null = null;
-
-  function invalidate(): void {
-    for (const entry of targets.values()) {
-      entry.cachedRect = null;
-    }
-  }
-
-  function cleanupGlobalListeners(): void {
-    if (scrollListener) {
-      window.removeEventListener('scroll', scrollListener, true);
-      scrollListener = null;
-    }
-  }
 
   return {
     register(targetId: string, element: HTMLElement, options: { hitPadding: number }): () => void {
-      const entry: TargetEntry = {
-        element,
-        hitPadding: options.hitPadding,
-        cachedRect: null,
-        resizeObserver: null,
-      };
-      targets.set(targetId, entry);
-
+      targets.set(targetId, { element, hitPadding: options.hitPadding });
       return () => {
-        const existing = targets.get(targetId);
-        if (existing) {
-          existing.resizeObserver?.disconnect();
-          targets.delete(targetId);
-        }
+        targets.delete(targetId);
       };
     },
 
-    beginDrag(): void {
-      cleanupGlobalListeners();
+    // Called at drag start — no caching, kept as a lifecycle hook for future extension.
+    beginDrag(): void {},
 
-      for (const entry of targets.values()) {
-        entry.cachedRect = entry.element.getBoundingClientRect();
+    stopDrag(): void {},
 
-        if (!entry.resizeObserver) {
-          entry.resizeObserver = new ResizeObserver(() => {
-            entry.cachedRect = null;
-          });
-        }
-        entry.resizeObserver.observe(entry.element);
-      }
-
-      scrollListener = () => invalidate();
-      window.addEventListener('scroll', scrollListener, { passive: true, capture: true });
-    },
-
+    // Always reads live rects from the DOM so CSS transitions and GSAP transforms
+    // never produce stale hit boxes (the caching approach broke during scene slide-ins).
     hitTest(x: number, y: number): string | null {
       for (const [targetId, entry] of targets) {
-        const rect = entry.cachedRect;
-        if (!rect) continue;
+        const rect = entry.element.getBoundingClientRect();
         const pad = entry.hitPadding;
         if (
           x >= rect.left - pad &&
@@ -82,7 +43,5 @@ export function createHitTestRegistry(): HitTestRegistry {
       }
       return null;
     },
-
-    invalidate,
   };
 }
