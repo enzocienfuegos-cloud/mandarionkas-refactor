@@ -184,6 +184,7 @@ export function renderGroupExport(
   const sortedMilestones = [...milestones].sort((left, right) => left.thresholdPercent - right.thresholdPercent);
   const milestonesJson = escapeHtml(JSON.stringify(sortedMilestones));
   const internalTargetIds = resolveScratchInternalTargetIds(node, buildResolvedWidgetsById(state.document));
+  const maskId = escapeHtml(`scratch-mask-${node.id}`);
   const revealTargetMode = escapeHtml(String(node.props.revealTargetMode ?? 'auto'));
   const revealTargetId = escapeHtml(String(node.props.revealTargetId ?? ''));
   const replayTargetMotionOnReveal = node.props.replayTargetMotionOnReveal !== false;
@@ -222,12 +223,20 @@ export function renderGroupExport(
       data-scratch-reveal-animation-delay="0"
       style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;background:transparent;"
     >
+      <svg data-scratch-mask-svg style="position:absolute;width:0;height:0;opacity:0;pointer-events:none;" aria-hidden="true" focusable="false">
+        <defs>
+          <mask id="${maskId}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" mask-type="luminance">
+            <rect data-scratch-mask-rect x="0" y="0" width="${frame.width}" height="${frame.height}" fill="white"></rect>
+            <path data-scratch-mask-path d="" stroke="black" stroke-width="${scratchRadius * 2}" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+          </mask>
+        </defs>
+      </svg>
       ${internalTargetIds.size
     ? `<div data-scratch-target-content style="position:absolute;inset:0;pointer-events:none;z-index:0;">${renderGroupScratchChildren(node, state, assetPathMap, frame, { includedIds: internalTargetIds })}</div>`
     : ''}
       <div
         data-scratch-mask-target
-        style="position:absolute;inset:0;pointer-events:none;${coverBlur > 0 ? `filter:blur(${coverBlur}px);` : ''}"
+        style="position:absolute;inset:0;pointer-events:none;${coverBlur > 0 ? `filter:blur(${coverBlur}px);` : ''}-webkit-mask:url(#${maskId});mask:url(#${maskId});-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;"
       >
         ${renderGroupScratchChildren(node, state, assetPathMap, frame, { excludedIds: internalTargetIds })}
       </div>
