@@ -198,6 +198,18 @@ function paintScratchCover(
   loadImage(true);
 }
 
+function commitScratchCover(
+  liveCanvas: HTMLCanvasElement,
+  paintedCanvas: HTMLCanvasElement,
+): void {
+  liveCanvas.width = paintedCanvas.width;
+  liveCanvas.height = paintedCanvas.height;
+  const ctx = liveCanvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
+  ctx.drawImage(paintedCanvas, 0, 0);
+}
+
 function eraseScratch(canvas: HTMLCanvasElement, x: number, y: number, radius: number): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -291,6 +303,7 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const revealMediaRef = useRef<HTMLImageElement | null>(null);
   const progressCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const repaintTokenRef = useRef(0);
   const pointerActiveRef = useRef(false);
   const scratchCompletedRef = useRef(false);
   const lastScratchPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -309,18 +322,26 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const revealAnimationDelayMs = Math.max(0, Math.min(3000, Number(node.props.revealAnimationDelayMs ?? 0)));
 
   useEffect(() => {
+    const repaintToken = repaintTokenRef.current + 1;
+    repaintTokenRef.current = repaintToken;
     const canvas = canvasRef.current;
     if (!canvas) return;
     gsap.killTweensOf(revealMediaRef.current);
     const width = Math.max(1, Math.round(canvas.clientWidth));
     const height = Math.max(1, Math.round(canvas.clientHeight));
-    canvas.width = width;
-    canvas.height = height;
     progressCanvasRef.current = createScratchProgressCanvas(width, height);
     scratchCompletedRef.current = false;
     lastScratchPointRef.current = null;
-    setCoverReady(false);
-    paintScratchCover(canvas, beforeImage, coverBlur, accent, () => setCoverReady(true));
+    const bufferCanvas = document.createElement('canvas');
+    bufferCanvas.width = width;
+    bufferCanvas.height = height;
+    paintScratchCover(bufferCanvas, beforeImage, coverBlur, accent, () => {
+      if (repaintTokenRef.current !== repaintToken) return;
+      const liveCanvas = canvasRef.current;
+      if (!liveCanvas) return;
+      commitScratchCover(liveCanvas, bufferCanvas);
+      setCoverReady(true);
+    });
   }, [beforeImage, coverBlur, accent, node.frame.width, node.frame.height, previewMode]);
 
   useEffect(() => {
@@ -328,18 +349,26 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     let previousPreviewMode = ctxRef.current.previewMode;
 
     const reset = () => {
+      const repaintToken = repaintTokenRef.current + 1;
+      repaintTokenRef.current = repaintToken;
       const canvas = canvasRef.current;
       if (!canvas) return;
       gsap.killTweensOf(revealMediaRef.current);
       const width = Math.max(1, Math.round(canvas.clientWidth));
       const height = Math.max(1, Math.round(canvas.clientHeight));
-      canvas.width = width;
-      canvas.height = height;
       progressCanvasRef.current = createScratchProgressCanvas(width, height);
       scratchCompletedRef.current = false;
       lastScratchPointRef.current = null;
-      setCoverReady(false);
-      paintScratchCover(canvas, beforeImage, coverBlur, accent, () => setCoverReady(true));
+      const bufferCanvas = document.createElement('canvas');
+      bufferCanvas.width = width;
+      bufferCanvas.height = height;
+      paintScratchCover(bufferCanvas, beforeImage, coverBlur, accent, () => {
+        if (repaintTokenRef.current !== repaintToken) return;
+        const liveCanvas = canvasRef.current;
+        if (!liveCanvas) return;
+        commitScratchCover(liveCanvas, bufferCanvas);
+        setCoverReady(true);
+      });
     };
 
     const checkRewind = (nextMs: number) => {
