@@ -52,6 +52,7 @@ function ScratchHarness(): JSX.Element {
 describe('scratch flow does not use canvas.toDataURL', () => {
   let toDataURLSpy: ReturnType<typeof vi.spyOn>;
   let getContextSpy: ReturnType<typeof vi.spyOn>;
+  let toBlobSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     const canvasContexts = new WeakMap<HTMLCanvasElement, CanvasRenderingContext2D>();
@@ -87,11 +88,13 @@ describe('scratch flow does not use canvas.toDataURL', () => {
       return context;
     });
     toDataURLSpy = vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL');
+    toBlobSpy = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     toDataURLSpy.mockRestore();
     getContextSpy.mockRestore();
+    toBlobSpy.mockRestore();
   });
 
   it('scratching does not invoke canvas.toDataURL', () => {
@@ -111,5 +114,19 @@ describe('scratch flow does not use canvas.toDataURL', () => {
     fireEvent.pointerUp(scratchHitArea!, { clientX: 140, clientY: 42, pointerId: 1 });
 
     expect(toDataURLSpy).not.toHaveBeenCalled();
+  });
+
+  it('keeps an opaque mask applied while the canvas blob preview is still pending', () => {
+    const { container } = render(<ScratchHarness />);
+    const scratchHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
+    const scratchMaskWrapper = scratchHitArea?.previousElementSibling as HTMLDivElement | null;
+
+    expect(scratchMaskWrapper).toBeTruthy();
+    expect(scratchMaskWrapper?.style.maskImage || scratchMaskWrapper?.style.webkitMaskImage).toContain('data:image/svg+xml');
+
+    fireEvent.pointerDown(scratchHitArea!, { isPrimary: true, clientX: 16, clientY: 16, pointerId: 1 });
+    fireEvent.pointerMove(scratchHitArea!, { clientX: 44, clientY: 28, pointerId: 1 });
+
+    expect(scratchMaskWrapper?.style.maskImage || scratchMaskWrapper?.style.webkitMaskImage).toContain('data:image/svg+xml');
   });
 });

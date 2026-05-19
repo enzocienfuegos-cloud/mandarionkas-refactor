@@ -388,6 +388,11 @@ function createMaskUrl(blob: Blob): string {
   return URL.createObjectURL(blob);
 }
 
+function createOpaqueScratchMaskUrl(): string {
+  return 'data:image/svg+xml;charset=utf-8,'
+    + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1" preserveAspectRatio="none"><rect width="1" height="1" fill="white"/></svg>');
+}
+
 function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
   const playheadMs = ctx.playheadMs;
   const previewMode = ctx.previewMode;
@@ -416,6 +421,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   );
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
   const boxShadow = shadowConfigToBoxShadow(readShadowFromStyle(node.style));
+  const opaqueMaskUrl = createOpaqueScratchMaskUrl();
 
   const flushPendingMaskRevokes = () => {
     const pendingUrls = pendingMaskRevokesRef.current;
@@ -506,6 +512,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     pendingResizeResetRef.current = false;
     lastScratchPointRef.current = null;
     setScratchCompleted(false);
+    commitMaskUrl(opaqueMaskUrl);
     scheduleMaskPreview();
   };
 
@@ -610,7 +617,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     <div ref={shellRef} style={{ ...scratchShellStyle, borderRadius: Number(node.style.borderRadius ?? 18), boxShadow }}>
       <canvas ref={maskCanvasRef} style={scratchCanvasStyle} aria-hidden="true" />
       {scratchContent ? (
-        <div style={scratchCompleted ? { display: 'none' } : !maskUrl ? scratchRevealedContentStyle : { ...buildScratchMaskStyle(maskUrl, coverBlur) }}>
+        <div style={scratchCompleted ? { display: 'none' } : { ...buildScratchMaskStyle(maskUrl || opaqueMaskUrl, coverBlur) }}>
           {scratchContent}
         </div>
       ) : null}
