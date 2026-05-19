@@ -284,9 +284,9 @@ describe('scratch milestones', () => {
 
     const handle = mountScratchReveal(engine, runtimeModel, sceneManager);
 
-    expect((document.querySelector('[data-widget-id="target_group"]') as HTMLElement).style.display).toBe('none');
-    expect((document.querySelector('[data-widget-id="target_card_1"]') as HTMLElement).style.display).toBe('none');
-    expect((document.querySelector('[data-widget-id="target_card_2"]') as HTMLElement).style.display).toBe('none');
+    expect((document.querySelector('[data-widget-id="target_group"]') as HTMLElement).style.display).toBe('');
+    expect((document.querySelector('[data-widget-id="target_card_1"]') as HTMLElement).style.display).toBe('');
+    expect((document.querySelector('[data-widget-id="target_card_2"]') as HTMLElement).style.display).toBe('');
     expect((document.querySelector('[data-widget-id="other_card"]') as HTMLElement).style.display).toBe('none');
 
     dispatchScratchPointerEvent(shell, 'pointerdown', 10, 10);

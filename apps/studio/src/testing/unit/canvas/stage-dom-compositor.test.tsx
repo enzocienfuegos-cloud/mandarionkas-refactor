@@ -199,7 +199,7 @@ describe('StageSurface DOM compositor path', () => {
     const bystanderNode = container.querySelector<HTMLElement>('[data-stage-widget-id="bystander"]');
 
     expect(scratchNode?.style.display).toBe('');
-    expect(targetGroupNode?.style.display).toBe('none');
+    expect(targetGroupNode?.style.display).toBe('');
     expect(bystanderNode?.style.display).toBe('none');
 
     const scratchProps = stageWidgetProps.find((entry) => entry.node.id === 'scratch_group');

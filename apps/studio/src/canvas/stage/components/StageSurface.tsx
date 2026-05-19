@@ -400,7 +400,7 @@ export function StageSurface({
             const scratchSubtree = isScratchCoverSubtreeWidget(scratchGroup, widget, widgetsById);
 
             if (!scratchCompleted) {
-              if (!scratchSubtree && covered) return false;
+              if (covered && !targetMatch) return false;
               continue;
             }
 

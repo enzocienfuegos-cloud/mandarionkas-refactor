@@ -409,6 +409,7 @@ export function mountScratchReveal(
 
     if (scene && scratchWidget && revealTargetMode === 'widget' && revealTargetId) {
       resolveCoveredScratchWidgets(scene, scratchWidget).forEach((widget) => {
+        if (targetIds.has(widget.id)) return;
         findRuntimeWidgetNodes(widget.id).forEach((node) => {
           if (!visibilitySnapshots.has(node)) {
             visibilitySnapshots.set(node, {
