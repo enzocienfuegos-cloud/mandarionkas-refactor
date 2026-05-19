@@ -12,7 +12,7 @@
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "audit:animation-engine-surface": "npx ts-prune -p tsconfig.app.json | rg 'motion/animation-engine|export/runtime|motion-engine.ts|animation-clocks.ts|animation-events.ts|runtime-script.ts'",
-    "lint": "npm run lint:css && npm run lint:colors && npm run lint:playback-live && npm run lint:broad-store && npm run lint:layout-thrashing && npm run lint:canvas-encoding && npm run lint:no-state-cloning && npm run lint:hot-path && npm run audit:orphans",
+    "lint": "npm run lint:css && npm run lint:colors && npm run lint:playback-live && npm run lint:broad-store && npm run lint:layout-thrashing && npm run lint:canvas-encoding && npm run lint:no-state-cloning && npm run lint:hot-path && npm run lint:no-export-in-render && npm run audit:orphans",
     "audit:orphans": "node ./scripts/audit-orphan-components.mjs",
     "audit:visual-debt": "node ./scripts/audit-visual-debt.mjs",
     "audit:visual-debt:ratchet": "node ./scripts/audit-visual-debt.mjs --ratchet",
@@ -26,6 +26,7 @@
     "lint:json-stringify": "node ./scripts/lint-json-stringify-in-renders.mjs",
     "lint:no-state-cloning": "node ./scripts/lint-json-stringify-in-renders.mjs",
     "lint:hot-path": "node ./scripts/lint-hot-path-spread.mjs",
+    "lint:no-export-in-render": "node ./scripts/lint-no-export-pipeline-in-render.mjs",
     "lint:css:fix": "node ../../node_modules/stylelint/bin/stylelint.mjs 'src/**/*.css' --fix"
   },
   "dependencies": {

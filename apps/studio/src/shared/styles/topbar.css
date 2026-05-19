@@ -6,10 +6,6 @@
   padding: 0 16px;
   border-bottom: 1px solid var(--stroke);
   background: var(--surface-2); }
-.top-control-preflight {
-  margin-top: var(--space-6);
-  max-width: 960px;
-}
 .top-bar-pro {
   padding: 10px 16px;
   flex-direction: column;

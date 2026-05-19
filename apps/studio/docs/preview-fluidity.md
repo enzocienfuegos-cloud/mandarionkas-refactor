@@ -335,6 +335,56 @@ Eso es seguro porque:
 - si hace falta serializar a red/disco, hacerlo solo en el boundary
 - para undo/redo, confiar en la inmutabilidad del reducer y guardar referencias
 
+## Eliminacion del Preflight Tray (Sprint S63)
+
+Despues de cerrar clones, stringifies y allocaciones del stage, el costo grande
+que seguia vivo estaba en el pipeline de preflight ejecutandose dentro de render.
+
+`buildExportPreflight(...)` dispara el pipeline de export y termina llamando
+mediciones pesadas como `TextEncoder().encode(...)`. Mientras estuvo montado en:
+
+- `PreflightTray.tsx`
+- `use-export-readiness-controller.ts`
+- `DiagnosticsSection.tsx`
+- `ExportSection.tsx`
+- `ShareHandoffSection.tsx`
+
+cada cambio del documento podia volver a ejecutar trabajo que no aporta al flujo
+de edicion.
+
+### Decision
+
+S63 elimina por completo:
+
+- `PreflightTray.tsx`
+- `ExportPreflightPanel.tsx`
+- el campo `preflight` del `ExportReadinessController`
+
+`triggerExportPreflight(...)` se mantiene intacto como handler explicito de
+usuario para descargar el JSON de preflight cuando realmente se necesita.
+
+### Regla: pipelines de export no se ejecutan en render
+
+Las funciones de pipeline como:
+
+- `buildExportPreflight`
+- `buildExportBundle`
+- `buildChannelBudgetMeasurement`
+- `buildZipFromBundle`
+
+solo pueden ejecutarse en:
+
+- handlers explicitos de botones
+- pipelines async de export/publicacion
+- modulos de export
+
+Nunca en `useMemo`, cuerpo de componentes, ni custom hooks reactivos del editor.
+
+### Guardrail
+
+`lint:no-export-in-render` bloquea la reintroduccion del pipeline de export en
+render paths del editor.
+
 ## Stage apply loop con cache de tracks (Sprint S62)
 
 `getLiveWidgetFrame` y `getLiveWidgetOpacity` ahora cachean las tracks de

@@ -1,25 +1,21 @@
-import { useState } from 'react';
 import type { TopBarController } from './use-top-bar-controller';
-import { ExportPreflightPanel } from '../../../export/ExportPreflightPanel';
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
 import { Button } from '../../../shared/ui/Button';
 import { Tooltip } from '../../../shared/ui/Tooltip';
 
 export function TopBarExportControls({ controller, compact = false }: { controller: TopBarController; compact?: boolean }): JSX.Element {
-  const [showPreflight, setShowPreflight] = useState(false);
   const { updateReleaseSettings } = useDocumentActions();
   const { state, dirty } = controller.snapshot;
   const { handleLogout } = controller.workspace;
-  const { exportIssues, preflight, handoff, resolvedZipStatus, resolvedZipMessage, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportDocumentJson, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundleResolved } = controller.exportReadiness;
+  const { exportIssues, handoff, resolvedZipStatus, resolvedZipMessage, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportDocumentJson, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundleResolved } = controller.exportReadiness;
   const blockers = exportIssues.filter((item) => item.level === 'error').length;
-  const packageWarnings = preflight.summary.warnings;
   const mraidHandoff = state.document.metadata.release.targetChannel === 'mraid' ? handoff.mraid : undefined;
   const targetChannel = state.document.metadata.release.targetChannel;
   const exportsSizeSet = state.document.canvasVariants.length > 1;
   const primaryLabel = dirty
     ? `Unsaved · ${blockers} blockers`
-    : `Saved · ${preflight.summary.packageGrade} · ${packageWarnings} warnings`;
-  const resolvedBlocked = !preflight.summary.readyForBundleZip || resolvedZipStatus === 'exporting';
+    : 'Saved';
+  const resolvedBlocked = resolvedZipStatus === 'exporting';
   return (
     <div className={`top-control-group ${compact ? 'top-control-group--compact' : ''}`}>
       <strong className="section-kicker">Export</strong>
@@ -54,10 +50,7 @@ export function TopBarExportControls({ controller, compact = false }: { controll
         <Button variant="ghost" size="sm" onClick={() => triggerExportDocumentJson(state)}>JSON</Button>
         <Button variant="ghost" size="sm" onClick={() => triggerExportPublishPackage(state)}>{mraidHandoff ? 'MRAID package' : 'Publish package'}</Button>
         <Button variant="ghost" size="sm" onClick={() => triggerExportReviewPackage(state)}>{mraidHandoff ? 'MRAID review' : 'Review package'}</Button>
-        <Button variant="ghost" size="sm" onClick={() => setShowPreflight((value) => !value)}>
-          {showPreflight ? 'Hide preflight' : 'Show preflight'}
-        </Button>
-        <Tooltip content={resolvedBlocked ? preflight.summary.recommendedNextStep : exportsSizeSet ? 'Export resolved ZIP size set' : 'Export resolved ZIP bundle'}>
+        <Tooltip content={exportsSizeSet ? 'Export resolved ZIP size set' : 'Export resolved ZIP bundle'}>
           <span>
             <Button variant="ghost" size="sm" onClick={() => void triggerExportZipBundleResolved(state)} disabled={resolvedBlocked}>
               {resolvedZipStatus === 'exporting' ? (exportsSizeSet ? 'Exporting size set…' : 'Exporting banner…') : (exportsSizeSet ? 'Export size set' : 'Export banner')}
@@ -65,20 +58,9 @@ export function TopBarExportControls({ controller, compact = false }: { controll
           </span>
         </Tooltip>
         <Button variant="ghost" size="sm" onClick={handleLogout}>Logout</Button>
-        <Button variant="primary" size="sm" tooltip={preflight.summary.recommendedNextStep}>{primaryLabel}</Button>
+        <Button variant="primary" size="sm">{primaryLabel}</Button>
       </div>
       {resolvedZipMessage ? <small className="muted">{resolvedZipStatus} · {resolvedZipMessage}</small> : null}
-      {showPreflight ? (
-        <div className="top-control-preflight">
-          <ExportPreflightPanel
-            preflight={preflight}
-            resolvedZipStatus={resolvedZipStatus}
-            resolvedZipMessage={resolvedZipMessage}
-            maxIssues={4}
-            compact
-          />
-        </div>
-      ) : null}
     </div>
   );
 }

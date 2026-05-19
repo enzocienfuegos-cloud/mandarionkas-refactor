@@ -38,9 +38,9 @@ export function TopBarPrimaryActions({ controller }: { controller: TopBarControl
   const { uiActions } = controller.document;
   const { updateReleaseSettings } = useDocumentActions();
   const { handleSaveProject, handleSaveVersion, saveStatus } = controller.projectSession;
-  const { preflight, resolvedZipStatus, triggerExportPreflight, triggerExportZipBundleResolved } = controller.exportReadiness;
+  const { resolvedZipStatus, triggerExportPreflight, triggerExportZipBundleResolved } = controller.exportReadiness;
   const label = statusLabel(controller);
-  const resolvedBlocked = !preflight.summary.readyForBundleZip || resolvedZipStatus === 'exporting';
+  const resolvedBlocked = resolvedZipStatus === 'exporting';
   const exportTargetLabel = channelLabel(release.targetChannel);
 
   return (
@@ -78,16 +78,16 @@ export function TopBarPrimaryActions({ controller }: { controller: TopBarControl
         <option value="meta-story">Meta Story</option>
         <option value="tiktok-vertical">TikTok Vertical</option>
       </select>
-      <Tooltip content={preflight.summary.recommendedNextStep}>
+      <Tooltip content="Run preflight">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => triggerExportPreflight(controller.snapshot.state)}
         >
-          {exportTargetLabel} · {preflight.summary.packageGrade}
+          {exportTargetLabel}
         </Button>
       </Tooltip>
-      <Tooltip content={resolvedBlocked ? preflight.summary.recommendedNextStep : `Export ${exportTargetLabel} ZIP`}>
+      <Tooltip content={`Export ${exportTargetLabel} ZIP`}>
         <Button
           variant="ghost"
           size="sm"

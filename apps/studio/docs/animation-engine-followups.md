@@ -41,3 +41,9 @@
 - [DONE S62] `parentChainByWidgetId` se cachea globalmente via `WeakMap(widgets -> widgetsById -> result)`.
 - [DONE S62] `lint:hot-path` bloquea spread/sort/filter en helpers de hot path conocidos.
 - [DONE S62] los subscribers de `group.renderer.tsx` quedan endurecidos con guards de preview/cambio antes de resetear scratch.
+- [DONE S63] `PreflightTray.tsx` eliminado.
+- [DONE S63] `ExportPreflightPanel.tsx` eliminado.
+- [DONE S63] `use-export-readiness-controller.ts` ya no retorna `preflight`.
+- [DONE S63] `DiagnosticsSection`, `ExportSection` y `ShareHandoffSection` ya no ejecutan `buildExportPreflight(...)` en render.
+- [DONE S63] `triggerExportPreflight(...)` se mantiene solo como handler explicito.
+- [DONE S63] `lint:no-export-in-render` bloquea reintroduccion del pipeline de export en render paths.

@@ -148,7 +148,6 @@
 }
 
 .top-action-button.btn--sm,
-.top-preflight-button.btn--sm,
 .top-save-button.btn--sm {
   min-height: var(--control-h-sm);
   padding: 0 var(--space-5);
@@ -157,36 +156,12 @@
   font-weight: 500;
 }
 
-.top-action-button.btn--ghost,
-.top-preflight-button.btn--ghost {
+.top-action-button.btn--ghost {
   background: var(--white-a-03);
 }
 
 .top-save-button {
   min-width: 92px;
-}
-
-.top-preflight-button {
-  white-space: nowrap;
-}
-
-.top-preflight-dot {
-  width: var(--space-3);
-  height: var(--space-3);
-  border-radius: var(--radius-pill);
-  display: inline-flex;
-  background: var(--success);
-  box-shadow: 0 0 0 1px var(--success-a-20);
-}
-
-.top-preflight-dot--warnings {
-  background: var(--warning);
-  box-shadow: 0 0 0 1px var(--warning-a-45);
-}
-
-.top-preflight-dot--errors {
-  background: var(--danger-strong);
-  box-shadow: 0 0 0 1px var(--danger-a-42);
 }
 
 .top-session-menu {

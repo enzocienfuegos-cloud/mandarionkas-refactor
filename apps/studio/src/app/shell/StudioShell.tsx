@@ -8,7 +8,6 @@ import { BottomTimeline } from '../../timeline/BottomTimeline';
 import { useStudioStore } from '../../core/store/use-studio-store';
 import { StudioIcon, StudioIcons } from '../../shared/ui/icons';
 import { SurfaceButton } from '../../shared/ui/SurfaceButton';
-import { PreflightTray } from './PreflightTray';
 import {
   LEFT_RAIL_MAX_WIDTH,
   LEFT_RAIL_MIN_WIDTH,
@@ -148,7 +147,6 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
           onToggleCollapse={() => setLayout((current) => ({ ...current, timelineHidden: true }))}
         />
       ) : null}
-      <PreflightTray />
 
       {leftRailHidden ? (
         <SurfaceButton

@@ -1,6 +1,5 @@
 import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
-import { buildExportPreflight, triggerExportPreflight, triggerExportReviewPackage } from '../../../export/engine';
-import { ExportPreflightPanel } from '../../../export/ExportPreflightPanel';
+import { triggerExportPreflight, triggerExportReviewPackage } from '../../../export/engine';
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
 import { useExportReadinessController } from '../../../app/shell/topbar/use-export-readiness-controller';
 import { useTopBarStudioSnapshot } from '../../../app/shell/topbar/use-top-bar-studio-snapshot';
@@ -14,7 +13,6 @@ export function ShareHandoffSection(): JSX.Element {
   const exportController = useExportReadinessController(topBarSnapshot);
   const { setShareLink } = useDocumentActions();
   const { pushToast } = useToast();
-  const preflight = buildExportPreflight(state);
   const previewProjectId = topBarSnapshot.activeProjectId ?? state.document.id;
   const previewToken = buildClientPreviewToken(previewProjectId, state.document.version);
   const generatedShareLink = typeof window !== 'undefined'
@@ -67,18 +65,7 @@ export function ShareHandoffSection(): JSX.Element {
       <div className="meta-line">
         <span className="pill">Open comments {openComments}</span>
         <span className="pill">Pending approvals {pendingApprovals}</span>
-        <span className="pill">Pkg grade {preflight.summary.packageGrade} · {preflight.summary.packageScore}%</span>
-        <span className="pill">{preflight.summary.readyForResolvedZip ? 'Resolved handoff ready' : 'Resolved handoff pending'}</span>
-        <span className="pill">Preferred {preflight.summary.preferredArtifact}</span>
-      </div>
-      <div className="field-stack">
-        <ExportPreflightPanel
-          preflight={preflight}
-          resolvedZipStatus={exportController.resolvedZipStatus}
-          resolvedZipMessage={exportController.resolvedZipMessage}
-          maxIssues={4}
-          compact
-        />
+        <span className="pill">{exportController.resolvedZipStatus === 'success' ? 'Resolved handoff ready' : 'Resolved handoff on demand'}</span>
       </div>
       <div>
         <label>Share link</label>

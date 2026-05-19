@@ -1,7 +1,6 @@
 import { useStudioStoreSnapshot } from '../../../core/store/use-studio-store';
 import { buildDiagnosticSummary, collectDiagnostics } from '../../../domain/document/diagnostics';
-import { buildExportHandoff, buildExportManifest, buildExportPreflight, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
-import { ExportPreflightPanel } from '../../../export/ExportPreflightPanel';
+import { buildExportHandoff, buildExportManifest, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage } from '../../../export/engine';
 import { useExportReadinessController } from '../../../app/shell/topbar/use-export-readiness-controller';
 import { useTopBarStudioSnapshot } from '../../../app/shell/topbar/use-top-bar-studio-snapshot';
 import { Button } from '../../../shared/ui/Button';
@@ -20,11 +19,10 @@ export function DiagnosticsSection(): JSX.Element {
   const issues = collectDiagnostics(state);
   const readiness = buildExportReadiness(state);
   const manifest = buildExportManifest(state);
-  const preflight = buildExportPreflight(state);
   const handoff = buildExportHandoff(state);
   const { pushToast } = useToast();
   const mraidHandoff = state.document.metadata.release.targetChannel === 'mraid' ? handoff.mraid : undefined;
-  const resolvedBlocked = !preflight.summary.readyForBundleZip || exportController.resolvedZipStatus === 'exporting';
+  const resolvedBlocked = exportController.resolvedZipStatus === 'exporting';
   const statusIcon = (passed: boolean) => <StudioIcon icon={passed ? StudioIcons.check : StudioIcons.circle} size={12} />;
 
   function notifyDownload(title: string, description: string): void {
@@ -72,10 +70,6 @@ export function DiagnosticsSection(): JSX.Element {
             {statusIcon(item.passed)} {item.label}
           </div>
         ))}
-        <div className="meta-line">
-          <span className="pill">Channel blockers {preflight.summary.channelErrors}</span>
-          <span className="pill">Channel warnings {preflight.summary.channelWarnings}</span>
-        </div>
       </div>
       {mraidHandoff ? (
         <div className="field-stack">
@@ -100,22 +94,13 @@ export function DiagnosticsSection(): JSX.Element {
         </div>
       ) : null}
       <div className="field-stack">
-        <small className="muted">Package checks</small>
-        <ExportPreflightPanel
-          preflight={preflight}
-          resolvedZipStatus={exportController.resolvedZipStatus}
-          resolvedZipMessage={exportController.resolvedZipMessage}
-          maxIssues={8}
-        />
-      </div>
-      <div className="field-stack">
         <Button onClick={() => { triggerExportHtml(state); notifyDownload('HTML exported', 'Standalone HTML has been downloaded.'); }}>Export HTML</Button>
         <Button onClick={() => { triggerExportManifest(state); notifyDownload('Manifest exported', 'Manifest JSON has been downloaded.'); }}>Export manifest</Button>
         <Button onClick={() => { triggerExportPreflight(state); notifyDownload('Preflight exported', 'Preflight JSON has been downloaded.'); }}>Export preflight</Button>
         <Button onClick={() => { triggerExportDocumentJson(state); notifyDownload('Document JSON exported', 'Document JSON has been downloaded.'); }}>Export document JSON</Button>
         <Button onClick={() => void handlePublishPackageExport()}>{mraidHandoff ? 'Export MRAID package' : 'Export publish package'}</Button>
         <Button onClick={() => { triggerExportReviewPackage(state); notifyDownload(mraidHandoff ? 'MRAID review package exported' : 'Review package exported', 'The review package has been downloaded.'); }}>{mraidHandoff ? 'Review MRAID package' : 'Export review package'}</Button>
-        <Tooltip content={resolvedBlocked ? preflight.summary.recommendedNextStep : 'Export resolved ZIP bundle'}>
+        <Tooltip content="Export resolved ZIP bundle">
           <span>
             <Button onClick={() => void exportController.triggerExportZipBundleResolved(state)} disabled={resolvedBlocked}>
               {exportController.resolvedZipStatus === 'exporting' ? 'Exporting banner…' : 'Export banner'}

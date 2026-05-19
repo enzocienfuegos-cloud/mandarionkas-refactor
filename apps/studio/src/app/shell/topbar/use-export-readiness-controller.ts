@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { buildDiagnosticSummary } from '../../../domain/document/diagnostics';
 import { validateExport } from '../../../domain/document/export-validation';
-import { buildExportHandoff, buildExportPreflight, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundle, triggerExportZipBundleResolved } from '../../../export/engine';
+import { buildExportHandoff, buildExportReadiness, triggerExportDocumentJson, triggerExportHtml, triggerExportManifest, triggerExportPreflight, triggerExportPublishPackage, triggerExportReviewPackage, triggerExportZipBundle, triggerExportZipBundleResolved } from '../../../export/engine';
 import type { ExportReadinessController, TopBarStudioSnapshot } from './top-bar-types';
 import { channelExportLabel } from './export-channels';
 
@@ -28,7 +28,6 @@ export function useExportReadinessController(snapshot: TopBarStudioSnapshot): Ex
   return {
     exportIssues: validateExport(snapshot.state),
     readiness: buildExportReadiness(snapshot.state),
-    preflight: buildExportPreflight(snapshot.state),
     handoff: buildExportHandoff(snapshot.state),
     diagnostics: buildDiagnosticSummary(snapshot.state),
     resolvedZipStatus,
