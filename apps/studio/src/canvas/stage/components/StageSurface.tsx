@@ -180,7 +180,15 @@ export function StageSurface({
       const targetId = getScratchRevealTargetId(group);
       if (!targetId) return;
       const targetWidget = widgetsById[targetId];
-      if (targetWidget?.type === 'group') nextIds.add(targetWidget.id);
+      if (targetWidget?.type !== 'group') return;
+      nextIds.add(targetWidget.id);
+      Object.values(widgetsById).forEach((candidate) => {
+        if (candidate.type !== 'group') return;
+        if (candidate.id === targetWidget.id) return;
+        if (isWidgetDescendantOf(candidate.id, targetWidget.id, widgetsById)) {
+          nextIds.add(candidate.id);
+        }
+      });
     });
     return nextIds;
   }, [scratchGroups, widgetsById]);

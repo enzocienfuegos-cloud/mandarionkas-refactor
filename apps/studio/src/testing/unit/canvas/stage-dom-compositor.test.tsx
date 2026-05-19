@@ -213,4 +213,60 @@ describe('StageSurface DOM compositor path', () => {
     expect(targetGroupNode?.style.display).toBe('');
     expect(bystanderNode?.style.display).toBe('none');
   });
+
+  it('keeps nested pass-through groups mounted when they belong to the configured scratch target subtree', () => {
+    const scratchGroup = createWidget('scratch_group');
+    scratchGroup.type = 'group';
+    scratchGroup.zIndex = 5;
+    scratchGroup.props = { scratchEnabled: true, revealTargetMode: 'widget', revealTargetId: 'target_group' };
+    scratchGroup.childIds = ['cover_text'];
+    scratchGroup.frame = { x: 0, y: 0, width: 220, height: 140, rotation: 0 };
+
+    const coverText = createWidget('cover_text');
+    coverText.parentId = 'scratch_group';
+    coverText.zIndex = 6;
+    coverText.frame = { x: 20, y: 20, width: 120, height: 40, rotation: 0 };
+
+    const targetGroup = createWidget('target_group');
+    targetGroup.type = 'group';
+    targetGroup.childIds = ['target_card_group'];
+    targetGroup.zIndex = 1;
+    targetGroup.frame = { x: 0, y: 0, width: 220, height: 140, rotation: 0 };
+
+    const targetCardGroup = createWidget('target_card_group');
+    targetCardGroup.type = 'group';
+    targetCardGroup.parentId = 'target_group';
+    targetCardGroup.childIds = ['target_card_image'];
+    targetCardGroup.zIndex = 2;
+    targetCardGroup.frame = { x: 24, y: 24, width: 120, height: 90, rotation: 0 };
+
+    const targetCardImage = createWidget('target_card_image');
+    targetCardImage.type = 'image';
+    targetCardImage.parentId = 'target_card_group';
+    targetCardImage.zIndex = 3;
+    targetCardImage.frame = { x: 8, y: 8, width: 96, height: 72, rotation: 0 };
+    targetCardImage.props = { src: 'https://example.com/card.png', alt: 'card' };
+
+    const { container } = render(
+      <PlayheadRefProvider>
+        <StageSurface
+          {...buildProps({
+            previewMode: true,
+            isPlaying: false,
+            widgets: [scratchGroup, targetGroup, targetCardGroup, targetCardImage],
+            widgetsById: {
+              scratch_group: scratchGroup,
+              cover_text: coverText,
+              target_group: targetGroup,
+              target_card_group: targetCardGroup,
+              target_card_image: targetCardImage,
+            },
+          })}
+        />
+      </PlayheadRefProvider>,
+    );
+
+    expect(container.querySelector('[data-stage-widget-id="target_group"]')).toBeTruthy();
+    expect(container.querySelector('[data-stage-widget-id="target_card_group"]')).toBeTruthy();
+  });
 });
