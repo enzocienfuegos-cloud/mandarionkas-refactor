@@ -86,6 +86,326 @@ function createScratchProgressCanvas(width: number, height: number): HTMLCanvasE
   return canvas;
 }
 
+function safeSetFillStyle(ctx: CanvasRenderingContext2D, value: string): boolean {
+  try {
+    ctx.fillStyle = value;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function drawRoundedRect(ctx: CanvasRenderingContext2D, width: number, height: number, radius: number): void {
+  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(0, 0, width, height, safeRadius);
+    return;
+  }
+  ctx.moveTo(safeRadius, 0);
+  ctx.lineTo(width - safeRadius, 0);
+  ctx.quadraticCurveTo(width, 0, width, safeRadius);
+  ctx.lineTo(width, height - safeRadius);
+  ctx.quadraticCurveTo(width, height, width - safeRadius, height);
+  ctx.lineTo(safeRadius, height);
+  ctx.quadraticCurveTo(0, height, 0, height - safeRadius);
+  ctx.lineTo(0, safeRadius);
+  ctx.quadraticCurveTo(0, 0, safeRadius, 0);
+  ctx.closePath();
+}
+
+function resolveRuntimeBackground(widget: ExportRuntimeWidget): string {
+  return String(
+    widget.style?.background
+      ?? widget.style?.backgroundColor
+      ?? widget.props?.backgroundColor
+      ?? 'transparent',
+  ).trim();
+}
+
+function resolveRuntimeTextColor(widget: ExportRuntimeWidget): string {
+  return String(widget.style?.color ?? widget.props?.color ?? '#ffffff').trim() || '#ffffff';
+}
+
+function drawRuntimeBackground(ctx: CanvasRenderingContext2D, widget: ExportRuntimeWidget): boolean {
+  const background = resolveRuntimeBackground(widget);
+  if (isTransparentPaint(background)) return false;
+  if (!safeSetFillStyle(ctx, background)) return false;
+  drawRoundedRect(ctx, Number(widget.frame.width ?? 0), Number(widget.frame.height ?? 0), Number(widget.style?.borderRadius ?? 0));
+  ctx.fill();
+  return true;
+}
+
+function readRuntimeText(widget: ExportRuntimeWidget): string {
+  const props = widget.props ?? {};
+  if (typeof props.text === 'string') return props.text;
+  if (typeof props.label === 'string') return props.label;
+  if (typeof props.title === 'string') return props.title;
+  if (typeof props.badge === 'string') return props.badge;
+  return widget.id;
+}
+
+function drawRuntimeText(ctx: CanvasRenderingContext2D, widget: ExportRuntimeWidget): boolean {
+  const text = readRuntimeText(widget).trim();
+  if (!text) return false;
+  const width = Number(widget.frame.width ?? 0);
+  const height = Number(widget.frame.height ?? 0);
+  if (width <= 0 || height <= 0) return false;
+
+  const fontSize = Math.max(6, Number(widget.style?.fontSize ?? (widget.type === 'cta' ? 16 : 20)));
+  const fontWeight = String(widget.style?.fontWeight ?? (widget.type === 'cta' ? 800 : 700));
+  const fontFamily = String(widget.style?.fontFamily ?? 'Inter, Arial, sans-serif');
+  const lineHeight = Math.max(fontSize * 1.05, Number(widget.style?.lineHeight ?? fontSize * 1.18));
+  const padding = Math.max(6, Math.min(18, Number(widget.style?.padding ?? 10)));
+  const maxWidth = Math.max(1, width - padding * 2);
+  const maxHeight = Math.max(1, height - padding * 2);
+
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  if (!safeSetFillStyle(ctx, resolveRuntimeTextColor(widget))) return false;
+  ctx.textAlign = String(widget.style?.textAlign ?? widget.style?.horizontalAlign ?? 'center') as CanvasTextAlign;
+  ctx.textBaseline = 'middle';
+
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = '';
+  words.forEach((word) => {
+    const nextLine = currentLine ? `${currentLine} ${word}` : word;
+    const measuredWidth = typeof ctx.measureText === 'function'
+      ? ctx.measureText(nextLine).width
+      : nextLine.length * fontSize * 0.55;
+    if (measuredWidth > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+      return;
+    }
+    currentLine = nextLine;
+  });
+  if (currentLine) lines.push(currentLine);
+
+  const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
+  const visibleLines = lines.slice(0, maxLines);
+  const totalHeight = (visibleLines.length - 1) * lineHeight;
+  const x = ctx.textAlign === 'left'
+    ? padding
+    : ctx.textAlign === 'right'
+      ? width - padding
+      : width / 2;
+  const yStart = height / 2 - totalHeight / 2;
+  visibleLines.forEach((line, index) => {
+    ctx.fillText?.(line, x, yStart + index * lineHeight, maxWidth);
+  });
+  return true;
+}
+
+function resolveRuntimeImageSource(widget: ExportRuntimeWidget): string {
+  const domImage = findRuntimeWidgetNodes(widget.id)
+    .map((node) => (node instanceof HTMLImageElement ? node : node.querySelector('img')))
+    .find((node): node is HTMLImageElement => Boolean(node?.currentSrc || node?.src));
+  if (domImage) return domImage.currentSrc || domImage.src;
+
+  const props = widget.props ?? {};
+  return String(
+    props.src
+      ?? props.imageSrc
+      ?? props.baseImageSrc
+      ?? props.image
+      ?? props.url
+      ?? '',
+  ).trim();
+}
+
+function drawImageWithFit(
+  ctx: CanvasRenderingContext2D,
+  image: CanvasImageSource & { naturalWidth?: number; naturalHeight?: number; videoWidth?: number; videoHeight?: number },
+  width: number,
+  height: number,
+  fit: string,
+): void {
+  const sourceWidth = Number(image.naturalWidth ?? image.videoWidth ?? width) || width;
+  const sourceHeight = Number(image.naturalHeight ?? image.videoHeight ?? height) || height;
+  if (fit === 'contain') {
+    const scale = Math.min(width / Math.max(1, sourceWidth), height / Math.max(1, sourceHeight));
+    const drawWidth = sourceWidth * scale;
+    const drawHeight = sourceHeight * scale;
+    ctx.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+    return;
+  }
+  if (fit === 'fill' || fit === 'stretch') {
+    ctx.drawImage(image, 0, 0, width, height);
+    return;
+  }
+  const scale = Math.max(width / Math.max(1, sourceWidth), height / Math.max(1, sourceHeight));
+  const drawWidth = sourceWidth * scale;
+  const drawHeight = sourceHeight * scale;
+  ctx.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+}
+
+function drawRuntimeImage(
+  ctx: CanvasRenderingContext2D,
+  widget: ExportRuntimeWidget,
+  coverBlur: number,
+  shouldPaint: () => boolean,
+): boolean {
+  const src = resolveRuntimeImageSource(widget);
+  const width = Number(widget.frame.width ?? 0);
+  const height = Number(widget.frame.height ?? 0);
+  if (!src || width <= 0 || height <= 0) return false;
+  const fit = String(widget.props?.objectFit ?? widget.props?.fit ?? widget.style?.objectFit ?? 'cover').trim().toLowerCase();
+  const transform = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null;
+
+  const renderImage = (image: HTMLImageElement) => {
+    if (!shouldPaint()) return;
+    ctx.save();
+    if (transform && typeof ctx.setTransform === 'function') {
+      ctx.setTransform(transform);
+    }
+    ctx.filter = coverBlur > 0 ? `blur(${Math.max(0, coverBlur)}px)` : 'none';
+    drawImageWithFit(ctx, image, width, height, fit);
+    ctx.filter = 'none';
+    ctx.restore();
+  };
+
+  const existingImage = findRuntimeWidgetNodes(widget.id)
+    .map((node) => (node instanceof HTMLImageElement ? node : node.querySelector('img')))
+    .find((node): node is HTMLImageElement => Boolean(node?.complete && node.naturalWidth > 0));
+  if (existingImage) {
+    renderImage(existingImage);
+    return true;
+  }
+
+  const loadImage = (useCrossOrigin: boolean) => {
+    const image = new Image();
+    if (useCrossOrigin) image.crossOrigin = 'anonymous';
+    image.onload = () => renderImage(image);
+    image.onerror = () => {
+      if (useCrossOrigin) loadImage(false);
+    };
+    image.src = src;
+  };
+  loadImage(true);
+  return true;
+}
+
+function getRuntimeChildren(scene: ExportRuntimeScene, widget: ExportRuntimeWidget): ExportRuntimeWidget[] {
+  const widgetsById = Object.fromEntries(scene.widgets.map((entry) => [entry.id, entry] as const));
+  const children = (widget.childIds ?? [])
+    .map((childId) => widgetsById[childId])
+    .filter((child): child is ExportRuntimeWidget => Boolean(child));
+  if (children.length) return children.sort((left, right) => Number(left.zIndex ?? 0) - Number(right.zIndex ?? 0));
+  return scene.widgets
+    .filter((candidate) => candidate.parentId === widget.id)
+    .sort((left, right) => Number(left.zIndex ?? 0) - Number(right.zIndex ?? 0));
+}
+
+function paintRuntimeScratchCoverWidget({
+  ctx,
+  scene,
+  widget,
+  rootFrame,
+  excludedTargetIds,
+  coverBlur,
+  shouldPaint,
+  visited,
+}: {
+  ctx: CanvasRenderingContext2D;
+  scene: ExportRuntimeScene;
+  widget: ExportRuntimeWidget;
+  rootFrame: ExportRuntimeWidget['frame'];
+  excludedTargetIds: ReadonlySet<string>;
+  coverBlur: number;
+  shouldPaint: () => boolean;
+  visited: Set<string>;
+}): boolean {
+  if (visited.has(widget.id) || widget.hidden || excludedTargetIds.has(widget.id)) return false;
+  visited.add(widget.id);
+
+  const width = Number(widget.frame.width ?? 0);
+  const height = Number(widget.frame.height ?? 0);
+  if (width <= 0 || height <= 0) return false;
+
+  let painted = false;
+  ctx.save();
+  const opacity = Math.max(0, Math.min(1, Number(widget.style?.opacity ?? 1)));
+  ctx.globalAlpha = Number.isFinite(Number(ctx.globalAlpha))
+    ? Number(ctx.globalAlpha) * opacity
+    : opacity;
+  ctx.translate?.(
+    Number(widget.frame.x ?? 0) - Number(rootFrame.x ?? 0) + width / 2,
+    Number(widget.frame.y ?? 0) - Number(rootFrame.y ?? 0) + height / 2,
+  );
+  ctx.rotate?.((Number(widget.frame.rotation ?? 0) * Math.PI) / 180);
+  ctx.translate?.(-width / 2, -height / 2);
+
+  if (widget.type === 'group') {
+    painted = drawRuntimeBackground(ctx, widget) || painted;
+  } else if (widget.type === 'image' || widget.type === 'hero-image') {
+    painted = drawRuntimeImage(ctx, widget, coverBlur, shouldPaint) || painted;
+  } else if (widget.type === 'cta') {
+    painted = drawRuntimeBackground(ctx, widget) || painted;
+    painted = drawRuntimeText(ctx, widget) || painted;
+  } else if (widget.type === 'text' || widget.type === 'badge') {
+    painted = drawRuntimeBackground(ctx, widget) || painted;
+    painted = drawRuntimeText(ctx, widget) || painted;
+  } else if (widget.type === 'shape') {
+    painted = drawRuntimeBackground(ctx, widget) || painted;
+  } else {
+    painted = drawRuntimeBackground(ctx, widget) || painted;
+  }
+
+  ctx.restore();
+
+  if (widget.type === 'group') {
+    let childPainted = false;
+    getRuntimeChildren(scene, widget).forEach((child) => {
+      childPainted = paintRuntimeScratchCoverWidget({
+        ctx,
+        scene,
+        widget: child,
+        rootFrame,
+        excludedTargetIds,
+        coverBlur,
+        shouldPaint,
+        visited,
+      }) || childPainted;
+    });
+    painted = childPainted || painted;
+  }
+
+  return painted;
+}
+
+function paintRuntimeScratchGroupedCoverSnapshot({
+  ctx,
+  scene,
+  scratchWidget,
+  excludedTargetIds,
+  coverBlur,
+  shouldPaint,
+}: {
+  ctx: CanvasRenderingContext2D;
+  scene: ExportRuntimeScene;
+  scratchWidget: ExportRuntimeWidget;
+  excludedTargetIds: ReadonlySet<string>;
+  coverBlur: number;
+  shouldPaint: () => boolean;
+}): boolean {
+  const visited = new Set<string>();
+  let painted = false;
+  getRuntimeChildren(scene, scratchWidget).forEach((child) => {
+    painted = paintRuntimeScratchCoverWidget({
+      ctx,
+      scene,
+      widget: child,
+      rootFrame: scratchWidget.frame,
+      excludedTargetIds,
+      coverBlur,
+      shouldPaint,
+      visited,
+    }) || painted;
+  });
+  return painted;
+}
+
 function configureCanvasSize(canvas: HTMLCanvasElement, width: number, height: number): number {
   const dpr = Math.max(1, Math.min(MAX_SCRATCH_DPR, Number(window.devicePixelRatio || 1)));
   const pixelWidth = Math.max(1, Math.round(width * dpr));
@@ -102,6 +422,7 @@ function paintScratchCoverCanvas({
   coverImage,
   coverColor,
   coverBlur,
+  paintCover,
   shouldPaint,
 }: {
   canvas: HTMLCanvasElement;
@@ -110,6 +431,7 @@ function paintScratchCoverCanvas({
   coverImage: string;
   coverColor: string;
   coverBlur: number;
+  paintCover?: (ctx: CanvasRenderingContext2D) => boolean;
   shouldPaint: () => boolean;
 }): { width: number; height: number; dpr: number } | null {
   const dpr = configureCanvasSize(canvas, width, height);
@@ -129,9 +451,14 @@ function paintScratchCoverCanvas({
     ctx.fillRect(0, 0, width, height);
   };
 
-  paintFallback();
+  resetTransform();
+  ctx.clearRect(0, 0, width, height);
+  const paintedGroupedCover = paintCover?.(ctx) ?? false;
+  if (!paintedGroupedCover) {
+    paintFallback();
+  }
 
-  if (coverImage) {
+  if (!paintedGroupedCover && coverImage) {
     const renderImage = (image: HTMLImageElement) => {
       if (!shouldPaint()) return;
       resetTransform();
@@ -514,6 +841,16 @@ export function mountScratchReveal(
         coverImage,
         coverColor,
         coverBlur,
+        paintCover: isGroupScratch && scene && scratchWidget
+          ? (canvasCtx) => paintRuntimeScratchGroupedCoverSnapshot({
+            ctx: canvasCtx,
+            scene,
+            scratchWidget,
+            excludedTargetIds: internalTargetIds,
+            coverBlur,
+            shouldPaint: () => !state.completed && !state.hasScratched,
+          })
+          : undefined,
         shouldPaint: () => !state.completed && !state.hasScratched,
       });
       if (!paintedSize) return;

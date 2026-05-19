@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { getLiveWidgetFrame, getLiveWidgetOpacity, isWidgetVisibleAt } from '../../domain/document/timeline';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
@@ -12,6 +13,7 @@ import {
   DEFAULT_SCRATCH_MILESTONES,
   type ScratchMilestone,
 } from './group-scratch-constants';
+import { resolveScratchInternalTargetIds } from './group-reveal-target';
 
 const MAX_SCRATCH_DPR = 2;
 const MAX_PROGRESS_CANVAS_SIZE = 96;
@@ -130,18 +132,336 @@ function createScratchProgressCanvas(width: number, height: number): HTMLCanvasE
   return canvas;
 }
 
+function drawRoundedRect(ctx: CanvasRenderingContext2D, width: number, height: number, radius: number): void {
+  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(0, 0, width, height, safeRadius);
+    return;
+  }
+  ctx.moveTo(safeRadius, 0);
+  ctx.lineTo(width - safeRadius, 0);
+  ctx.quadraticCurveTo(width, 0, width, safeRadius);
+  ctx.lineTo(width, height - safeRadius);
+  ctx.quadraticCurveTo(width, height, width - safeRadius, height);
+  ctx.lineTo(safeRadius, height);
+  ctx.quadraticCurveTo(0, height, 0, height - safeRadius);
+  ctx.lineTo(0, safeRadius);
+  ctx.quadraticCurveTo(0, 0, safeRadius, 0);
+  ctx.closePath();
+}
+
+function drawCoverBackground(ctx: CanvasRenderingContext2D, node: WidgetNode, renderCtx: RenderContext): boolean {
+  const frame = node.frame;
+  const background = resolveWidgetBackground(node, 'transparent', renderCtx);
+  if (isTransparentPaint(background)) return false;
+  ctx.fillStyle = background;
+  drawRoundedRect(ctx, frame.width, frame.height, Number(node.style.borderRadius ?? 0));
+  ctx.fill();
+  return true;
+}
+
+function drawCoverText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  node: WidgetNode,
+  renderCtx: RenderContext,
+): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  const fontSize = Math.max(6, Number(node.style.fontSize ?? (node.type === 'cta' ? 16 : 20)));
+  const fontWeight = String(node.style.fontWeight ?? (node.type === 'cta' ? 800 : 700));
+  const fontFamily = String(node.style.fontFamily ?? 'Inter, Arial, sans-serif');
+  const lineHeight = Math.max(fontSize * 1.05, Number(node.style.lineHeight ?? fontSize * 1.18));
+  const padding = Math.max(6, Math.min(18, Number(node.style.padding ?? 10)));
+  const maxWidth = Math.max(1, node.frame.width - padding * 2);
+  const maxHeight = Math.max(1, node.frame.height - padding * 2);
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  ctx.fillStyle = resolveWidgetColor(node, renderCtx);
+  ctx.textAlign = String(node.style.textAlign ?? 'center') as CanvasTextAlign;
+  ctx.textBaseline = 'middle';
+
+  const words = trimmed.split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = '';
+  words.forEach((word) => {
+    const nextLine = currentLine ? `${currentLine} ${word}` : word;
+    const measuredWidth = typeof ctx.measureText === 'function'
+      ? ctx.measureText(nextLine).width
+      : nextLine.length * fontSize * 0.55;
+    if (measuredWidth > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+      return;
+    }
+    currentLine = nextLine;
+  });
+  if (currentLine) lines.push(currentLine);
+
+  const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
+  const visibleLines = lines.slice(0, maxLines);
+  const totalHeight = (visibleLines.length - 1) * lineHeight;
+  const x = ctx.textAlign === 'left'
+    ? padding
+    : ctx.textAlign === 'right'
+      ? node.frame.width - padding
+      : node.frame.width / 2;
+  const yStart = node.frame.height / 2 - totalHeight / 2;
+  visibleLines.forEach((line, index) => {
+    ctx.fillText?.(line, x, yStart + index * lineHeight, maxWidth);
+  });
+  return true;
+}
+
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  src: string,
+  width: number,
+  height: number,
+  coverBlur: number,
+  shouldPaint: () => boolean,
+): boolean {
+  const url = src.trim();
+  if (!url || typeof Image === 'undefined') return false;
+  const image = new Image();
+  const transform = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null;
+  image.crossOrigin = 'anonymous';
+  image.onload = () => {
+    if (!shouldPaint()) return;
+    ctx.save();
+    if (transform && typeof ctx.setTransform === 'function') {
+      ctx.setTransform(transform);
+    }
+    ctx.filter = coverBlur > 0 ? `blur(${Math.max(0, coverBlur)}px)` : 'none';
+    ctx.drawImage(image, 0, 0, width, height);
+    ctx.restore();
+  };
+  image.onerror = () => {
+    if (!image.crossOrigin) return;
+    image.crossOrigin = '';
+    image.src = url;
+  };
+  image.src = url;
+  return true;
+}
+
+function resolveScratchCoverLiveFrame({
+  node,
+  rootGroupId,
+  ctx,
+  playheadMs,
+}: {
+  node: WidgetNode;
+  rootGroupId: string;
+  ctx: RenderContext;
+  playheadMs: number;
+}): WidgetNode['frame'] {
+  const liveFrame = getLiveWidgetFrame(node, playheadMs);
+  let nextX = liveFrame.x;
+  let nextY = liveFrame.y;
+  let currentParentId = node.parentId;
+  const visited = new Set<string>([node.id]);
+
+  while (currentParentId && currentParentId !== rootGroupId && !visited.has(currentParentId)) {
+    visited.add(currentParentId);
+    const parent = ctx.widgetsById[currentParentId];
+    if (!parent) break;
+    const parentLiveFrame = getLiveWidgetFrame(parent, playheadMs);
+    nextX += parentLiveFrame.x - parent.frame.x;
+    nextY += parentLiveFrame.y - parent.frame.y;
+    currentParentId = parent.parentId;
+  }
+
+  return {
+    ...liveFrame,
+    x: nextX,
+    y: nextY,
+  };
+}
+
+function resolveScratchCoverOpacity({
+  node,
+  rootGroupId,
+  ctx,
+  playheadMs,
+}: {
+  node: WidgetNode;
+  rootGroupId: string;
+  ctx: RenderContext;
+  playheadMs: number;
+}): number {
+  let opacity = getLiveWidgetOpacity(node, playheadMs);
+  let currentParentId = node.parentId;
+  const visited = new Set<string>([node.id]);
+
+  while (currentParentId && currentParentId !== rootGroupId && !visited.has(currentParentId)) {
+    visited.add(currentParentId);
+    const parent = ctx.widgetsById[currentParentId];
+    if (!parent) break;
+    opacity *= getLiveWidgetOpacity(parent, playheadMs);
+    currentParentId = parent.parentId;
+  }
+
+  return Math.max(0, Math.min(1, opacity));
+}
+
+function paintScratchCoverWidget({
+  canvasCtx,
+  node,
+  rootFrame,
+  rootGroupId,
+  renderCtx,
+  playheadMs,
+  excludedTargetIds,
+  coverBlur,
+  shouldPaint,
+  visited,
+}: {
+  canvasCtx: CanvasRenderingContext2D;
+  node: WidgetNode;
+  rootFrame: WidgetNode['frame'];
+  rootGroupId: string;
+  renderCtx: RenderContext;
+  playheadMs: number;
+  excludedTargetIds: ReadonlySet<string>;
+  coverBlur: number;
+  shouldPaint: () => boolean;
+  visited: Set<string>;
+}): boolean {
+  if (visited.has(node.id) || node.hidden || !isWidgetVisibleAt(node, playheadMs)) return false;
+  visited.add(node.id);
+  if (excludedTargetIds.has(node.id)) return false;
+
+  const liveFrame = renderCtx.previewMode && renderCtx.isReproducing
+    ? node.frame
+    : resolveScratchCoverLiveFrame({ node, rootGroupId, ctx: renderCtx, playheadMs });
+  const liveOpacity = renderCtx.previewMode && renderCtx.isReproducing
+    ? Math.max(0, Math.min(1, Number(node.style.opacity ?? 1)))
+    : resolveScratchCoverOpacity({ node, rootGroupId, ctx: renderCtx, playheadMs });
+  const paintNode: WidgetNode = {
+    ...node,
+    frame: {
+      ...node.frame,
+      width: liveFrame.width,
+      height: liveFrame.height,
+    },
+  };
+
+  let painted = false;
+  canvasCtx.save();
+  canvasCtx.globalAlpha = Number.isFinite(Number(canvasCtx.globalAlpha))
+    ? Number(canvasCtx.globalAlpha) * liveOpacity
+    : liveOpacity;
+  canvasCtx.translate?.(liveFrame.x - rootFrame.x + liveFrame.width / 2, liveFrame.y - rootFrame.y + liveFrame.height / 2);
+  canvasCtx.rotate?.((liveFrame.rotation * Math.PI) / 180);
+  canvasCtx.translate?.(-liveFrame.width / 2, -liveFrame.height / 2);
+
+  if (node.type === 'group') {
+    painted = drawCoverBackground(canvasCtx, paintNode, renderCtx) || painted;
+  } else if (node.type === 'image' || node.type === 'hero-image') {
+    painted = drawImageCover(
+      canvasCtx,
+      String(node.props.src ?? ''),
+      liveFrame.width,
+      liveFrame.height,
+      coverBlur,
+      shouldPaint,
+    ) || painted;
+  } else if (node.type === 'cta') {
+    painted = drawCoverBackground(canvasCtx, paintNode, renderCtx) || painted;
+    painted = drawCoverText(canvasCtx, String(node.props.text ?? node.name), paintNode, renderCtx) || painted;
+  } else if (node.type === 'text' || node.type === 'badge') {
+    painted = drawCoverBackground(canvasCtx, paintNode, renderCtx) || painted;
+    painted = drawCoverText(canvasCtx, String(node.props.text ?? node.props.label ?? node.name), paintNode, renderCtx) || painted;
+  } else if (node.type === 'shape') {
+    painted = drawCoverBackground(canvasCtx, paintNode, renderCtx) || painted;
+  } else {
+    painted = drawCoverBackground(canvasCtx, paintNode, renderCtx) || painted;
+  }
+
+  canvasCtx.restore();
+
+  if (node.type === 'group' && node.childIds?.length) {
+    let childPainted = false;
+    node.childIds
+      .map((childId) => renderCtx.widgetsById[childId])
+      .filter((child): child is WidgetNode => Boolean(child))
+      .sort((left, right) => left.zIndex - right.zIndex)
+      .forEach((child) => {
+        childPainted = paintScratchCoverWidget({
+          canvasCtx,
+          node: child,
+          rootFrame,
+          rootGroupId,
+          renderCtx,
+          playheadMs,
+          excludedTargetIds,
+          coverBlur,
+          shouldPaint,
+          visited,
+        }) || childPainted;
+      });
+    painted = childPainted || painted;
+  }
+
+  return painted;
+}
+
+function paintScratchGroupedCoverSnapshot({
+  canvasCtx,
+  root,
+  renderCtx,
+  playheadMs,
+  excludedTargetIds,
+  coverBlur,
+  shouldPaint,
+}: {
+  canvasCtx: CanvasRenderingContext2D;
+  root: WidgetNode;
+  renderCtx: RenderContext;
+  playheadMs: number;
+  excludedTargetIds: ReadonlySet<string>;
+  coverBlur: number;
+  shouldPaint: () => boolean;
+}): boolean {
+  const rootFrame = root.frame;
+  const visited = new Set<string>();
+  let painted = false;
+  (root.childIds ?? [])
+    .map((childId) => renderCtx.widgetsById[childId])
+    .filter((child): child is WidgetNode => Boolean(child))
+    .sort((left, right) => left.zIndex - right.zIndex)
+    .forEach((child) => {
+      painted = paintScratchCoverWidget({
+        canvasCtx,
+        node: child,
+        rootFrame,
+        rootGroupId: root.id,
+        renderCtx,
+        playheadMs,
+        excludedTargetIds,
+        coverBlur,
+        shouldPaint,
+        visited,
+      }) || painted;
+    });
+  return painted;
+}
+
 function paintScratchCoverCanvas({
   canvas,
   width,
   height,
   coverColor,
   coverBlur,
+  paintCover,
 }: {
   canvas: HTMLCanvasElement;
   width: number;
   height: number;
   coverColor: string;
   coverBlur: number;
+  paintCover?: (ctx: CanvasRenderingContext2D) => boolean;
 }): { width: number; height: number; dpr: number } | null {
   const dpr = typeof window === 'undefined'
     ? 1
@@ -158,10 +478,13 @@ function paintScratchCoverCanvas({
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   ctx.clearRect(0, 0, width, height);
-  ctx.filter = coverBlur > 0 ? `blur(${Math.max(0, coverBlur)}px)` : 'none';
-  ctx.fillStyle = coverColor;
-  const bleed = Math.max(0, coverBlur * 2);
-  ctx.fillRect(-bleed, -bleed, width + bleed * 2, height + bleed * 2);
+  const paintedGroupedCover = paintCover?.(ctx) ?? false;
+  if (!paintedGroupedCover) {
+    ctx.filter = coverBlur > 0 ? `blur(${Math.max(0, coverBlur)}px)` : 'none';
+    ctx.fillStyle = coverColor;
+    const bleed = Math.max(0, coverBlur * 2);
+    ctx.fillRect(-bleed, -bleed, width + bleed * 2, height + bleed * 2);
+  }
   ctx.filter = 'none';
 
   return { width, height, dpr };
@@ -283,7 +606,27 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     const dimensionsChanged = canvasSizeRef.current.width !== width || canvasSizeRef.current.height !== height;
     if (!force && !dimensionsChanged) return;
 
-    const paintedSize = paintScratchCoverCanvas({ canvas, width, height, coverColor, coverBlur });
+    const currentCtx = ctxRef.current;
+    const excludedTargetIds = resolveScratchInternalTargetIds(node, currentCtx.widgetsById);
+    const playheadMs = currentCtx.previewMode && currentCtx.isReproducing
+      ? playbackEngine.getCurrentMs()
+      : currentCtx.playheadMs;
+    const paintedSize = paintScratchCoverCanvas({
+      canvas,
+      width,
+      height,
+      coverColor,
+      coverBlur,
+      paintCover: (canvasCtx) => paintScratchGroupedCoverSnapshot({
+        canvasCtx,
+        root: node,
+        renderCtx: currentCtx,
+        playheadMs,
+        excludedTargetIds,
+        coverBlur,
+        shouldPaint: () => !scratchCompletedRef.current && !hasScratchedRef.current,
+      }),
+    });
     if (!paintedSize) return;
     canvasSizeRef.current = paintedSize;
     progressCanvasRef.current = createScratchProgressCanvas(width, height);

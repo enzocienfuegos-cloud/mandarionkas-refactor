@@ -68,6 +68,46 @@ function ScratchHarness(): JSX.Element {
   return renderGroupWidget(node, ctx);
 }
 
+function ScratchTextCoverHarness(): JSX.Element {
+  const node = createScratchGroup();
+  node.props.revealTargetMode = 'widget';
+  node.props.revealTargetId = 'target_text';
+  const coverText: WidgetNode = {
+    id: 'cover_text',
+    type: 'text',
+    name: 'Cover text',
+    sceneId: 'scene_1',
+    zIndex: 1,
+    parentId: node.id,
+    frame: { x: 20, y: 20, width: 180, height: 50, rotation: 0 },
+    style: { opacity: 1, color: '#ffffff', fontSize: 20 },
+    props: { text: 'Cover layer' },
+    timeline: { startMs: 0, endMs: 1000 },
+  };
+  const targetText: WidgetNode = {
+    id: 'target_text',
+    type: 'text',
+    name: 'Target text',
+    sceneId: 'scene_1',
+    zIndex: 2,
+    parentId: node.id,
+    frame: { x: 20, y: 90, width: 180, height: 50, rotation: 0 },
+    style: { opacity: 1, color: '#ffffff', fontSize: 20 },
+    props: { text: 'Target layer' },
+    timeline: { startMs: 0, endMs: 1000 },
+  };
+  node.childIds = [coverText.id, targetText.id];
+  const ctx = {
+    ...createRenderContext(node),
+    widgetsById: {
+      [node.id]: node,
+      [coverText.id]: coverText,
+      [targetText.id]: targetText,
+    },
+  } as RenderContext;
+  return renderGroupWidget(node, ctx);
+}
+
 function ToggleScratchHarness({ scratchEnabled }: { scratchEnabled: boolean }): JSX.Element {
   const node = createScratchGroup();
   node.props.scratchEnabled = scratchEnabled;
@@ -79,9 +119,11 @@ describe('scratch flow does not use canvas.toDataURL', () => {
   let toDataURLSpy: ReturnType<typeof vi.spyOn>;
   let toBlobSpy: ReturnType<typeof vi.spyOn>;
   let getContextSpy: ReturnType<typeof vi.spyOn>;
+  let fillTextSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     const canvasContexts = new WeakMap<HTMLCanvasElement, CanvasRenderingContext2D>();
+    fillTextSpy = vi.fn();
     getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function getContext(type: string) {
       if (type !== '2d') return null;
       let context = canvasContexts.get(this);
@@ -92,13 +134,19 @@ describe('scratch flow does not use canvas.toDataURL', () => {
           fillRect: vi.fn(),
           save: vi.fn(),
           restore: vi.fn(),
+          translate: vi.fn(),
+          rotate: vi.fn(),
           beginPath: vi.fn(),
           moveTo: vi.fn(),
           lineTo: vi.fn(),
+          quadraticCurveTo: vi.fn(),
+          closePath: vi.fn(),
           stroke: vi.fn(),
           arc: vi.fn(),
           fill: vi.fn(),
           ellipse: vi.fn(),
+          measureText: vi.fn((value: string) => ({ width: value.length * 8 })),
+          fillText: fillTextSpy,
           getImageData: vi.fn(() => ({
             data: new Uint8ClampedArray(Math.max(4, this.width * this.height * 4)),
           })),
@@ -167,6 +215,13 @@ describe('scratch flow does not use canvas.toDataURL', () => {
 
     expect(container.querySelector('[data-scratch-hit-area]')).toBeTruthy();
     expect(container.querySelector('.stage-widget-compositor-motion')).toBeNull();
+  });
+
+  it('paints grouped cover children into the Canvas instead of falling back to the accent color only', () => {
+    render(<ScratchTextCoverHarness />);
+
+    expect(fillTextSpy).toHaveBeenCalledWith('Cover layer', expect.any(Number), expect.any(Number), expect.any(Number));
+    expect(fillTextSpy).not.toHaveBeenCalledWith('Target layer', expect.any(Number), expect.any(Number), expect.any(Number));
   });
 
   it('does not trip React hooks when scratch is toggled on after initial render', () => {
