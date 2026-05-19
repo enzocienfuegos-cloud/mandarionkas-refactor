@@ -1268,9 +1268,11 @@ export function buildDisplayJs({
       if (!data || data.type !== 'smx:exit') return;
       var dest = (typeof data.url === 'string' && data.url) ? data.url : '';
       var resolvedClickUrl = dest || clickTag || '';
-      var navigateTo = resolvedClickUrl || clickTrackerUrl || '';
-        var isAlreadyTracked = smxIsDuskTrackedClick(resolvedClickUrl, clickTrackerUrl);
-      if (clickTrackerUrl && !isAlreadyTracked) {
+      var clickTagCarriesTracker = smxIsDuskTrackedClick(clickTag, clickTrackerUrl);
+      var resolvedIsAlreadyTracked = smxIsDuskTrackedClick(resolvedClickUrl, clickTrackerUrl);
+      var shouldUseClickTagFirstHop = clickTag && clickTagCarriesTracker && !resolvedIsAlreadyTracked;
+      var navigateTo = shouldUseClickTagFirstHop ? clickTag : (resolvedClickUrl || clickTag || clickTrackerUrl || '');
+      if (clickTrackerUrl && !resolvedIsAlreadyTracked && !shouldUseClickTagFirstHop) {
         var t = smxAppendQuery(clickTrackerUrl, 'url', resolvedClickUrl || clickTrackerUrl);
         try { fetch(t, { method: 'POST', keepalive: true, mode: 'no-cors', credentials: 'include' }); } catch(_) { (new Image()).src = t; }
       }

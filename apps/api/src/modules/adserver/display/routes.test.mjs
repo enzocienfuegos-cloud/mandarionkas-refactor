@@ -313,6 +313,31 @@ test('buildDisplayJs adds Adform/Creatopy click aliases for Illumin', () => {
   );
 });
 
+test('buildDisplayJs keeps DSP click wrappers as first hop for postMessage exits', () => {
+  const js = buildDisplayJs({
+    creativeUrl: 'https://cdn.example.com/banner/index.html',
+    impressionUrl: '',
+    clickTrackerUrl: 'https://api.example.com/v1/tags/tracker/tag-1/click?dsp=Illumin',
+    engagementTrackerUrl: '',
+    clickTag: 'https://click-va.acuityplatform.com/Adserver/landing?landingUrl=https%3A%2F%2Fapi.example.com%2Fv1%2Ftags%2Ftracker%2Ftag-1%2Fclick%3Fdsp%3DIllumin%26url%3Dhttps%253A%252F%252Fadvertiser.com',
+    width: 300,
+    height: 250,
+  });
+
+  assert.ok(
+    js.includes('var shouldUseClickTagFirstHop = clickTag && clickTagCarriesTracker && !resolvedIsAlreadyTracked;'),
+    'postMessage exits should detect when a DSP wrapper already carries the Dusk tracker',
+  );
+  assert.ok(
+    js.includes(`var navigateTo = shouldUseClickTagFirstHop ? clickTag : (resolvedClickUrl || clickTag || clickTrackerUrl || '');`),
+    'postMessage exits should navigate via the DSP wrapper first when available',
+  );
+  assert.ok(
+    js.includes('!resolvedIsAlreadyTracked && !shouldUseClickTagFirstHop'),
+    'postMessage exits should not send a direct Dusk POST when the DSP wrapper will return to Dusk',
+  );
+});
+
 test('buildDisplayHtml keeps Basis on standard clickTag only', () => {
   const html = buildDisplayHtml({
     creativeUrl: 'https://cdn.example.com/index.html',
