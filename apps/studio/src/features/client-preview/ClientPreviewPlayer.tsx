@@ -35,10 +35,15 @@ export function buildClientPreviewSceneHtml(state: StudioState, sceneIndex: numb
   const adapter = buildGenericHtml5Adapter(sceneState);
   const runtimeScript = compileRuntime(adapter.portableProject, adapter);
   const safeRuntimeScript = runtimeScript.replace(/<\/script>/gi, '<\\/script>');
-  return buildChannelHtml(sceneState, adapter, { assetPathMap: {} }).replace(
-    '<script src="./runtime.js"></script>',
+  const html = buildChannelHtml(sceneState, adapter, { assetPathMap: {} });
+  const runtimeScriptTag = '<script src="./runtime.js"></script>';
+  const runtimeScriptIndex = html.lastIndexOf(runtimeScriptTag);
+  if (runtimeScriptIndex < 0) return html;
+  return [
+    html.slice(0, runtimeScriptIndex),
     `<script>${safeRuntimeScript}</script>`,
-  );
+    html.slice(runtimeScriptIndex + runtimeScriptTag.length),
+  ].join('');
 }
 
 export function ClientPreviewPlayer({

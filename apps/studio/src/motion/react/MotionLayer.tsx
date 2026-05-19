@@ -12,6 +12,7 @@ import {
 import type { WidgetNode } from '../../domain/document/types';
 import { SCENE_CLOCK, createEventClock } from '../animation-engine/clock';
 import type { AnimationTrigger } from '../animation-engine/events';
+import type { AnimationPlan } from '../animation-engine/plan';
 import { buildRevealReplayPlan, shouldReplayLoadMotionOnReveal } from '../animation-engine/reveal-replay';
 import { useAnimationEngine } from '../animation-engine';
 
@@ -46,6 +47,13 @@ function setRefValue(ref: Ref<HTMLDivElement> | undefined, value: HTMLDivElement
   (ref as { current: HTMLDivElement | null }).current = value;
 }
 
+function buildMotionSignature(plans: readonly AnimationPlan[]): string {
+  if (!plans.length) return '0';
+  return plans
+    .map((plan) => `${plan.id}|${plan.trigger}|${plan.durationMs}|${plan.delayMs}|${plan.iterations}`)
+    .join(';');
+}
+
 export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function MotionLayer({
   widget,
   widgetsById,
@@ -62,14 +70,35 @@ export const MotionLayer = forwardRef<HTMLDivElement, MotionLayerProps>(function
   const planContext = useMemo(() => ({
     widgetsById: widgetsById ?? { [widget.id]: widget },
     previewMode,
-  }), [previewMode, widget, widgetsById]);
+  }), [
+    previewMode,
+    widget.id,
+    widget.type,
+    widget.parentId,
+    widget.childIds,
+    widget.props,
+    widget.motion,
+    widget.hoverMotion,
+    widgetsById,
+  ]);
   const widgetRef = useRef(widget);
   const plans = useMemo(
     () => engine.buildPlansForWidget(widget, planContext),
-    [engine, planContext, widget],
+    [
+      engine,
+      planContext,
+      widget.id,
+      widget.type,
+      widget.parentId,
+      widget.childIds,
+      widget.props,
+      widget.motion,
+      widget.hoverMotion,
+      widget.timeline,
+    ],
   );
   const plansRef = useRef(plans);
-  const motionSignature = useMemo(() => JSON.stringify(plans), [plans]);
+  const motionSignature = useMemo(() => buildMotionSignature(plans), [plans]);
 
   useEffect(() => {
     widgetRef.current = widget;

@@ -5,15 +5,6 @@ import type { WidgetNode } from '../../../domain/document/types';
 import type { RenderContext } from '../../../canvas/stage/render-context';
 import { renderGroupWidget } from '../../../widgets/group/group.renderer';
 
-type CssCanvasDocument = Document & {
-  getCSSCanvasContext?: (
-    contextId: '2d',
-    name: string,
-    width: number,
-    height: number,
-  ) => CanvasRenderingContext2D | null;
-};
-
 function createScratchGroup(): WidgetNode {
   return {
     id: 'scratch_group',
@@ -95,29 +86,12 @@ describe('scratch flow does not use canvas.toDataURL', () => {
       }
       return context;
     });
-    const contexts = new Map<string, CanvasRenderingContext2D>();
-    Object.defineProperty(document, 'getCSSCanvasContext', {
-      configurable: true,
-      value: vi.fn((_: '2d', name: string, width: number, height: number) => {
-        let context = contexts.get(name);
-        if (!context) {
-          const canvas = document.createElement('canvas');
-          context = canvas.getContext('2d');
-          if (!context) return null;
-          contexts.set(name, context);
-        }
-        context.canvas.width = width;
-        context.canvas.height = height;
-        return context;
-      }),
-    });
     toDataURLSpy = vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL');
   });
 
   afterEach(() => {
     toDataURLSpy.mockRestore();
     getContextSpy.mockRestore();
-    delete (document as CssCanvasDocument).getCSSCanvasContext;
   });
 
   it('scratching does not invoke canvas.toDataURL', () => {

@@ -202,37 +202,50 @@ Reemplazos:
 Eso baja el trabajo del loop en escenas donde la mayoria de widgets no tienen
 keyframes ni ventanas de visibilidad especiales.
 
-## The canvas encoding bottleneck (Sprint S57)
+## The MotionLayer JSON.stringify trap (Sprint S58)
 
-Despues de limpiar Stage, GSAP, snapshots y compositor, el trace de Chrome
-mostro que el scratch seguia congelando el thread por un cuello distinto:
+El re-analisis fino del trace de Chrome mostro que el cuello mas caro ya no
+estaba en GSAP ni en el scratch, sino en `MotionLayer.tsx`:
 
-```text
-canvas mutation -> canvas.toDataURL('image/png') -> React setState -> CSS mask decode
+```tsx
+const motionSignature = useMemo(() => JSON.stringify(plans), [plans]);
 ```
 
-Cada scratch move pagaba por un encode PNG sincronico y ademas disparaba un
-re-render solo para actualizar el `maskImage`.
+`MotionLayer` se monta por widget y por scratch cover child. Eso hacia que
+`JSON.stringify(plans)` corriera miles de veces durante playback y re-render,
+pagando walk completo del grafo + encode interno de strings en V8.
 
-### Solucion: live CSS canvas mask
+La correccion fue reemplazar ese hash caro por `buildMotionSignature(plans)`,
+una firma corta basada solo en campos estables:
 
-En el scratch group y el export runtime el mask ya no se genera como data URL.
-Ahora el target usa un canvas CSS nombrado (`-webkit-canvas(...)`) como source
-de la mascara, y el scratch solo muta pixeles del canvas vivo.
+- `plan.id`
+- `plan.trigger`
+- `plan.durationMs`
+- `plan.delayMs`
+- `plan.iterations`
 
-```text
-canvas mutation -> live CSS canvas mask updates in place
-```
-
-Eso elimina:
-
-- `canvas.toDataURL(...)` del hot path
-- `setState` / `setMaskUrl(...)` por movimiento
-- el encode base64 por cada stroke
+Con eso el effect que monta GSAP sigue re-montando cuando cambia la lista de
+planes, pero sin el costo explosivo de `JSON.stringify(...)`.
 
 ### Regla
 
-- Nunca usar `canvas.toDataURL(...)` en hot paths interactivos.
-- Scratch y reveal UIs deben consumir canvas vivo, no PNGs transient.
-- `lint:canvas-encoding` bloquea nuevas regresiones fuera de pipelines de
-  optimizacion de assets.
+- Nunca usar `JSON.stringify(...)` dentro de `useMemo`, `useCallback` o render
+  para producir firmas reactivas.
+- En hot paths de React usar firmas cortas basadas en IDs/campos estables.
+- `lint:json-stringify` bloquea nuevas regresiones de este patron.
+
+## Scratch masks cross-browser after S57
+
+S57 elimino el `toDataURL(...)` sincronico del hot path, pero dejo un path
+Safari-only via `document.getCSSCanvasContext` y `-webkit-canvas(...)`.
+
+En S58 el scratch queda cross-browser otra vez:
+
+- editor/runtime image scratch: canvas DOM normal, visible, mutado in-place
+- scratch group con cover DOM: mascara estandar via `mask-image: url(blob:...)`
+  generada desde canvas con `toBlob(...)`
+
+Eso mantiene el cover real del scratch group, evita `-webkit-canvas(...)`, y
+preserva la regla principal:
+
+- nunca volver a `canvas.toDataURL(...)` en hot paths interactivos

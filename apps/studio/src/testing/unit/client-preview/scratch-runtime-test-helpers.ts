@@ -37,6 +37,9 @@ function incrementScratchProgress(canvas: ProgressCanvas): void {
 export function installScratchCanvasMock(): () => void {
   const originalGetContext = HTMLCanvasElement.prototype.getContext;
   const originalToDataUrl = HTMLCanvasElement.prototype.toDataURL;
+  const originalToBlob = HTMLCanvasElement.prototype.toBlob;
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
 
   Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
     configurable: true,
@@ -84,6 +87,27 @@ export function installScratchCanvasMock(): () => void {
     value: () => 'data:image/png;base64,ZmFrZQ==',
   });
 
+  Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
+    configurable: true,
+    value: function toBlob(
+      this: HTMLCanvasElement,
+      callback: BlobCallback,
+      type?: string,
+    ) {
+      callback(new Blob(['fake'], { type: type ?? 'image/png' }));
+    },
+  });
+
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: () => 'blob:mock-scratch-mask',
+  });
+
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: () => {},
+  });
+
   return () => {
     Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
       configurable: true,
@@ -92,6 +116,18 @@ export function installScratchCanvasMock(): () => void {
     Object.defineProperty(HTMLCanvasElement.prototype, 'toDataURL', {
       configurable: true,
       value: originalToDataUrl,
+    });
+    Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
+      configurable: true,
+      value: originalToBlob,
+    });
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: originalCreateObjectURL,
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: originalRevokeObjectURL,
     });
   };
 }

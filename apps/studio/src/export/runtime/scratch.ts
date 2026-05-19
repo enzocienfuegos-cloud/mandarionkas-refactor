@@ -15,15 +15,6 @@ type ScratchRuntimeWindow = Window & typeof globalThis & {
   __smxScratchCompletionPerfMsByWidgetId?: Record<string, number>;
 };
 
-type CssCanvasDocument = Document & {
-  getCSSCanvasContext?: (
-    contextId: '2d',
-    name: string,
-    width: number,
-    height: number,
-  ) => CanvasRenderingContext2D | null;
-};
-
 function nowMs(): number {
   return typeof performance !== 'undefined' && typeof performance.now === 'function'
     ? performance.now()
@@ -96,47 +87,38 @@ function paintScratchCover(
   loadImage();
 }
 
-function getScratchCssCanvasContext(
-  canvasName: string,
-  width: number,
-  height: number,
-): CanvasRenderingContext2D | null {
-  const attachCanvas = (context: CanvasRenderingContext2D | null): CanvasRenderingContext2D | null => {
-    if (!context) return null;
-    if ('canvas' in context && context.canvas) {
-      context.canvas.width = width;
-      context.canvas.height = height;
-      return context;
-    }
-    const fallbackCanvas = document.createElement('canvas');
-    fallbackCanvas.width = width;
-    fallbackCanvas.height = height;
-    Object.defineProperty(context, 'canvas', {
-      configurable: true,
-      value: fallbackCanvas,
-    });
-    return context;
-  };
-  const cssCanvasDocument = document as CssCanvasDocument;
-  if (typeof cssCanvasDocument.getCSSCanvasContext === 'function') {
-    return attachCanvas(cssCanvasDocument.getCSSCanvasContext('2d', canvasName, width, height));
-  }
-  const fallbackCanvas = document.createElement('canvas');
-  fallbackCanvas.width = width;
-  fallbackCanvas.height = height;
-  return attachCanvas(fallbackCanvas.getContext('2d'));
-}
-
-function applyScratchMask(maskTarget: HTMLElement | null, canvasName: string): void {
+function applyScratchMask(maskTarget: HTMLElement | null, maskUrl: string): void {
   if (!maskTarget) return;
-  maskTarget.style.webkitMaskImage = `-webkit-canvas(${canvasName})`;
-  maskTarget.style.maskImage = `-webkit-canvas(${canvasName})`;
+  maskTarget.style.webkitMaskImage = `url("${maskUrl}")`;
+  maskTarget.style.maskImage = `url("${maskUrl}")`;
   maskTarget.style.webkitMaskSize = '100% 100%';
   maskTarget.style.maskSize = '100% 100%';
   maskTarget.style.webkitMaskRepeat = 'no-repeat';
   maskTarget.style.maskRepeat = 'no-repeat';
   maskTarget.style.webkitMaskPosition = 'center';
   maskTarget.style.maskPosition = 'center';
+}
+
+function clearScratchMask(maskTarget: HTMLElement | null): void {
+  if (!maskTarget) return;
+  maskTarget.style.webkitMaskImage = 'none';
+  maskTarget.style.maskImage = 'none';
+}
+
+function canUseObjectUrls(): boolean {
+  return typeof URL !== 'undefined'
+    && typeof URL.createObjectURL === 'function'
+    && typeof URL.revokeObjectURL === 'function';
+}
+
+function revokeMaskUrl(maskUrl: string): void {
+  if (!maskUrl || !canUseObjectUrls()) return;
+  URL.revokeObjectURL(maskUrl);
+}
+
+function createMaskUrl(blob: Blob): string {
+  if (!canUseObjectUrls()) return '';
+  return URL.createObjectURL(blob);
 }
 
 function eraseScratchStroke(
@@ -290,14 +272,10 @@ export function mountScratchReveal(
     canvas.width = width;
     canvas.height = height;
     const scratchWidgetId = root.getAttribute('data-scratch-widget-id') || root.getAttribute('data-widget-id') || '';
-    const maskCanvasName = `smx-runtime-scratch-mask-${scratchWidgetId || Math.random().toString(36).slice(2, 10)}`;
-    const maskContext = getScratchCssCanvasContext(maskCanvasName, width, height);
-    if (!maskContext) return;
-    const maskCanvas = maskContext.canvas;
+    const maskCanvas = maskTarget ? document.createElement('canvas') : canvas;
     maskCanvas.width = width;
     maskCanvas.height = height;
     initializeScratchMask(maskCanvas);
-    applyScratchMask(maskTarget, maskCanvasName);
 
     const progressCanvas = createScratchProgressCanvas(width, height);
     if (progressCanvas) {
@@ -346,7 +324,64 @@ export function mountScratchReveal(
       || root.getAttribute('data-scratch-reveal-target-id')
       || '').trim();
 
-    paintScratchCover(maskCanvas, coverImage, coverBlur, accent);
+    if (!maskTarget) {
+      paintScratchCover(maskCanvas, coverImage, coverBlur, accent);
+    }
+
+    let activeMaskUrl = '';
+    let maskSyncPending = false;
+    let maskSyncQueued = false;
+    let maskSyncFrame: number | null = null;
+
+    const commitMaskUrl = (nextUrl: string): void => {
+      revokeMaskUrl(activeMaskUrl && activeMaskUrl !== nextUrl ? activeMaskUrl : '');
+      activeMaskUrl = nextUrl;
+      if (nextUrl) {
+        applyScratchMask(maskTarget, nextUrl);
+      } else {
+        clearScratchMask(maskTarget);
+      }
+    };
+
+    const flushMaskPreview = (): void => {
+      if (!maskTarget) return;
+      if (maskSyncPending) {
+        maskSyncQueued = true;
+        return;
+      }
+      if (typeof maskCanvas.toBlob !== 'function') return;
+      maskSyncQueued = false;
+      maskSyncPending = true;
+      maskCanvas.toBlob((blob) => {
+        maskSyncPending = false;
+        if (blob) {
+          commitMaskUrl(createMaskUrl(blob));
+        }
+        if (maskSyncQueued) {
+          maskSyncQueued = false;
+          maskSyncFrame = window.requestAnimationFrame(() => {
+            maskSyncFrame = null;
+            flushMaskPreview();
+          });
+        }
+      }, 'image/png');
+    };
+
+    const scheduleMaskPreview = (): void => {
+      if (!maskTarget) return;
+      if (maskSyncFrame !== null) {
+        maskSyncQueued = true;
+        return;
+      }
+      maskSyncFrame = window.requestAnimationFrame(() => {
+        maskSyncFrame = null;
+        flushMaskPreview();
+      });
+    };
+
+    if (maskTarget) {
+      scheduleMaskPreview();
+    }
 
     let completed = false;
     let pointerActive = false;
@@ -417,8 +452,9 @@ export function mountScratchReveal(
       if (maskTarget) {
         maskTarget.style.display = 'none';
         maskTarget.style.visibility = 'hidden';
-        maskTarget.style.webkitMaskImage = 'none';
-        maskTarget.style.maskImage = 'none';
+        clearScratchMask(maskTarget);
+        revokeMaskUrl(activeMaskUrl);
+        activeMaskUrl = '';
       } else {
         const clearContext = maskCanvas.getContext('2d');
         clearContext?.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
@@ -461,6 +497,7 @@ export function mountScratchReveal(
       const point = { x: clientX - rect.left, y: clientY - rect.top };
       const previousPoint = lastScratchPoint;
       eraseScratchStroke(maskCanvas, previousPoint, point, scratchRadius);
+      scheduleMaskPreview();
       lastScratchPoint = point;
       const progress = progressCanvas
         ? eraseScratchProgress(progressCanvas, previousPoint, point, scratchRadius, width, height)
@@ -505,6 +542,16 @@ export function mountScratchReveal(
     removers.push(() => canvas.removeEventListener('pointerdown', handlePointerDown));
     removers.push(() => canvas.removeEventListener('pointermove', handlePointerMove));
     removers.push(() => window.removeEventListener('pointerup', handlePointerUp));
+    removers.push(() => {
+      if (maskSyncFrame !== null) {
+        window.cancelAnimationFrame(maskSyncFrame);
+      }
+      if (activeMaskUrl) {
+        revokeMaskUrl(activeMaskUrl);
+        activeMaskUrl = '';
+      }
+      clearScratchMask(maskTarget);
+    });
   });
 
   return {

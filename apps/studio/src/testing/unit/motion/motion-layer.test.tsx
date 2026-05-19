@@ -215,4 +215,19 @@ describe('MotionLayer', () => {
       delayMs: 120,
     });
   });
+
+  it('does not call JSON.stringify while rendering motion plans', async () => {
+    const stringifySpy = vi.spyOn(JSON, 'stringify');
+
+    await act(async () => {
+      root.render(
+        <MotionLayer widget={createWidget()} isReproducing previewMode>
+          <div>Child</div>
+        </MotionLayer>,
+      );
+    });
+
+    expect(stringifySpy).not.toHaveBeenCalled();
+    stringifySpy.mockRestore();
+  });
 });
