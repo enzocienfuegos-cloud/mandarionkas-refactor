@@ -524,6 +524,14 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
 
     const checkRewind = (nextMs: number) => {
       const previewMode = ctxRef.current.previewMode;
+      if (!previewMode) {
+        previousPlayheadMs = nextMs;
+        previousPreviewMode = false;
+        return;
+      }
+      if (previewMode === previousPreviewMode && nextMs === previousPlayheadMs) {
+        return;
+      }
       const enteredPreview = previewMode && !previousPreviewMode;
       const rewoundToStart = previewMode && nextMs === 0 && previousPlayheadMs > 0;
       previousPlayheadMs = nextMs;

@@ -36,3 +36,8 @@
 - [DONE S60] `lint:no-state-cloning` bloquea `structuredClone(...)` y `JSON.parse(JSON.stringify(...))` en hot paths de store/history/canvas/hooks/motion/persistence.
 - [DONE S57] `lint:canvas-encoding` bloquea `toDataURL(...)` en codigo productivo fuera de pipelines de assets.
 - [DONE S57] `scratch-no-canvas-encoding` verifica que el flow de scratch no invoque `HTMLCanvasElement.prototype.toDataURL`.
+- [DONE S62] `getLiveWidgetFrame` y `getLiveWidgetOpacity` usan cache `WeakMap` + busqueda binaria; cero `filter/sort/reverse/spread` en steady state.
+- [DONE S62] `StageSurface` separa hydration inicial de ticks playback-reactive y cachea frame/opacidad por tick.
+- [DONE S62] `parentChainByWidgetId` se cachea globalmente via `WeakMap(widgets -> widgetsById -> result)`.
+- [DONE S62] `lint:hot-path` bloquea spread/sort/filter en helpers de hot path conocidos.
+- [DONE S62] los subscribers de `group.renderer.tsx` quedan endurecidos con guards de preview/cambio antes de resetear scratch.

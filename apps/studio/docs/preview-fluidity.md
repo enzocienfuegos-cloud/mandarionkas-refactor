@@ -334,3 +334,44 @@ Eso es seguro porque:
 - nunca clonar `StudioState` completo en dispatch, render o selectors
 - si hace falta serializar a red/disco, hacerlo solo en el boundary
 - para undo/redo, confiar en la inmutabilidad del reducer y guardar referencias
+
+## Stage apply loop con cache de tracks (Sprint S62)
+
+`getLiveWidgetFrame` y `getLiveWidgetOpacity` ahora cachean las tracks de
+keyframes ordenadas en un `WeakMap` por widget. Antes, cada call hacia
+`filter(...)`, `[...spread]`, `reverse()` y `sort(...)`, lo que creaba arrays
+nuevos en cada tick del playback.
+
+Con el cache por widget y busqueda binaria:
+
+- el steady state del playback deja de alocar arrays por frame
+- `getLiveWidgetFrame(...)` devuelve `widget.frame` por referencia cuando no hay
+  cambios
+- `getLiveWidgetOpacity(...)` reutiliza tracks preordenadas
+
+### Regla: hot paths sin allocaciones
+
+Las funciones llamadas desde el playback tick no deben:
+
+- usar `[...spread]`
+- llamar `.sort()` o `.filter()` por call
+- construir `Map` o `Set` nuevos por invocacion
+
+`lint:hot-path` bloquea regresiones en helpers como `getLiveWidgetFrame`,
+`getLiveWidgetOpacity`, `isWidgetVisibleAt` y vecinos de herencia timeline.
+
+## Stage apply early-exit (Sprint S62)
+
+`StageSurface` ya no reaplica trabajo pesado a todos los widgets en cada tick.
+
+- el primer apply sigue hidratando todos los widgets montados
+- los ticks posteriores solo recorren widgets playback-reactive
+- los widgets estaticos quedan fuera del hot path despues del primer mount
+- frames y opacidades live se cachean por tick para no recalcular parents una y
+  otra vez dentro del mismo apply
+
+## Parent chain cache global (Sprint S62)
+
+`parentChainByWidgetId` se mueve a un cache global en `WeakMap`, indexado por
+las referencias de `widgets` y `widgetsById`, para evitar rebuilds completos
+innecesarios en cada invalidacion React del stage.
