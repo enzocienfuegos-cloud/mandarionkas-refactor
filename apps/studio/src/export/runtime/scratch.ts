@@ -403,11 +403,12 @@ export function mountScratchReveal(
     const replayTargetMotionOnReveal = (shell.getAttribute('data-scratch-replay-target-motion-on-reveal')
       || root.getAttribute('data-scratch-replay-target-motion-on-reveal')
       || (scratchWidget?.props?.replayTargetMotionOnReveal === false ? 'false' : 'true')) !== 'false';
+    const targetIds = scene && scratchWidget
+      ? new Set(resolveScratchTargets(scene, scratchWidget).map((widget) => widget.id))
+      : new Set<string>();
 
     if (scene && scratchWidget && revealTargetMode === 'widget' && revealTargetId) {
-      const targetIds = new Set(resolveScratchTargets(scene, scratchWidget).map((widget) => widget.id));
       resolveCoveredScratchWidgets(scene, scratchWidget).forEach((widget) => {
-        if (targetIds.has(widget.id)) return;
         findRuntimeWidgetNodes(widget.id).forEach((node) => {
           if (!visibilitySnapshots.has(node)) {
             visibilitySnapshots.set(node, {
@@ -464,6 +465,23 @@ export function mountScratchReveal(
       if (!scene || !scratchWidget) return;
       const clock = createEventClock('reveal', completionPerfMs);
       const revealMetadata = buildScratchRevealMetadata(replayTargetMotionOnReveal);
+      if (revealTargetMode === 'widget' && revealTargetId) {
+        resolveCoveredScratchWidgets(scene, scratchWidget).forEach((widget) => {
+          findRuntimeWidgetNodes(widget.id).forEach((node) => {
+            const snapshot = visibilitySnapshots.get(node);
+            if (!snapshot) return;
+            if (targetIds.has(widget.id)) {
+              node.style.display = snapshot.display;
+              node.style.visibility = snapshot.visibility;
+              node.style.pointerEvents = snapshot.pointerEvents;
+              return;
+            }
+            node.style.display = 'none';
+            node.style.visibility = 'hidden';
+            node.style.pointerEvents = 'none';
+          });
+        });
+      }
       resolveScratchTargets(scene, scratchWidget).forEach((widget) => {
         engine.emit({
           trigger: 'reveal',

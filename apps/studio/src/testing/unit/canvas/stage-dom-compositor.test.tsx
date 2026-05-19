@@ -12,6 +12,7 @@ const engine = {
   syncScenePlayhead: vi.fn(),
   emit: vi.fn(),
 };
+const stageWidgetProps: Array<any> = [];
 
 vi.mock('../../../motion/animation-engine', async () => {
   const actual = await vi.importActual<typeof import('../../../motion/animation-engine')>('../../../motion/animation-engine');
@@ -23,9 +24,10 @@ vi.mock('../../../motion/animation-engine', async () => {
 });
 
 vi.mock('../../../canvas/stage/components/StageWidget', () => ({
-  StageWidget: ({ node, widgetRef }: { node: WidgetNode; widgetRef?: (node: HTMLDivElement | null) => void }) => (
-    <div ref={widgetRef} data-stage-widget-id={node.id} />
-  ),
+  StageWidget: (props: { node: WidgetNode; widgetRef?: (node: HTMLDivElement | null) => void }) => {
+    stageWidgetProps.push(props);
+    return <div ref={props.widgetRef} data-stage-widget-id={props.node.id} />;
+  },
 }));
 
 vi.mock('../../../canvas/stage/components/StageDropPreviewOverlay', () => ({
@@ -89,6 +91,7 @@ describe('StageSurface DOM compositor path', () => {
   let rafCallbacks: FrameRequestCallback[] = [];
 
   beforeEach(() => {
+    stageWidgetProps.length = 0;
     rafCallbacks = [];
     vi.stubGlobal('requestAnimationFrame', vi.fn((cb: FrameRequestCallback) => {
       rafCallbacks.push(cb);
@@ -136,5 +139,78 @@ describe('StageSurface DOM compositor path', () => {
 
     expect(playhead?.style.transform).toBe('translate3d(80px, 0, 0)');
     expect(querySelectorSpy).not.toHaveBeenCalledWith('[data-stage-widget-id="widget_1"]');
+  });
+
+  it('keeps covered target widgets hidden until scratch completes, then hides the scratch subtree and reveals only the configured target subtree', () => {
+    const scratchGroup = createWidget('scratch_group');
+    scratchGroup.type = 'group';
+    scratchGroup.zIndex = 5;
+    scratchGroup.props = { scratchEnabled: true, revealTargetMode: 'widget', revealTargetId: 'target_group' };
+    scratchGroup.childIds = ['cover_text'];
+    scratchGroup.frame = { x: 0, y: 0, width: 220, height: 140, rotation: 0 };
+
+    const coverText = createWidget('cover_text');
+    coverText.parentId = 'scratch_group';
+    coverText.zIndex = 6;
+    coverText.frame = { x: 20, y: 20, width: 120, height: 40, rotation: 0 };
+
+    const targetGroup = createWidget('target_group');
+    targetGroup.type = 'group';
+    targetGroup.childIds = ['target_card_1', 'target_card_2'];
+    targetGroup.zIndex = 1;
+    targetGroup.frame = { x: 0, y: 0, width: 220, height: 140, rotation: 0 };
+
+    const targetCard1 = createWidget('target_card_1');
+    targetCard1.parentId = 'target_group';
+    targetCard1.zIndex = 2;
+    targetCard1.frame = { x: 12, y: 18, width: 80, height: 60, rotation: 0 };
+
+    const targetCard2 = createWidget('target_card_2');
+    targetCard2.parentId = 'target_group';
+    targetCard2.zIndex = 3;
+    targetCard2.frame = { x: 112, y: 18, width: 80, height: 60, rotation: 0 };
+
+    const bystander = createWidget('bystander');
+    bystander.zIndex = 0;
+    bystander.frame = { x: 8, y: 90, width: 100, height: 36, rotation: 0 };
+
+    const { container } = render(
+      <PlayheadRefProvider>
+        <StageSurface
+          {...buildProps({
+            previewMode: true,
+            isPlaying: false,
+            widgets: [scratchGroup, targetGroup, bystander],
+            widgetsById: {
+              scratch_group: scratchGroup,
+              cover_text: coverText,
+              target_group: targetGroup,
+              target_card_1: targetCard1,
+              target_card_2: targetCard2,
+              bystander,
+            },
+          })}
+        />
+      </PlayheadRefProvider>,
+    );
+
+    const scratchNode = container.querySelector<HTMLElement>('[data-stage-widget-id="scratch_group"]');
+    const targetGroupNode = container.querySelector<HTMLElement>('[data-stage-widget-id="target_group"]');
+    const bystanderNode = container.querySelector<HTMLElement>('[data-stage-widget-id="bystander"]');
+
+    expect(scratchNode?.style.display).toBe('');
+    expect(targetGroupNode?.style.display).toBe('none');
+    expect(bystanderNode?.style.display).toBe('none');
+
+    const scratchProps = stageWidgetProps.find((entry) => entry.node.id === 'scratch_group');
+    expect(scratchProps).toBeTruthy();
+
+    act(() => {
+      scratchProps.onWidgetTrigger('scratch_group', 'scratch-complete', { completedAtMs: 320 });
+    });
+
+    expect(scratchNode?.style.display).toBe('none');
+    expect(targetGroupNode?.style.display).toBe('');
+    expect(bystanderNode?.style.display).toBe('none');
   });
 });

@@ -186,4 +186,119 @@ describe('scratch milestones', () => {
 
     handle.dispose();
   });
+
+  it('reveals only the configured target subtree after completion in widget mode', () => {
+    const engine = createEngineStub();
+    const sceneManager = createSceneManagerStub();
+    const runtimeModel = createRuntimeModel(
+      createRuntimeScene({
+        id: 'scene_1',
+        name: 'Scene 1',
+        order: 0,
+        durationMs: 2000,
+        widgets: [
+          createRuntimeWidget({
+            id: 'target_group',
+            type: 'group',
+            sceneId: 'scene_1',
+            zIndex: 1,
+            frame: { x: 0, y: 0, width: 200, height: 100, rotation: 0 },
+            childIds: ['target_card_1', 'target_card_2'],
+          }),
+          createRuntimeWidget({
+            id: 'target_card_1',
+            type: 'image',
+            sceneId: 'scene_1',
+            parentId: 'target_group',
+            zIndex: 2,
+            frame: { x: 10, y: 10, width: 60, height: 40, rotation: 0 },
+          }),
+          createRuntimeWidget({
+            id: 'target_card_2',
+            type: 'image',
+            sceneId: 'scene_1',
+            parentId: 'target_group',
+            zIndex: 3,
+            frame: { x: 90, y: 10, width: 60, height: 40, rotation: 0 },
+          }),
+          createRuntimeWidget({
+            id: 'other_card',
+            type: 'image',
+            sceneId: 'scene_1',
+            zIndex: 0,
+            frame: { x: 30, y: 60, width: 90, height: 20, rotation: 0 },
+          }),
+          createRuntimeWidget({
+            id: 'scratch_group',
+            type: 'group',
+            sceneId: 'scene_1',
+            zIndex: 5,
+            frame: { x: 0, y: 0, width: 200, height: 100, rotation: 0 },
+            props: {
+              scratchEnabled: true,
+              revealTargetMode: 'widget',
+              revealTargetId: 'target_group',
+            },
+          }),
+        ],
+      }),
+    );
+
+    document.body.innerHTML = `
+      <div data-widget-id="scratch_group">
+        <div data-scratch-mask-target></div>
+        <div data-scratch-shell></div>
+        <canvas data-scratch-canvas></canvas>
+      </div>
+      <div data-widget-id="target_group"></div>
+      <div data-widget-layer-id="target_group"></div>
+      <div data-widget-id="target_card_1"></div>
+      <div data-widget-layer-id="target_card_1"></div>
+      <div data-widget-id="target_card_2"></div>
+      <div data-widget-layer-id="target_card_2"></div>
+      <div data-widget-id="other_card"></div>
+      <div data-widget-layer-id="other_card"></div>
+    `;
+    const shell = document.querySelector<HTMLElement>('[data-scratch-shell]');
+    const canvas = document.querySelector<HTMLCanvasElement>('[data-scratch-canvas]');
+    if (!shell || !canvas) throw new Error('scratch DOM did not mount');
+    shell.setAttribute('data-scratch-auto-reveal-threshold', '20');
+    shell.setAttribute('data-scratch-reveal-target-mode', 'widget');
+    shell.setAttribute('data-scratch-reveal-target-id', 'target_group');
+    shell.setAttribute('data-scratch-radius', '24');
+    shell.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      width: 200,
+      height: 100,
+      top: 0,
+      left: 0,
+      right: 200,
+      bottom: 100,
+      toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(shell, 'clientWidth', { configurable: true, value: 200 });
+    Object.defineProperty(shell, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(shell, 'offsetWidth', { configurable: true, value: 200 });
+    Object.defineProperty(shell, 'offsetHeight', { configurable: true, value: 100 });
+
+    const handle = mountScratchReveal(engine, runtimeModel, sceneManager);
+
+    expect((document.querySelector('[data-widget-id="target_group"]') as HTMLElement).style.display).toBe('none');
+    expect((document.querySelector('[data-widget-id="target_card_1"]') as HTMLElement).style.display).toBe('none');
+    expect((document.querySelector('[data-widget-id="target_card_2"]') as HTMLElement).style.display).toBe('none');
+    expect((document.querySelector('[data-widget-id="other_card"]') as HTMLElement).style.display).toBe('none');
+
+    dispatchScratchPointerEvent(shell, 'pointerdown', 10, 10);
+    dispatchScratchPointerEvent(shell, 'pointermove', 40, 10);
+
+    expect(shell.classList.contains('is-scratch-complete')).toBe(true);
+    expect(canvas.style.display).toBe('none');
+    expect((document.querySelector('[data-widget-id="target_group"]') as HTMLElement).style.display).toBe('');
+    expect((document.querySelector('[data-widget-id="target_card_1"]') as HTMLElement).style.display).toBe('');
+    expect((document.querySelector('[data-widget-id="target_card_2"]') as HTMLElement).style.display).toBe('');
+    expect((document.querySelector('[data-widget-id="other_card"]') as HTMLElement).style.display).toBe('none');
+
+    handle.dispose();
+  });
 });

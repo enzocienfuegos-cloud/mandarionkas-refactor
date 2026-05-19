@@ -11,7 +11,12 @@ import { createEventClock } from '../../../motion/animation-engine';
 import { useAnimationEngine } from '../../../motion/animation-engine';
 import { buildScratchRevealMetadata } from '../../../motion/animation-engine/reveal-replay';
 import { isScratchGroupActive } from '../../../widgets/group/group-scratch-activation';
-import { resolveScratchRevealTargets } from '../../../widgets/group/group-reveal-target';
+import {
+  getScratchRevealTargetId,
+  getScratchRevealTargetMode,
+  isWidgetDescendantOf,
+  resolveScratchRevealTargets,
+} from '../../../widgets/group/group-reveal-target';
 import { playbackEngine } from '../../../hooks/use-playback-engine';
 import { useLatestRef } from '../../../shared/hooks';
 import { usePlayheadRef } from '../playhead-ref-context';
@@ -21,6 +26,31 @@ function hasTimelineDynamics(widget: WidgetNode, sceneDurationMs: number): boole
   return Boolean(widget.timeline.keyframes?.length)
     || widget.timeline.startMs !== 0
     || widget.timeline.endMs !== sceneDurationMs;
+}
+
+function rectsOverlap(left: WidgetNode['frame'], right: WidgetNode['frame']): boolean {
+  return Number(left.x ?? 0) < Number(right.x ?? 0) + Number(right.width ?? 0)
+    && Number(left.x ?? 0) + Number(left.width ?? 0) > Number(right.x ?? 0)
+    && Number(left.y ?? 0) < Number(right.y ?? 0) + Number(right.height ?? 0)
+    && Number(left.y ?? 0) + Number(left.height ?? 0) > Number(right.y ?? 0);
+}
+
+function isScratchCoverSubtreeWidget(
+  scratchGroup: WidgetNode,
+  candidate: WidgetNode,
+  widgetsById: Record<string, WidgetNode>,
+): boolean {
+  return candidate.id === scratchGroup.id || isWidgetDescendantOf(candidate.id, scratchGroup.id, widgetsById);
+}
+
+function isVisuallyCoveredByScratchGroup(
+  scratchGroup: WidgetNode,
+  candidate: WidgetNode,
+  widgetsById: Record<string, WidgetNode>,
+): boolean {
+  if (isScratchCoverSubtreeWidget(scratchGroup, candidate, widgetsById)) return false;
+  if (Number(scratchGroup.zIndex ?? 0) <= Number(candidate.zIndex ?? 0)) return false;
+  return rectsOverlap(scratchGroup.frame, candidate.frame);
 }
 
 export type StageSurfaceProps = {
@@ -102,6 +132,8 @@ export function StageSurface({
   const widgetElementsRef = useRef(new Map<string, HTMLDivElement>());
   const widgetRefHandlersRef = useRef(new Map<string, (node: HTMLDivElement | null) => void>());
   const playheadOverlayRef = useRef<HTMLDivElement | null>(null);
+  const completedScratchGroupIdsRef = useRef<Record<string, true>>({});
+  const applyPlaybackDomRef = useRef<((ms: number) => void) | null>(null);
   const sceneWidgets = useMemo(
     () => Object.values(widgetsById).filter((widget) => widget.sceneId === sceneId),
     [sceneId, widgetsById],
@@ -137,6 +169,21 @@ export function StageSurface({
     () => widgets.filter((widget) => widgetAnimationState.get(widget.id)?.animated ?? true),
     [widgetAnimationState, widgets],
   );
+  const scratchGroups = useMemo(
+    () => widgets.filter((widget) => widget.type === 'group' && Boolean(widget.props.scratchEnabled)),
+    [widgets],
+  );
+  const scratchTargetGroupIds = useMemo(() => {
+    const nextIds = new Set<string>();
+    scratchGroups.forEach((group) => {
+      if (getScratchRevealTargetMode(group) !== 'widget') return;
+      const targetId = getScratchRevealTargetId(group);
+      if (!targetId) return;
+      const targetWidget = widgetsById[targetId];
+      if (targetWidget?.type === 'group') nextIds.add(targetWidget.id);
+    });
+    return nextIds;
+  }, [scratchGroups, widgetsById]);
 
   const stableWidgetTrigger = useCallback((widgetId: string, trigger: ActionNode['trigger'], metadata?: Record<string, unknown>) => {
     const deps = widgetTriggerDepsRef.current;
@@ -156,6 +203,13 @@ export function StageSurface({
       return;
     }
     if (trigger !== 'scratch-complete') return;
+    if (!completedScratchGroupIdsRef.current[widgetId]) {
+      completedScratchGroupIdsRef.current = {
+        ...completedScratchGroupIdsRef.current,
+        [widgetId]: true,
+      };
+      applyPlaybackDomRef.current?.(Number(metadata?.completedAtMs ?? deps.playheadRef.current));
+    }
 
     const scratchWidget = deps.widgetsById[widgetId];
     if (!scratchWidget) return;
@@ -177,6 +231,14 @@ export function StageSurface({
       });
     });
   }, [widgetTriggerDepsRef]);
+
+  const syncScenePlayback = useCallback((nextMs: number, source: 'tick' | 'scrub' | 'seek') => {
+    if (isReproducing && source === 'tick') {
+      engine.syncScenePlayhead(nextMs);
+      return;
+    }
+    engine['seekScene'](nextMs);
+  }, [engine, isReproducing]);
 
   useEffect(() => {
     widgetsRef.current = widgets;
@@ -216,17 +278,36 @@ export function StageSurface({
   }, [engine, previewMode]);
 
   useEffect(() => {
-    const syncScenePlayback = (nextMs: number, source: 'tick' | 'scrub' | 'seek') => {
-      if (isReproducing && source === 'tick') {
-        engine.syncScenePlayhead(nextMs);
+    if (previewMode) return;
+    completedScratchGroupIdsRef.current = {};
+    applyPlaybackDomRef.current?.(playbackEngine.getCurrentMs());
+  }, [previewMode]);
+
+  useEffect(() => {
+    let previousPlayheadMs = playbackEngine.getCurrentMs();
+    let previousPreviewMode = previewMode;
+
+    return playbackEngine.subscribeDom((nextMs) => {
+      if (!previewMode) {
+        previousPlayheadMs = nextMs;
+        previousPreviewMode = false;
         return;
       }
-      engine.seekScene(nextMs);
-    };
+      const enteredPreview = previewMode && !previousPreviewMode;
+      const rewoundToStart = previewMode && nextMs === 0 && previousPlayheadMs > 0;
+      previousPlayheadMs = nextMs;
+      previousPreviewMode = previewMode;
+      if (enteredPreview || rewoundToStart) {
+        completedScratchGroupIdsRef.current = {};
+        applyPlaybackDomRef.current?.(nextMs);
+      }
+    });
+  }, [previewMode]);
 
-    engine.seekScene(playbackEngine.getCurrentMs());
+  useEffect(() => {
+    engine['seekScene'](playbackEngine.getCurrentMs());
     return playbackEngine.subscribeDom(syncScenePlayback);
-  }, [engine, isReproducing]);
+  }, [engine, syncScenePlayback]);
 
   useEffect(() => {
     if (!isReproducing) {
@@ -302,7 +383,35 @@ export function StageSurface({
           return;
         }
 
-        const visible = !widget.hidden
+        const scratchVisibilityOverride = (() => {
+          for (const scratchGroup of scratchGroups) {
+            const scratchCompleted = Boolean(completedScratchGroupIdsRef.current[scratchGroup.id]);
+            const scratchActive = scratchCompleted || isScratchGroupActive({
+              group: scratchGroup,
+              widgetsById,
+              playheadMs: ms,
+            });
+            if (!scratchActive) continue;
+            if (getScratchRevealTargetMode(scratchGroup) !== 'widget') continue;
+            const targetId = getScratchRevealTargetId(scratchGroup);
+            if (!targetId) continue;
+            const targetMatch = widget.id === targetId || isWidgetDescendantOf(widget.id, targetId, widgetsById);
+            const covered = isVisuallyCoveredByScratchGroup(scratchGroup, widget, widgetsById);
+            const scratchSubtree = isScratchCoverSubtreeWidget(scratchGroup, widget, widgetsById);
+
+            if (!scratchCompleted) {
+              if (!scratchSubtree && covered) return false;
+              continue;
+            }
+
+            if (scratchSubtree) return false;
+            if (covered && !targetMatch) return false;
+          }
+          return true;
+        })();
+
+        const visible = scratchVisibilityOverride
+          && !widget.hidden
           && isWidgetVisibleAt(widget, ms)
           && parentChain.every((parent) => !parent.hidden && isWidgetVisibleAt(parent, ms));
 
@@ -371,9 +480,27 @@ export function StageSurface({
       }
     };
 
+    applyPlaybackDomRef.current = (ms: number) => apply(ms, widgets);
     apply(playbackEngine.getCurrentMs(), widgets);
-    return playbackEngine.subscribeDom((nextMs) => apply(nextMs, playbackReactiveWidgets));
-  }, [canvas.width, isReproducing, liveFrameById, parentChainByWidgetId, playbackReactiveWidgets, sceneDurationMs, widgetAnimationState, widgets]);
+    const unsubscribe = playbackEngine.subscribeDom((nextMs) => apply(nextMs, playbackReactiveWidgets));
+    return () => {
+      if (applyPlaybackDomRef.current) {
+        applyPlaybackDomRef.current = null;
+      }
+      unsubscribe();
+    };
+  }, [
+    canvas.width,
+    isReproducing,
+    liveFrameById,
+    parentChainByWidgetId,
+    playbackReactiveWidgets,
+    sceneDurationMs,
+    scratchGroups,
+    widgetAnimationState,
+    widgets,
+    widgetsById,
+  ]);
 
   function buildStageSurfaceStyle(): CSSProperties {
     return {
@@ -416,7 +543,8 @@ export function StageSurface({
           && Boolean(widget.childIds?.length)
           && (!Boolean(widget.props.scratchEnabled) || !scratchGroupActive);
         const groupSelectedInEditor = !previewMode && selectedIds.includes(widget.id);
-        if (isPassThroughGroup && !groupSelectedInEditor) return null;
+        const keepGroupForScratchReveal = previewMode && scratchTargetGroupIds.has(widget.id);
+        if (isPassThroughGroup && !groupSelectedInEditor && !keepGroupForScratchReveal) return null;
 
         const baseFrame = liveFrameById[widget.id] ?? widget.frame;
 
