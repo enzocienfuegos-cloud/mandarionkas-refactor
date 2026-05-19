@@ -6,7 +6,6 @@ import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
 import { renderWidgetContents } from '../../canvas/stage/render-widget';
 import { playbackEngine } from '../../hooks/use-playback-engine';
-import { MotionLayer } from '../../motion/react/MotionLayer';
 import { useLatestRef } from '../../shared/hooks';
 import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
 import { isScratchGroupActive } from './group-scratch-activation';
@@ -335,11 +334,7 @@ function ScratchCoverWidget({
   };
 
   return (
-    <MotionLayer
-      widget={node}
-      widgetsById={ctx.widgetsById}
-      previewMode={ctx.previewMode}
-      isReproducing={Boolean(ctx.isReproducing)}
+    <div
       style={{
         position: 'absolute',
         left: 0,
@@ -361,7 +356,7 @@ function ScratchCoverWidget({
           active: false,
         },
       )}
-    </MotionLayer>
+    </div>
   );
 }
 

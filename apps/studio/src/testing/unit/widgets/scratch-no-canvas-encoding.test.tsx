@@ -45,7 +45,26 @@ function createRenderContext(node: WidgetNode): RenderContext {
 
 function ScratchHarness(): JSX.Element {
   const node = createScratchGroup();
-  const ctx = createRenderContext(node);
+  const childImage: WidgetNode = {
+    id: 'image_1',
+    type: 'image',
+    name: 'Reveal image',
+    sceneId: 'scene_1',
+    zIndex: 1,
+    parentId: node.id,
+    frame: { x: 12, y: 10, width: 120, height: 80, rotation: 0 },
+    style: { opacity: 1 },
+    props: { src: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=', alt: 'Reveal image' },
+    timeline: { startMs: 0, endMs: 1000 },
+  };
+  node.childIds = [childImage.id];
+  const ctx = {
+    ...createRenderContext(node),
+    widgetsById: {
+      [node.id]: node,
+      [childImage.id]: childImage,
+    },
+  } as RenderContext;
   return renderGroupWidget(node, ctx);
 }
 
@@ -128,5 +147,12 @@ describe('scratch flow does not use canvas.toDataURL', () => {
     fireEvent.pointerMove(scratchHitArea!, { clientX: 44, clientY: 28, pointerId: 1 });
 
     expect(scratchMaskWrapper?.style.maskImage || scratchMaskWrapper?.style.webkitMaskImage).toContain('data:image/svg+xml');
+  });
+
+  it('does not wrap scratch cover children in MotionLayer compositor nodes', () => {
+    const { container } = render(<ScratchHarness />);
+
+    expect(container.querySelector('[data-scratch-hit-area]')).toBeTruthy();
+    expect(container.querySelector('.stage-widget-compositor-motion')).toBeNull();
   });
 });
