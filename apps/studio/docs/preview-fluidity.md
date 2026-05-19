@@ -147,3 +147,57 @@ fuerzan paint por frame. En el hot path del stage y timeline se limitaron a
 - `element.style.left/top = ...` dentro de archivos con `subscribeDom`
 - CSS con `will-change: left/top/width/height`
 - transitions no compositeables en los archivos calientes de stage/timeline
+
+## Stop fighting GSAP (Sprint S56)
+
+S52-S55 cerraron React, snapshots, compositor y CSS caliente. El editor seguia
+por debajo del target porque todavia habia dos patrones caros:
+
+- `engine.seekScene(ms)` se disparaba en cada frame del playback automatico
+- `usePlaybackMsVisual` seguia re-renderizando React a 60Hz en `group` y
+  `scratch-reveal`
+
+### Regla: `seekScene` solo en eventos discretos
+
+`engine.seekScene(ms)` se usa exclusivamente para:
+
+- scrub manual de timeline
+- pausa / rewind
+- cambio de escena
+- sincronizacion inicial al entrar a playback
+
+Durante playback automatico el stage ya no hace `seekScene` por frame. En su
+lugar usa `engine.syncScenePlayhead(ms)`, que solo actualiza el playhead interno
+del engine sin tocar timelines.
+
+### Regla: distinguir tick vs scrub
+
+`playbackEngine.setCurrentMs(ms, source)` ahora acepta:
+
+- `'tick'` para el rAF del runtime controller
+- `'scrub'` para drag/click manual del playhead
+- `'seek'` para rewinds, resets y cambios programaticos
+
+Los subscribers de `subscribeDom` reciben el `source` como segundo argumento.
+
+### `usePlaybackMsVisual` queda deprecado
+
+`usePlaybackMsVisual` era funcionalmente playback live-reactive a 60Hz.
+
+Reemplazos:
+- `usePlaybackDerivedValue` para valores derivados discretos
+- `playbackEngine.getCurrentMs()` dentro de handlers
+- `playbackEngine.subscribeDom(...)` + mutacion DOM cuando hace falta sync visual
+
+`scratch-reveal` y `group` ya no dependen de ese hook.
+
+### Loop del StageSurface optimizado
+
+`StageSurface` ahora:
+
+- pre-computa parent chains por cambio estructural
+- identifica widgets timeline-reactive vs widgets estaticos
+- skipea widgets estaticos despues de su frame inicial aplicado
+
+Eso baja el trabajo del loop en escenas donde la mayoria de widgets no tienen
+keyframes ni ventanas de visibilidad especiales.

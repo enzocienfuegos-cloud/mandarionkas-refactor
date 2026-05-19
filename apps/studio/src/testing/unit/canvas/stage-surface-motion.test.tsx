@@ -7,6 +7,7 @@ import { playbackEngine } from '../../../hooks/use-playback-engine';
 const engine = {
   resetEventClocks: vi.fn(),
   seekScene: vi.fn(),
+  syncScenePlayhead: vi.fn(),
   emit: vi.fn(),
 };
 

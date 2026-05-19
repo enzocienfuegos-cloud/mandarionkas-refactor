@@ -177,8 +177,8 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
 
       if (currentDrag.mode === 'playhead') {
         const nextMs = clamp(currentDrag.startMs + deltaMs, 0, scene.durationMs);
-        playbackEngine.setCurrentMs(nextMs);
-        playbackEngine.flushReact();
+        playbackEngine.setCurrentMs(nextMs, 'scrub');
+        playbackEngine.flushReact('scrub');
         timelineActions.setPlayhead(nextMs);
         return;
       }
@@ -337,8 +337,8 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
   function seekPlayheadImmediate(nextMs: number): void {
     uiActions.setPreviewMode(true);
     timelineActions.setPlaying(false);
-    playbackEngine.setCurrentMs(nextMs);
-    playbackEngine.flushReact();
+    playbackEngine.setCurrentMs(nextMs, 'scrub');
+    playbackEngine.flushReact('scrub');
     timelineActions.setPlayhead(nextMs);
   }
 

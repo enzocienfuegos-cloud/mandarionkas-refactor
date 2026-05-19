@@ -5,7 +5,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
 import { renderWidgetContents } from '../../canvas/stage/render-widget';
-import { playbackEngine, usePlaybackMsVisual } from '../../hooks/use-playback-engine';
+import { playbackEngine } from '../../hooks/use-playback-engine';
 import { MotionLayer } from '../../motion/react/MotionLayer';
 import { useLatestRef } from '../../shared/hooks';
 import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
@@ -373,8 +373,7 @@ function GroupScratchCoverChildren({
 }
 
 function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
-  const visualPlayheadMs = usePlaybackMsVisual(ctx.playheadMs);
-  const playheadMs = ctx.isReproducing ? visualPlayheadMs : ctx.playheadMs;
+  const playheadMs = ctx.playheadMs;
   const previewMode = ctx.previewMode;
   const nodeId = node.id;
   const ctxRef = useLatestRef(ctx);

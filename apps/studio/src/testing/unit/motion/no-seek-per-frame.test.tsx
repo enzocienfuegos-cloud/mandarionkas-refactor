@@ -39,9 +39,9 @@ function createWidget(id: string): WidgetNode {
     name: id,
     sceneId: 'scene_1',
     zIndex: 1,
-    frame: { x: 24, y: 36, width: 180, height: 72, rotation: 15 },
+    frame: { x: 0, y: 0, width: 120, height: 60, rotation: 0 },
     props: { text: id },
-    style: { opacity: 0.75 },
+    style: { opacity: 1 },
     timeline: { startMs: 0, endMs: 1500 },
   };
 }
@@ -85,7 +85,7 @@ function buildProps(overrides: Partial<StageSurfaceProps> = {}): StageSurfacePro
   };
 }
 
-describe('StageSurface DOM compositor path', () => {
+describe('no seek per frame during playback', () => {
   let rafCallbacks: FrameRequestCallback[] = [];
 
   beforeEach(() => {
@@ -95,46 +95,54 @@ describe('StageSurface DOM compositor path', () => {
       return rafCallbacks.length;
     }));
     vi.stubGlobal('cancelAnimationFrame', vi.fn());
-    playbackEngine.setCurrentMs(250);
-    playbackEngine.flushReact();
+    engine.resetEventClocks.mockReset();
+    engine.seekScene.mockReset();
+    engine.syncScenePlayhead.mockReset();
+    engine.emit.mockReset();
+    playbackEngine.setCurrentMs(0, 'seek');
+    playbackEngine.flushReact('seek');
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it('positions widgets and playhead overlay with transform instead of left/top mutations', () => {
-    const querySelectorSpy = vi.spyOn(document, 'querySelector');
-    const { container } = render(
+  it('does not call seekScene per frame during automatic playback ticks', () => {
+    render(
       <PlayheadRefProvider>
         <StageSurface {...buildProps()} />
       </PlayheadRefProvider>,
     );
 
-    const widget = container.querySelector<HTMLElement>('[data-stage-widget-id="widget_1"]');
-    const playhead = container.querySelector<HTMLElement>('.playhead-overlay');
+    const seeksAfterMount = engine.seekScene.mock.calls.length;
 
-    expect(widget).toBeTruthy();
-    expect(playhead).toBeTruthy();
+    for (let frame = 0; frame < 30; frame += 1) {
+      act(() => {
+        playbackEngine.setCurrentMs((frame + 1) * 16, 'tick');
+        const callback = rafCallbacks.shift();
+        callback?.(performance.now());
+      });
+    }
 
-    expect(widget?.style.transform).toBe('translate3d(24px, 36px, 0) rotate(15deg)');
-    expect(widget?.style.left).toBe('');
-    expect(widget?.style.top).toBe('');
-    expect(widget?.style.width).toBe('180px');
-    expect(widget?.style.height).toBe('72px');
-    expect(widget?.dataset.frameWidth).toBe('180');
-    expect(widget?.dataset.frameHeight).toBe('72');
+    expect(engine.seekScene.mock.calls.length).toBe(seeksAfterMount);
+    expect(engine.syncScenePlayhead.mock.calls.length).toBeGreaterThanOrEqual(30);
+  });
 
-    expect(playhead?.style.left).toBe('');
-    expect(playhead?.style.transform).toBe('translate3d(40px, 0, 0)');
+  it('does call seekScene when the user scrubs while paused', () => {
+    render(
+      <PlayheadRefProvider>
+        <StageSurface {...buildProps({ isPlaying: false })} />
+      </PlayheadRefProvider>,
+    );
+
+    const seeksAfterMount = engine.seekScene.mock.calls.length;
 
     act(() => {
-      playbackEngine.setCurrentMs(500);
+      playbackEngine.setCurrentMs(500, 'scrub');
       const callback = rafCallbacks.shift();
       callback?.(performance.now());
     });
 
-    expect(playhead?.style.transform).toBe('translate3d(80px, 0, 0)');
-    expect(querySelectorSpy).not.toHaveBeenCalledWith('[data-stage-widget-id="widget_1"]');
+    expect(engine.seekScene.mock.calls.length).toBeGreaterThan(seeksAfterMount);
   });
 });

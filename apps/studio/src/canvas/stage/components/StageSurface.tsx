@@ -7,7 +7,6 @@ import { StageWidget } from './StageWidget';
 import { StageDropPreviewOverlay } from './StageDropPreviewOverlay';
 import { rectStyle, sceneTransitionOpacity, sceneTransitionTransform, toRect } from './stage-utils';
 import { createStageInteractionProps, STAGE_INTERACTION } from '../stage-interaction-targets';
-import { isVisibleWithinParentTimeline, resolveInheritedMotionFrame, resolveInheritedOpacity } from './stage-motion-inheritance';
 import { createEventClock } from '../../../motion/animation-engine';
 import { useAnimationEngine } from '../../../motion/animation-engine';
 import { buildScratchRevealMetadata } from '../../../motion/animation-engine/reveal-replay';
@@ -16,6 +15,35 @@ import { resolveScratchRevealTargets } from '../../../widgets/group/group-reveal
 import { playbackEngine } from '../../../hooks/use-playback-engine';
 import { useLatestRef } from '../../../shared/hooks';
 import { usePlayheadRef } from '../playhead-ref-context';
+
+type WidgetParentChain = readonly WidgetNode[];
+
+function buildParentChainByWidgetId(
+  widgets: WidgetNode[],
+  widgetsById: Record<string, WidgetNode>,
+): ReadonlyMap<string, WidgetParentChain> {
+  const result = new Map<string, WidgetParentChain>();
+  widgets.forEach((widget) => {
+    const chain: WidgetNode[] = [];
+    const visited = new Set<string>([widget.id]);
+    let currentParentId = widget.parentId;
+    while (currentParentId && !visited.has(currentParentId)) {
+      visited.add(currentParentId);
+      const parent = widgetsById[currentParentId];
+      if (!parent) break;
+      chain.push(parent);
+      currentParentId = parent.parentId;
+    }
+    result.set(widget.id, chain);
+  });
+  return result;
+}
+
+function hasTimelineDynamics(widget: WidgetNode, sceneDurationMs: number): boolean {
+  return Boolean(widget.timeline.keyframes?.length)
+    || widget.timeline.startMs !== 0
+    || widget.timeline.endMs !== sceneDurationMs;
+}
 
 export type StageSurfaceProps = {
   stageRef: RefObject<HTMLDivElement>;
@@ -106,6 +134,19 @@ export function StageSurface({
     sceneWidgets,
     playheadRef,
   });
+  const parentChainByWidgetId = useMemo(
+    () => buildParentChainByWidgetId(widgets, widgetsById),
+    [widgets, widgetsById],
+  );
+  const widgetIsAnimated = useMemo(() => {
+    const result = new Map<string, boolean>();
+    widgets.forEach((widget) => {
+      const ownAnimated = hasTimelineDynamics(widget, sceneDurationMs);
+      const parentAnimated = (parentChainByWidgetId.get(widget.id) ?? []).some((parent) => hasTimelineDynamics(parent, sceneDurationMs));
+      result.set(widget.id, ownAnimated || parentAnimated);
+    });
+    return result;
+  }, [parentChainByWidgetId, sceneDurationMs, widgets]);
 
   const stableWidgetTrigger = useCallback((widgetId: string, trigger: ActionNode['trigger'], metadata?: Record<string, unknown>) => {
     const deps = widgetTriggerDepsRef.current;
@@ -159,6 +200,9 @@ export function StageSurface({
     widgetRefHandlersRef.current.forEach((_, widgetId) => {
       if (!activeIds.has(widgetId)) widgetRefHandlersRef.current.delete(widgetId);
     });
+    widgetElementsRef.current.forEach((element) => {
+      delete element.dataset.frameApplied;
+    });
   }, [widgets]);
 
   const getWidgetRefHandler = useCallback((widgetId: string) => {
@@ -182,14 +226,16 @@ export function StageSurface({
   }, [engine, previewMode]);
 
   useEffect(() => {
-    if (!isReproducing) {
-      engine.seekScene(playbackEngine.getCurrentMs());
-      return undefined;
-    }
-    engine.seekScene(playbackEngine.getCurrentMs());
-    return playbackEngine.subscribeDom((nextMs) => {
+    const syncScenePlayback = (nextMs: number, source: 'tick' | 'scrub' | 'seek') => {
+      if (isReproducing && source === 'tick') {
+        engine.syncScenePlayhead(nextMs);
+        return;
+      }
       engine.seekScene(nextMs);
-    });
+    };
+
+    engine.seekScene(playbackEngine.getCurrentMs());
+    return playbackEngine.subscribeDom(syncScenePlayback);
   }, [engine, isReproducing]);
 
   useEffect(() => {
@@ -223,15 +269,14 @@ export function StageSurface({
         const element = widgetElementsRef.current.get(widget.id);
         if (!element) return;
 
-        const visible = !widget.hidden && isWidgetVisibleAt(widget, ms) && isVisibleWithinParentTimeline({
-          widget,
-          widgetsById,
-          isWidgetVisible: (widgetId) => {
-            const target = widgetsById[widgetId];
-            if (!target || target.hidden) return false;
-            return isWidgetVisibleAt(target, ms);
-          },
-        });
+        const animated = widgetIsAnimated.get(widget.id) ?? true;
+        if (!animated && element.dataset.frameApplied === '1') return;
+
+        const parentChain = parentChainByWidgetId.get(widget.id) ?? [];
+
+        const visible = !widget.hidden
+          && isWidgetVisibleAt(widget, ms)
+          && parentChain.every((parent) => !parent.hidden && isWidgetVisibleAt(parent, ms));
 
         const nextDisplay = visible ? '' : 'none';
         if (element.dataset.displayState !== nextDisplay) {
@@ -245,14 +290,20 @@ export function StageSurface({
           : (liveFrameById[widget.id] ?? getLiveWidgetFrame(widget, ms));
         const frame = isReproducing
           ? liveFrame
-          : resolveInheritedMotionFrame({
-              widget,
-              widgetsById,
-              liveFrameById,
-              playheadMs: ms,
-              getLiveFrame: (target, targetPlayheadMs) => getLiveWidgetFrame(target, targetPlayheadMs),
-              ownFrame: liveFrame,
-            });
+          : (() => {
+              let nextX = liveFrame.x;
+              let nextY = liveFrame.y;
+              parentChain.forEach((parent) => {
+                const parentLiveFrame = liveFrameById[parent.id] ?? getLiveWidgetFrame(parent, ms);
+                nextX += parentLiveFrame.x - parent.frame.x;
+                nextY += parentLiveFrame.y - parent.frame.y;
+              });
+              return {
+                ...liveFrame,
+                x: nextX,
+                y: nextY,
+              };
+            })();
 
         const nextTransform = `translate3d(${frame.x}px, ${frame.y}px, 0) rotate(${frame.rotation}deg)`;
         if (element.dataset.frameTransform !== nextTransform) {
@@ -273,18 +324,19 @@ export function StageSurface({
 
         const opacity = isReproducing
           ? Number(widget.style.opacity ?? 1)
-          : resolveInheritedOpacity({
-              widget,
-              widgetsById,
-              playheadMs: ms,
-              ownOpacity: getLiveWidgetOpacity(widget, ms),
-              getLiveOpacity: (target, targetPlayheadMs) => getLiveWidgetOpacity(target, targetPlayheadMs),
-            });
+          : (() => {
+              let nextOpacity = getLiveWidgetOpacity(widget, ms);
+              parentChain.forEach((parent) => {
+                nextOpacity *= getLiveWidgetOpacity(parent, ms);
+              });
+              return Math.max(0, Math.min(1, nextOpacity));
+            })();
         const nextOpacity = String(opacity);
         if (element.dataset.frameOpacity !== nextOpacity) {
           element.style.opacity = nextOpacity;
           element.dataset.frameOpacity = nextOpacity;
         }
+        element.dataset.frameApplied = '1';
       });
 
       if (playheadOverlayRef.current) {
@@ -295,7 +347,7 @@ export function StageSurface({
 
     apply(playbackEngine.getCurrentMs());
     return playbackEngine.subscribeDom(apply);
-  }, [canvas.width, isReproducing, liveFrameById, sceneDurationMs, widgets, widgetsById]);
+  }, [canvas.width, isReproducing, liveFrameById, parentChainByWidgetId, sceneDurationMs, widgetIsAnimated, widgets]);
 
   function buildStageSurfaceStyle(): CSSProperties {
     return {

@@ -168,6 +168,10 @@ export class RuntimeAnimationEngine implements AnimationEngine {
     });
   }
 
+  syncScenePlayhead(playheadMs: number): void {
+    this.scenePlayheadMs = Math.max(0, playheadMs);
+  }
+
   pauseEventClocks(): void {
     this.playbacks.forEach((playback) => {
       if (playback.clock.kind === 'scene') return;

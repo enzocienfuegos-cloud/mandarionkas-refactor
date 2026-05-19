@@ -12,6 +12,7 @@ const { engine } = vi.hoisted(() => ({
     subscribe: vi.fn(),
     cancelAllForWidget: vi.fn(),
     seekScene: vi.fn(),
+    syncScenePlayhead: vi.fn(),
   },
 }));
 
@@ -82,6 +83,7 @@ describe('MotionLayer', () => {
     engine.subscribe.mockClear();
     engine.cancelAllForWidget.mockClear();
     engine.seekScene.mockClear();
+    engine.syncScenePlayhead.mockClear();
     engine.subscribe.mockImplementation(() => () => {});
   });
 

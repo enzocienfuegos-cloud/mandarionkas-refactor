@@ -18,3 +18,8 @@
 - [DONE S55] `timeline-playhead`, `timeline-row-playhead` y `timeline-overview-playhead` migrados de `left` a `transform`, con variables `--*-x` en pixeles.
 - [DONE S55] `.stage-widget` y hot paths del timeline limitados a transitions compositeables (`transform`, `opacity`).
 - [DONE S55] `lint:layout-thrashing` y `no-layout-thrashing.test.ts` bloquean regresiones de `style.left/top` en `subscribeDom` y `will-change` no GPU-safe.
+- [DONE S56] `engine.seekScene` queda reservado a scrubs/seeks discretos; playback continuo usa `engine.syncScenePlayhead`.
+- [DONE S56] `playbackEngine.setCurrentMs` distingue `tick`, `scrub` y `seek`, y `subscribeDom` recibe el source.
+- [DONE S56] `usePlaybackMsVisual` queda deprecado y removido de codigo productivo en `group` y `scratch-reveal`.
+- [DONE S56] `StageSurface` pre-computa parent chains y skipea widgets estaticos despues del primer apply.
+- [DONE S56] `lint:playback-live` ahora detecta `usePlaybackMsVisual`, `usePlaybackMsSampled(<100ms)` y `engine.seekScene` dentro de callbacks `subscribeDom`.

@@ -29,6 +29,7 @@ export interface AnimationEngine {
   emit(event: AnimationEvent): void;
   subscribe(trigger: AnimationTrigger, handler: AnimationEventHandler): Unsubscribe;
   seekScene(playheadMs: number): void;
+  syncScenePlayhead(playheadMs: number): void;
   pauseEventClocks(): void;
   resumeEventClocks(): void;
   resetEventClocks(): void;

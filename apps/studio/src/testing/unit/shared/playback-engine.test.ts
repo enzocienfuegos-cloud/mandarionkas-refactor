@@ -27,17 +27,19 @@ describe('playbackEngine', () => {
 
   it('fires DOM subscribers every tick and throttles React subscribers', () => {
     let domCallCount = 0;
+    const domSources: string[] = [];
     let reactCallCount = 0;
 
-    const unsubscribeDom = playbackEngine.subscribeDom(() => {
+    const unsubscribeDom = playbackEngine.subscribeDom((_, source) => {
       domCallCount += 1;
+      domSources.push(source);
     });
     const unsubscribeReact = playbackEngine.subscribeReact(() => {
       reactCallCount += 1;
     });
 
     for (let index = 0; index < 10; index += 1) {
-      playbackEngine.setCurrentMs(index * 16);
+      playbackEngine.setCurrentMs(index * 16, 'tick');
     }
 
     expect(domCallCount).toBe(1);
@@ -48,8 +50,12 @@ describe('playbackEngine', () => {
     pending.forEach((callback) => callback(performance.now()));
     expect(domCallCount).toBe(2);
 
-    playbackEngine.setCurrentMs(300);
+    playbackEngine.setCurrentMs(300, 'scrub');
     expect(reactCallCount).toBe(1);
+    const pendingAfterScrub = [...rafCallbacks];
+    rafCallbacks = [];
+    pendingAfterScrub.forEach((callback) => callback(performance.now()));
+    expect(domSources.at(-1)).toBe('scrub');
 
     unsubscribeDom();
     unsubscribeReact();

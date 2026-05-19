@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
-type DomSubscriber = (ms: number) => void;
+export type PlaybackUpdateSource = 'tick' | 'scrub' | 'seek';
+
+type DomSubscriber = (ms: number, source: PlaybackUpdateSource) => void;
 type ReactSubscriber = () => void;
 
 declare global {
@@ -17,17 +19,20 @@ let currentPlayheadMs = 0;
 let syncIntervalMs = 250;
 let lastReactSyncMs = 0;
 let pendingDomNotificationRaf: number | null = null;
+let lastUpdateSource: PlaybackUpdateSource = 'seek';
 
 function notifyDomSubscribers(): void {
   if (typeof requestAnimationFrame !== 'function') {
-    domSubscribers.forEach((subscriber) => subscriber(currentPlayheadMs));
+    const source = lastUpdateSource;
+    domSubscribers.forEach((subscriber) => subscriber(currentPlayheadMs, source));
     return;
   }
   if (pendingDomNotificationRaf !== null) return;
   pendingDomNotificationRaf = requestAnimationFrame(() => {
     pendingDomNotificationRaf = null;
     const ms = currentPlayheadMs;
-    domSubscribers.forEach((subscriber) => subscriber(ms));
+    const source = lastUpdateSource;
+    domSubscribers.forEach((subscriber) => subscriber(ms, source));
   });
 }
 
@@ -47,7 +52,7 @@ function notifyReactIfThrottleAllows(): void {
 export const playbackEngine = {
   subscribeDom(subscriber: DomSubscriber) {
     domSubscribers.add(subscriber);
-    subscriber(currentPlayheadMs);
+    subscriber(currentPlayheadMs, lastUpdateSource);
     return () => {
       domSubscribers.delete(subscriber);
     };
@@ -61,18 +66,20 @@ export const playbackEngine = {
   getCurrentMs() {
     return currentPlayheadMs;
   },
-  setCurrentMs(nextMs: number) {
+  setCurrentMs(nextMs: number, source: PlaybackUpdateSource = 'scrub') {
+    lastUpdateSource = source;
     if (currentPlayheadMs === nextMs) return;
     currentPlayheadMs = nextMs;
     notifyDomSubscribers();
     notifyReactIfThrottleAllows();
   },
-  flushReact() {
+  flushReact(source: PlaybackUpdateSource = lastUpdateSource) {
+    lastUpdateSource = source;
     if (pendingDomNotificationRaf !== null && typeof cancelAnimationFrame === 'function') {
       cancelAnimationFrame(pendingDomNotificationRaf);
       pendingDomNotificationRaf = null;
     }
-    domSubscribers.forEach((subscriber) => subscriber(currentPlayheadMs));
+    domSubscribers.forEach((subscriber) => subscriber(currentPlayheadMs, source));
     lastReactSyncMs = currentPlayheadMs;
     notifyReactSubscribers();
   },
@@ -149,6 +156,12 @@ function usePlaybackMsSampled(fallbackMs: number, intervalMs: number): number {
   return Number.isFinite(value) ? value : fallbackMs;
 }
 
+/**
+ * @deprecated Causes 60Hz React re-render. Use:
+ *   - playbackEngine.subscribeDom + direct DOM mutation for visual sync
+ *   - usePlaybackDerivedValue for values that change discretely
+ *   - playbackEngine.getCurrentMs() inside event handlers when only needed on interaction
+ */
 export function usePlaybackMsVisual(fallbackMs: number): number {
   return usePlaybackMsSampled(fallbackMs, 16);
 }

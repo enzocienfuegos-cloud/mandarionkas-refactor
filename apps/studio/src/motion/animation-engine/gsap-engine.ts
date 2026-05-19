@@ -164,12 +164,20 @@ export class GsapAnimationEngine implements AnimationEngine {
     };
   }
 
+  /**
+   * Forces all scene-clock timelines to the requested playhead.
+   * Use only for discrete scrubs/seeks, never on every playback frame.
+   */
   seekScene(playheadMs: number): void {
     this.scenePlayheadMs = Math.max(0, playheadMs);
     this.playbacks.forEach((playback) => {
       if (playback.clock.kind !== 'scene') return;
       this.seekPlayback(playback, this.scenePlayheadMs);
     });
+  }
+
+  syncScenePlayhead(playheadMs: number): void {
+    this.scenePlayheadMs = Math.max(0, playheadMs);
   }
 
   pauseEventClocks(): void {
