@@ -95,5 +95,6 @@ export type StudioCommand =
   | { type: 'UPDATE_DOCUMENT_PLATFORM_METADATA'; patch: Partial<import('../../domain/document/types').ProjectPlatformMetadata> }
   | { type: 'APPLY_DOCUMENT_VARIANT_RULES'; context: import('../../domain/variants/types').VariantContext; rules?: import('../../domain/variants/types').VariantRule[] }
   | { type: 'MARK_DOCUMENT_SAVED'; at: string }
+  | { type: 'SET_TIMELINE_MODE'; timelineMode: import('../../domain/document/types').StudioPreferences['timelineMode'] }
   | { type: 'UNDO' }
   | { type: 'REDO' };

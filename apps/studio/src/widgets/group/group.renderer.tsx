@@ -6,6 +6,8 @@ import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resol
 import { playbackEngine } from '../../hooks/use-playback-engine';
 import { useLatestRef } from '../../shared/hooks';
 import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
+import { drawRoundedRect, isTransparentPaint } from '../../shared/style/paint-utils';
+import { resolveScratchCoverColor } from '../../shared/style/scratch-cover';
 import { ScratchSurface } from './ScratchSurface';
 import { isScratchGroupActive } from './group-scratch-activation';
 import {
@@ -75,56 +77,12 @@ function renderDefaultGroup(node: WidgetNode, ctx: RenderContext): JSX.Element {
   );
 }
 
-function isTransparentPaint(value: unknown): boolean {
-  const normalized = String(value ?? '').trim().toLowerCase();
-  return !normalized
-    || normalized === 'transparent'
-    || normalized === 'none'
-    || normalized === 'rgba(0,0,0,0)'
-    || normalized === 'rgba(0, 0, 0, 0)';
-}
-
-function isPlainWhite(value: unknown): boolean {
-  const normalized = String(value ?? '').trim().toLowerCase();
-  return normalized === '#fff'
-    || normalized === '#ffffff'
-    || normalized === 'white'
-    || normalized === 'rgb(255,255,255)'
-    || normalized === 'rgb(255, 255, 255)'
-    || normalized === 'rgba(255,255,255,1)'
-    || normalized === 'rgba(255, 255, 255, 1)';
-}
-
-function resolveScratchCoverColor(node: WidgetNode, ctx: RenderContext): string {
-  const explicitCoverColor = String(node.props.scratchCoverColor ?? '').trim();
-  if (!isTransparentPaint(explicitCoverColor)) return explicitCoverColor;
-
-  const background = resolveWidgetBackground(node, 'transparent', ctx);
-  if (!isTransparentPaint(background)) return background;
-
-  const accent = String(node.style.accentColor ?? '').trim();
-  if (!isTransparentPaint(accent) && !isPlainWhite(accent)) return accent;
-
-  return 'rgba(245, 158, 11, 0.94)';
-}
-
-function drawRoundedRect(ctx: CanvasRenderingContext2D, width: number, height: number, radius: number): void {
-  const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
-  ctx.beginPath();
-  if (typeof ctx.roundRect === 'function') {
-    ctx.roundRect(0, 0, width, height, safeRadius);
-    return;
-  }
-  ctx.moveTo(safeRadius, 0);
-  ctx.lineTo(width - safeRadius, 0);
-  ctx.quadraticCurveTo(width, 0, width, safeRadius);
-  ctx.lineTo(width, height - safeRadius);
-  ctx.quadraticCurveTo(width, height, width - safeRadius, height);
-  ctx.lineTo(safeRadius, height);
-  ctx.quadraticCurveTo(0, height, 0, height - safeRadius);
-  ctx.lineTo(0, safeRadius);
-  ctx.quadraticCurveTo(0, 0, safeRadius, 0);
-  ctx.closePath();
+function resolveScratchCoverColorForNode(node: WidgetNode, ctx: RenderContext): string {
+  return resolveScratchCoverColor({
+    explicitCoverColor: String(node.props.scratchCoverColor ?? '').trim(),
+    backgroundColor: resolveWidgetBackground(node, 'transparent', ctx),
+    accentColor: String(node.style.accentColor ?? '').trim(),
+  });
 }
 
 function drawCoverBackground(ctx: CanvasRenderingContext2D, node: WidgetNode, renderCtx: RenderContext): boolean {
@@ -434,7 +392,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
     Math.min(100, Number(node.props.autoRevealThresholdPercent ?? DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD)),
   );
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
-  const coverColor = resolveScratchCoverColor(node, ctx);
+  const coverColor = resolveScratchCoverColorForNode(node, ctx);
   const boxShadow = shadowConfigToBoxShadow(readShadowFromStyle(node.style));
   const rawMilestones = Array.isArray(node.props.scratchMilestones)
     ? (node.props.scratchMilestones as ScratchMilestone[])

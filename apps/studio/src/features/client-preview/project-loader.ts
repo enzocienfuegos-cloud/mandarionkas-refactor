@@ -78,15 +78,30 @@ export async function prepareClientPreviewProjectState(state: StudioState): Prom
   return prepareExportStateWithResolvedAssets(state).catch(() => state);
 }
 
+function buildPublicAssetPathMap(state: StudioState): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const widget of Object.values(state.document.widgets)) {
+    const fontAssetSrc = typeof widget.props.fontAssetSrc === 'string' ? widget.props.fontAssetSrc.trim() : '';
+    if (fontAssetSrc) {
+      // fontAssetSrc is already the resolved public URL after prepareExportStateWithResolvedAssets.
+      // Record identity mapping so buildChannelHtml can look it up via assetPathMap.
+      map[fontAssetSrc] = fontAssetSrc;
+    }
+  }
+  return map;
+}
+
 export async function loadClientPreviewProject(projectId: string, token: string): Promise<LoadedClientPreviewProject | null> {
   const loaded = await loadPublicPreviewProject(projectId, token)
     ?? await loadProject(projectId).catch(() => null);
   const state = loaded ?? readProjectFromLocalStorage(projectId);
   if (!state) return null;
   const preparedState = await prepareClientPreviewProjectState(state);
+  const publicAssetPathMap = buildPublicAssetPathMap(preparedState);
   return {
     projectId,
     token,
     state: preparedState,
+    publicAssetPathMap,
   };
 }

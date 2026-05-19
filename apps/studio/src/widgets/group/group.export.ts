@@ -3,31 +3,12 @@ import { exportTokens as exportPalette } from '../../export/export-tokens';
 import { escapeHtml, renderGenericExport } from '../registry/export-helpers';
 import { getScratchActivationDelayMs } from './group-scratch-activation';
 import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
+import { isPlainWhite, isTransparentPaint } from '../../shared/style/paint-utils';
 import {
   DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD,
   type ScratchMilestone,
 } from './group-scratch-constants';
 import { buildResolvedWidgetsById } from '../../domain/document/canvas-variants';
-
-function isTransparentPaint(value: unknown): boolean {
-  const normalized = String(value ?? '').trim().toLowerCase();
-  return !normalized
-    || normalized === 'transparent'
-    || normalized === 'none'
-    || normalized === 'rgba(0,0,0,0)'
-    || normalized === 'rgba(0, 0, 0, 0)';
-}
-
-function isPlainWhite(value: unknown): boolean {
-  const normalized = String(value ?? '').trim().toLowerCase();
-  return normalized === '#fff'
-    || normalized === '#ffffff'
-    || normalized === 'white'
-    || normalized === 'rgb(255,255,255)'
-    || normalized === 'rgb(255, 255, 255)'
-    || normalized === 'rgba(255,255,255,1)'
-    || normalized === 'rgba(255, 255, 255, 1)';
-}
 
 function resolveScratchCoverColor(node: WidgetNode): string {
   const explicitCoverColor = String(node.props.scratchCoverColor ?? '').trim();

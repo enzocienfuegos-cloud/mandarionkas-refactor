@@ -30,12 +30,16 @@ export function buildClientPreviewSceneState(state: StudioState, sceneIndex: num
   };
 }
 
-export function buildClientPreviewSceneHtml(state: StudioState, sceneIndex: number): string {
+export function buildClientPreviewSceneHtml(
+  state: StudioState,
+  sceneIndex: number,
+  publicAssetPathMap: Record<string, string> = {},
+): string {
   const sceneState = buildClientPreviewSceneState(state, sceneIndex);
   const adapter = buildGenericHtml5Adapter(sceneState);
   const runtimeScript = compileRuntime(adapter.portableProject, adapter);
   const safeRuntimeScript = runtimeScript.replace(/<\/script>/gi, '<\\/script>');
-  const html = buildChannelHtml(sceneState, adapter, { assetPathMap: {} });
+  const html = buildChannelHtml(sceneState, adapter, { assetPathMap: publicAssetPathMap });
   const runtimeScriptTag = '<script src="./runtime.js"></script>';
   const runtimeScriptIndex = html.lastIndexOf(runtimeScriptTag);
   if (runtimeScriptIndex < 0) return html;
@@ -49,6 +53,7 @@ export function buildClientPreviewSceneHtml(state: StudioState, sceneIndex: numb
 export function ClientPreviewPlayer({
   state,
   sceneIndex,
+  publicAssetPathMap,
   threads,
   activeThreadId,
   pinMode,
@@ -58,6 +63,7 @@ export function ClientPreviewPlayer({
 }: {
   state: StudioState;
   sceneIndex: number;
+  publicAssetPathMap: Record<string, string>;
   threads: ClientPreviewThread[];
   activeThreadId: string | null;
   pinMode: boolean;
@@ -73,7 +79,10 @@ export function ClientPreviewPlayer({
   const scene = state.document.scenes[sceneIndex] ?? state.document.scenes[0];
   const canvas = state.document.canvas;
   const visibleThreads = threads.filter((thread) => thread.pin?.sceneIndex === sceneIndex);
-  const previewHtml = useMemo(() => buildClientPreviewSceneHtml(state, sceneIndex), [sceneIndex, state]);
+  const previewHtml = useMemo(
+    () => buildClientPreviewSceneHtml(state, sceneIndex, publicAssetPathMap),
+    [sceneIndex, state, publicAssetPathMap],
+  );
 
   useEffect(() => {
     const host = hostRef.current;

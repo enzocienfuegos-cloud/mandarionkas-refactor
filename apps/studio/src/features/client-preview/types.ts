@@ -30,4 +30,5 @@ export type LoadedClientPreviewProject = {
   projectId: string;
   token: string;
   state: StudioState;
+  publicAssetPathMap: Record<string, string>;
 };

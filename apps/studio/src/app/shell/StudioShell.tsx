@@ -55,6 +55,20 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
     return activeScene?.widgetIds.length ?? 0;
   });
 
+  const timelineMode = useStudioStore((state) => state.document.preferences?.timelineMode ?? 'auto');
+
+  const sceneHasKeyframes = useStudioStore((state) => {
+    const activeSceneId = state.document.selection.activeSceneId;
+    const scene = state.document.scenes.find((s) => s.id === activeSceneId) ?? state.document.scenes[0];
+    if (!scene) return false;
+    return scene.widgetIds.some((id) => {
+      const widget = state.document.widgets[id];
+      return (widget?.timeline?.keyframes?.length ?? 0) > 0;
+    });
+  });
+
+  const showTimeline = timelineMode === 'advanced' || sceneHasKeyframes;
+
   useEffect(() => {
     return subscribeToOpenAssetLibrary((request) => {
       setAssetLibraryRequest(request);
@@ -141,7 +155,7 @@ export function StudioShell({ onOpenWorkspaceHub }: StudioShellProps): JSX.Eleme
           onResizeStart={handleRightInspectorResizeStart}
         />
       ) : null}
-      {!timelineHidden ? (
+      {!timelineHidden && showTimeline ? (
         <BottomTimeline
           onResizeStart={handleTimelineResizeStart}
           onToggleCollapse={() => setLayout((current) => ({ ...current, timelineHidden: true }))}

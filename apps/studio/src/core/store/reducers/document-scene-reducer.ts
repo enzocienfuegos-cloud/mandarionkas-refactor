@@ -326,6 +326,14 @@ export function documentSceneReducer(state: StudioState, command: StudioCommand)
         ui: { ...state.ui, activeFeedRecordId: nextRecordId },
       });
     }
+    case 'SET_TIMELINE_MODE':
+      return {
+        ...state,
+        document: {
+          ...state.document,
+          preferences: { ...state.document.preferences, timelineMode: command.timelineMode },
+        },
+      };
     default:
       return state;
   }

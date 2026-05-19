@@ -15,6 +15,7 @@ import type {
   KeyframeNode,
   KeyframeProperty,
   RuleOperator,
+  StudioPreferences,
   VariantName,
   WidgetBinding,
   WidgetNode,
@@ -66,6 +67,7 @@ export function useDocumentActions() {
     applyDocumentVariantRules: (context: VariantContext, rules?: VariantRule[]) => dispatch({ type: 'APPLY_DOCUMENT_VARIANT_RULES', context, rules }),
     setShareLink: (shareLink: string) => dispatch({ type: 'SET_SHARE_LINK', shareLink }),
     markAutosaved: (at: string) => dispatch({ type: 'MARK_DOCUMENT_AUTOSAVED', at }),
+    setTimelineMode: (timelineMode: StudioPreferences['timelineMode']) => dispatch({ type: 'SET_TIMELINE_MODE', timelineMode }),
   }), []);
 }
 

@@ -9,6 +9,7 @@ import { publishStudioProjectToAdServer } from './studio-publication';
 import { useToast } from '../../../shared/ui/ToastProvider';
 import { Button } from '../../../shared/ui/Button';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
+import { useStudioStore } from '../../../core/store/use-studio-store';
 import { buildClientPreviewToken, buildClientPreviewUrl, persistClientPreviewSnapshot } from '../../../features/client-preview/project-loader';
 
 function buildInitials(name?: string): string {
@@ -33,7 +34,8 @@ export function TopBarActions({
   const [publishStatus, setPublishStatus] = useState<'idle' | 'publishing' | 'success' | 'error'>('idle');
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
   const sessionMenuRef = useRef<HTMLDivElement | null>(null);
-  const { setShareLink, updateReleaseSettings } = useDocumentActions();
+  const { setShareLink, updateReleaseSettings, setTimelineMode } = useDocumentActions();
+  const timelineMode = useStudioStore((s) => s.document.preferences?.timelineMode ?? 'auto');
   const { resolvedZipStatus, triggerExportZipBundleResolved, triggerExportPublishPackage } = controller.exportReadiness;
   const activeProjectId = controller.snapshot.activeProjectId;
   const { pushToast } = useToast();
@@ -215,6 +217,17 @@ export function TopBarActions({
         onClick={onOpenBrandKitDrawer}
       >
         Brand
+      </Button>
+
+      <Button
+        variant={timelineMode === 'advanced' ? 'secondary' : 'ghost'}
+        size="sm"
+        className="top-action-button top-action-button--timeline"
+        title="Advanced Timeline"
+        iconBefore={<StudioIcon icon={StudioIcons.ruler} size={14} />}
+        onClick={() => setTimelineMode(timelineMode === 'advanced' ? 'auto' : 'advanced')}
+      >
+        Timeline
       </Button>
 
       <div className="top-bar-divider" aria-hidden="true" />

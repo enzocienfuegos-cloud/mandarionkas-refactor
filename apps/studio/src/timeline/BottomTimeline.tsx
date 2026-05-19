@@ -14,7 +14,7 @@ import { playbackEngine, usePlaybackMsThrottled } from '../hooks/use-playback-en
 import { useTimelinePlayhead } from './use-timeline-playhead';
 import { useTimelineZoom } from './use-timeline-zoom';
 import { getCapability } from '../widgets/registry/widget-definition';
-import { getWidgetDefinition } from '../widgets/registry/widget-registry';
+import { getWidgetDefinition, listWidgetDefinitions } from '../widgets/registry/widget-registry';
 import { KEYFRAME_PROPERTIES } from '../inspector/sections/widget-inspector-shared';
 
 type StickySnapDrag = Exclude<Exclude<TimelineDragState, null>, { mode: 'playhead' }>;
@@ -54,26 +54,34 @@ export function BottomTimeline({ onResizeStart, onToggleCollapse }: { onResizeSt
   const uiActions = useUiActions();
   const sceneActions = useSceneActions();
   const { timelineZoom, zoomIn, zoomOut, onWheel } = useTimelineZoom(1);
-  const { scene, scenes, activeSceneId, widgets, selectedIds } = useStudioStore((state) => {
-    const widgetsById = selectResolvedWidgetsById(state);
-    const scene = state.document.scenes.find((item) => item.id === state.document.selection.activeSceneId)
+  const activeSceneId = useStudioStore((state) => state.document.selection.activeSceneId);
+  const scenes = useStudioStore((state) => state.document.scenes, shallowEqual);
+  const selectedIds = useStudioStore((state) => state.document.selection.widgetIds, shallowEqual);
+  const scene = useStudioStore((state) => {
+    return state.document.scenes.find((s) => s.id === state.document.selection.activeSceneId)
       ?? state.document.scenes[0];
-    const resolvedWidgets = scene.widgetIds.map((id) => widgetsById[id]).filter(Boolean) as TimelineWidget[];
-    return {
-      scene,
-      scenes: state.document.scenes,
-      activeSceneId: state.document.selection.activeSceneId,
-      widgets: resolvedWidgets,
-      selectedIds: state.document.selection.widgetIds,
-    };
-  }, shallowEqual);
+  });
+  const widgets = useStudioStore((state) => {
+    const resolved = selectResolvedWidgetsById(state);
+    const activeScene = state.document.scenes.find((s) => s.id === state.document.selection.activeSceneId)
+      ?? state.document.scenes[0];
+    const ids = activeScene?.widgetIds ?? [];
+    return ids.map((id) => resolved[id]).filter(Boolean) as TimelineWidget[];
+  }, (a, b) => a.length === b.length && a.every((w, i) => w === b[i]));
   const isPlaying = useStudioStore((state) => state.ui.isPlaying);
   const storePlayheadMs = useStudioStore((state) => state.ui.playheadMs);
   const playheadMs = usePlaybackMsThrottled(storePlayheadMs);
   const playheadRef = useRef(playheadMs);
+  const containerWidgetTypes = useMemo(() => {
+    const set = new Set<string>();
+    listWidgetDefinitions().forEach((def) => {
+      if (getCapability(def, 'isContainer')) set.add(def.type);
+    });
+    return set;
+  }, []);
   const selectedWidgets = useMemo(() => selectedIds.map((widgetId) => widgets.find((widget) => widget.id === widgetId)).filter(Boolean) as TimelineWidget[], [selectedIds, widgets]);
   const groupableCount = useMemo(() => selectedWidgets.filter((widget) => !widget.parentId).length, [selectedWidgets]);
-  const ungroupableCount = useMemo(() => selectedWidgets.filter((widget) => Boolean(widget.parentId) || Boolean(getCapability(getWidgetDefinition(widget.type), 'isContainer'))).length, [selectedWidgets]);
+  const ungroupableCount = useMemo(() => selectedWidgets.filter((widget) => Boolean(widget.parentId) || containerWidgetTypes.has(widget.type)).length, [selectedWidgets, containerWidgetTypes]);
 
 
   const rowMsToPx = BASE_ROW_MS_TO_PX * timelineZoom;

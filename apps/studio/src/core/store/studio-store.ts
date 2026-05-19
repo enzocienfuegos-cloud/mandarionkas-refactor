@@ -35,6 +35,7 @@ function shouldRecordHistory(command: StudioCommand): boolean {
     case 'MARK_DOCUMENT_AUTOSAVED':
     case 'MARK_DOCUMENT_SAVED':
     case 'EXECUTE_ACTION':
+    case 'SET_TIMELINE_MODE':
       return false;
     default:
       return true;

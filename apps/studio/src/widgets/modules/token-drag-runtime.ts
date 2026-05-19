@@ -1,3 +1,4 @@
+/** @deprecated - use core/drag-runtime DragProvider instead */
 export type TokenDragPhase = 'start' | 'move' | 'end' | 'cancel';
 
 export type TokenDragDetail = {

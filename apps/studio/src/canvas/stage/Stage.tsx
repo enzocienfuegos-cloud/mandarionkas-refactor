@@ -38,6 +38,7 @@ import { useStageToolbarDrag } from './use-stage-toolbar-drag';
 import { useAnimationEngine } from '../../motion/animation-engine';
 import { useLatestRef } from '../../shared/hooks';
 import { PlayheadRefProvider } from './playhead-ref-context';
+import { DragProvider } from '../../core/drag-runtime';
 
 const stageWrap: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '100%' };
 
@@ -369,6 +370,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
 
   return (
     <PlayheadRefProvider>
+      <DragProvider>
       <div
         className={`workspace-shell workspace-shell-backdrop-${stageBackdrop} ${showStageRulers ? 'has-workspace-rulers' : ''} ${panModeActive ? 'is-pan-mode' : ''} ${isPanning ? 'is-panning' : ''} ${performanceMode ? 'is-performance-mode' : ''}`}
         ref={workspaceRef}
@@ -450,6 +452,7 @@ export function Stage({ onOpenAssetLibrary }: StageProps): JSX.Element {
           onResetInteractions={() => animationEngine.resetEventClocks()}
         />
       </div>
+      </DragProvider>
     </PlayheadRefProvider>
   );
 }

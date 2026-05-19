@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from './render-context';
+import { composeWidgetAlignment, composeWidgetTypography } from '../../domain/widget-schema/compose-style';
 
 export const DEFAULT_WIDGET_TEXT_COLOR = '#ffffff';
 export const DEFAULT_WIDGET_BACKGROUND_DARK = '#1f2937';
@@ -40,63 +41,20 @@ export const resolveWidgetShadow = (node: WidgetNode, ctx?: RenderContext): stri
   return ctx?.hovered ? DEFAULT_WIDGET_HOVER_SHADOW : DEFAULT_WIDGET_SHADOW;
 };
 
-function resolveFontWeight(value: unknown): CSSProperties['fontWeight'] {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string' && value.trim()) {
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? numeric : value;
-  }
-  return 700;
-}
-
-function resolveLineHeight(value: unknown): CSSProperties['lineHeight'] {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string' && value.trim()) {
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? numeric : value;
-  }
-  return 1.1;
-}
-
-function resolveLetterSpacing(value: unknown): CSSProperties['letterSpacing'] {
-  if (typeof value === 'number' && Number.isFinite(value)) return `${value}px`;
-  if (typeof value === 'string' && value.trim()) {
-    if (value.trim().toLowerCase() === 'normal') return 'normal';
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? `${numeric}px` : value;
-  }
-  return 'normal';
-}
-
 export const baseTextStyle = (node: WidgetNode, ctx?: RenderContext): CSSProperties => ({
   color: resolveWidgetColor(node, ctx),
-  fontSize: Number(node.style.fontSize ?? 18),
-  fontWeight: resolveFontWeight(node.style.fontWeight),
-  fontFamily: String(node.style.fontFamily ?? 'inherit'),
-  fontStyle: String(node.style.fontStyle ?? 'normal'),
-  lineHeight: resolveLineHeight(node.style.lineHeight),
-  letterSpacing: resolveLetterSpacing(node.style.letterSpacing),
-  textTransform: String(node.style.textTransform ?? 'none') as CSSProperties['textTransform'],
-  textDecoration: String(node.style.textDecoration ?? 'none'),
+  ...composeWidgetTypography(node, 'editor'),
   opacity: resolveWidgetOpacity(node, ctx),
 });
 
-export const resolveTextHorizontalAlign = (node: WidgetNode): 'flex-start' | 'center' | 'flex-end' => {
-  const align = String(node.style.horizontalAlign ?? node.style.textAlign ?? 'center');
-  if (align === 'left') return 'flex-start';
-  if (align === 'right') return 'flex-end';
-  return 'center';
-};
+/** @deprecated use composeWidgetAlignment */
+export const resolveTextHorizontalAlign = (node: WidgetNode): 'flex-start' | 'center' | 'flex-end' =>
+  composeWidgetAlignment(node).horizontal;
 
-export const resolveTextVerticalAlign = (node: WidgetNode): 'flex-start' | 'center' | 'flex-end' => {
-  const align = String(node.style.verticalAlign ?? 'center');
-  if (align === 'top') return 'flex-start';
-  if (align === 'bottom') return 'flex-end';
-  return 'center';
-};
+/** @deprecated use composeWidgetAlignment */
+export const resolveTextVerticalAlign = (node: WidgetNode): 'flex-start' | 'center' | 'flex-end' =>
+  composeWidgetAlignment(node).vertical;
 
-export const resolveCssTextAlign = (node: WidgetNode): 'left' | 'center' | 'right' => {
-  const align = String(node.style.horizontalAlign ?? node.style.textAlign ?? 'center');
-  if (align === 'left' || align === 'right') return align;
-  return 'center';
-};
+/** @deprecated use composeWidgetAlignment */
+export const resolveCssTextAlign = (node: WidgetNode): 'left' | 'center' | 'right' =>
+  composeWidgetAlignment(node).text;

@@ -1,10 +1,9 @@
 // render-tokenized: brand/theme split enforced by lint-color-literals.mjs
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useMemo, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
-import { emitTokenDrag, type TokenDragDetail } from './token-drag-runtime';
+import { useDragSource } from '../../core/drag-runtime';
 import {
   clampTokenImageFocal,
   clampTokenImageMaxSizePercent,
@@ -52,40 +51,13 @@ const dragTokenBaseStyle: CSSProperties = {
   position: 'relative',
 };
 
-const dragTokenGhostBaseStyle: CSSProperties = {
-  position: 'fixed',
-  left: 0,
-  top: 0,
-  overflow: 'hidden',
-  background: 'transparent',
-  color: 'var(--surface-card-light)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  textAlign: 'center',
-  padding: 6,
-  fontSize: 11,
-  fontWeight: 700,
-  pointerEvents: 'none',
-  zIndex: 9999,
-  willChange: 'transform',
-  backfaceVisibility: 'hidden',
-  transformStyle: 'preserve-3d',
-};
-
-function buildDragTokenTrackStyle(gap: number): CSSProperties {
-  return {
-    ...dragTokenPoolTrackBaseStyle,
-    gap,
-  };
-}
-
 function buildDragTokenStyle(
   tokenSize: number,
   accentColor: string | undefined,
   isDisabled: boolean,
   radius: string,
   hideFrame: boolean,
+  isDragging: boolean,
 ): CSSProperties {
   return {
     ...dragTokenBaseStyle,
@@ -94,42 +66,8 @@ function buildDragTokenStyle(
     height: tokenSize,
     border: hideFrame ? 'none' : `2px solid ${accentColor ?? 'var(--white-a-35)'}`,
     boxShadow: hideFrame || isDisabled ? 'none' : `0 0 14px ${accentColor ?? 'var(--white-a-24)'}`,
-    opacity: isDisabled ? 0.35 : 1,
+    opacity: isDisabled ? 0.35 : isDragging ? 0.4 : 1,
     cursor: isDisabled ? 'not-allowed' : 'grab',
-  };
-}
-
-function buildDragTokenGhostStaticStyle(
-  tokenSize: number,
-  accentColor: string | undefined,
-  radius: string,
-  hideFrame: boolean,
-): CSSProperties {
-  return {
-    ...dragTokenGhostBaseStyle,
-    borderRadius: radius,
-    width: tokenSize,
-    height: tokenSize,
-    border: hideFrame ? 'none' : `2px solid ${accentColor ?? 'var(--white-a-35)'}`,
-    boxShadow: hideFrame
-      ? '0 14px 30px hsl(0 0% 0% / 0.22)'
-      : `0 14px 30px hsl(0 0% 0% / 0.28), 0 0 18px ${accentColor ?? 'var(--white-a-24)'}`,
-  };
-}
-
-function applyGhostTransform(ghostNode: HTMLDivElement, x: number, y: number): void {
-  ghostNode.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) scale(1.06)`;
-}
-
-function buildTokenDragPayload(
-  node: WidgetNode,
-  token: DragTokenItem | undefined,
-): Pick<TokenDragDetail, 'dropTargetId' | 'targetSceneId' | 'targetActionId'> {
-  const dropTargetId = String(node.props.dropTargetId ?? '').trim() || undefined;
-  return {
-    dropTargetId,
-    targetSceneId: token?.targetSceneId,
-    targetActionId: token?.targetActionId,
   };
 }
 
@@ -156,12 +94,77 @@ function buildDragTokenArtworkStyle(
   };
 }
 
+type TokenItemProps = {
+  token: DragTokenItem;
+  node: WidgetNode;
+  isDisabled: boolean;
+  tokenSize: number;
+  radius: string;
+  hideAccentForImageTokens: boolean;
+  hideShapeForImageTokens: boolean;
+  tokenImageMaxSizePercent: number;
+};
+
+function DragTokenItem({
+  token,
+  node,
+  isDisabled,
+  tokenSize,
+  radius,
+  hideAccentForImageTokens,
+  hideShapeForImageTokens,
+  tokenImageMaxSizePercent,
+}: TokenItemProps): JSX.Element {
+  const displayImageUrl = token.baseImageUrl ?? token.imageUrl;
+  const imageFit = normalizeTokenImageFit(token.baseImageFit);
+  const imageScalePercent = clampTokenImageScalePercent(token.baseImageScalePercent);
+  const focalX = clampTokenImageFocal(token.baseImageFocalX, DEFAULT_TOKEN_IMAGE_FOCAL_X);
+  const focalY = clampTokenImageFocal(token.baseImageFocalY, DEFAULT_TOKEN_IMAGE_FOCAL_Y);
+  const hasTokenImage = Boolean(displayImageUrl);
+  const hideFrame = hasTokenImage && hideAccentForImageTokens;
+  const hideShape = hasTokenImage && hideShapeForImageTokens;
+  const effectiveRadius = hideShape ? '0' : radius;
+
+  const dropTargetId = String(node.props.dropTargetId ?? '').trim() || undefined;
+
+  const { isDragging, onPointerDown } = useDragSource({
+    sourceWidgetId: node.id,
+    tokenId: token.id,
+    tokenLabel: token.label,
+    tokenImageUrl: displayImageUrl,
+    payload: {
+      targetActionId: token.targetActionId,
+      targetSceneId: token.targetSceneId,
+    },
+    dropTargetId,
+  });
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (isDisabled) return;
+    onPointerDown(event);
+  };
+
+  return (
+    <div
+      onPointerDown={handlePointerDown}
+      style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, effectiveRadius, hideFrame, isDragging)}
+    >
+      <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+        {displayImageUrl ? (
+          <img
+            src={displayImageUrl}
+            alt={token.label}
+            decoding="async"
+            draggable={false}
+            style={buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape, imageFit, imageScalePercent, focalX, focalY)}
+          />
+        ) : token.label}
+      </span>
+    </div>
+  );
+}
+
 function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext }) {
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const pointerStateRef = useRef<{ pointerId: number; tokenId: string } | null>(null);
-  const ghostRef = useRef<HTMLDivElement | null>(null);
-  const rafIdRef = useRef<number | null>(null);
-  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const tokens = useMemo(() => parseDragTokenItems(node.props.tokens), [node.props.tokens]);
   const tokenSize = Math.max(32, Number(node.props.tokenSize ?? 72));
   const gap = Math.max(4, Number(node.props.gap ?? 16));
@@ -174,167 +177,23 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
   const tokenImageMaxSizePercent = clampTokenImageMaxSizePercent(node.props.tokenImageMaxSizePercent);
   const radius = tokenShapeToBorderRadius(tokenShape);
 
-  useEffect(() => {
-    if (!draggingId) return undefined;
-
-    const flushFrame = () => {
-      rafIdRef.current = null;
-      const ghost = ghostRef.current;
-      const pointer = lastPointerRef.current;
-      if (!ghost || !pointer) return;
-      applyGhostTransform(ghost, pointer.x, pointer.y);
-    };
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const current = pointerStateRef.current;
-      if (!current || event.pointerId !== current.pointerId) return;
-      lastPointerRef.current = { x: event.clientX, y: event.clientY };
-      if (rafIdRef.current === null) {
-        rafIdRef.current = window.requestAnimationFrame(flushFrame);
-      }
-      emitTokenDrag({
-        phase: 'move',
-        tokenId: current.tokenId,
-        sourceWidgetId: node.id,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        ...buildTokenDragPayload(node, tokens.find((token) => token.id === current.tokenId)),
-      });
-    };
-
-    const finishDrag = (event: PointerEvent, phase: 'end' | 'cancel') => {
-      const current = pointerStateRef.current;
-      if (!current || event.pointerId !== current.pointerId) return;
-      if (rafIdRef.current !== null) {
-        window.cancelAnimationFrame(rafIdRef.current);
-        rafIdRef.current = null;
-      }
-      emitTokenDrag({
-        phase,
-        tokenId: current.tokenId,
-        sourceWidgetId: node.id,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        ...buildTokenDragPayload(node, tokens.find((token) => token.id === current.tokenId)),
-      });
-      pointerStateRef.current = null;
-      lastPointerRef.current = null;
-      setDraggingId(null);
-    };
-
-    const handlePointerUp = (event: PointerEvent) => finishDrag(event, 'end');
-    const handlePointerCancel = (event: PointerEvent) => finishDrag(event, 'cancel');
-
-    window.addEventListener('pointermove', handlePointerMove, { passive: true });
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerCancel);
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerCancel);
-      if (rafIdRef.current !== null) {
-        window.cancelAnimationFrame(rafIdRef.current);
-        rafIdRef.current = null;
-      }
-    };
-  }, [draggingId, node.id, node.props.dropTargetId, tokens]);
-
-  const ghostCallbackRef = (element: HTMLDivElement | null) => {
-    ghostRef.current = element;
-    if (element && lastPointerRef.current) {
-      applyGhostTransform(element, lastPointerRef.current.x, lastPointerRef.current.y);
-    }
-  };
-
   return (
     <div style={dragTokenPoolShellStyle}>
-      <div style={buildDragTokenTrackStyle(gap)}>
-        {tokens.map((token) => {
-          const isDisabled = disabled.has(token.id);
-          const displayImageUrl = token.baseImageUrl ?? token.imageUrl;
-          const imageFit = normalizeTokenImageFit(token.baseImageFit);
-          const imageScalePercent = clampTokenImageScalePercent(token.baseImageScalePercent);
-          const focalX = clampTokenImageFocal(token.baseImageFocalX, DEFAULT_TOKEN_IMAGE_FOCAL_X);
-          const focalY = clampTokenImageFocal(token.baseImageFocalY, DEFAULT_TOKEN_IMAGE_FOCAL_Y);
-          const hasTokenImage = Boolean(displayImageUrl);
-          const hideFrame = hasTokenImage && hideAccentForImageTokens;
-          const hideShape = hasTokenImage && hideShapeForImageTokens;
-          const effectiveRadius = hideShape ? '0' : radius;
-          return (
-            <div
-              key={token.id}
-              onPointerDown={(event) => {
-                event.stopPropagation();
-                if (isDisabled) return;
-                pointerStateRef.current = { pointerId: event.pointerId, tokenId: token.id };
-                lastPointerRef.current = { x: event.clientX, y: event.clientY };
-                setDraggingId(token.id);
-                emitTokenDrag({
-                  phase: 'start',
-                  tokenId: token.id,
-                  sourceWidgetId: node.id,
-                  clientX: event.clientX,
-                  clientY: event.clientY,
-                  ...buildTokenDragPayload(node, token),
-                });
-              }}
-              style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, effectiveRadius, hideFrame)}
-            >
-              <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-                {displayImageUrl ? (
-                  <img
-                    src={displayImageUrl}
-                    alt={token.label}
-                    decoding="async"
-                    draggable={false}
-                    style={buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape, imageFit, imageScalePercent, focalX, focalY)}
-                  />
-                ) : token.label}
-              </span>
-            </div>
-          );
-        })}
+      <div style={{ ...dragTokenPoolTrackBaseStyle, gap }}>
+        {tokens.map((token) => (
+          <DragTokenItem
+            key={token.id}
+            token={token}
+            node={node}
+            isDisabled={disabled.has(token.id)}
+            tokenSize={tokenSize}
+            radius={radius}
+            hideAccentForImageTokens={hideAccentForImageTokens}
+            hideShapeForImageTokens={hideShapeForImageTokens}
+            tokenImageMaxSizePercent={tokenImageMaxSizePercent}
+          />
+        ))}
       </div>
-      {draggingId ? (() => {
-        const draggingToken = tokens.find((token) => token.id === draggingId);
-        if (!draggingToken) return null;
-        const displayImageUrl = draggingToken.baseImageUrl ?? draggingToken.imageUrl;
-        const imageFit = normalizeTokenImageFit(draggingToken.baseImageFit);
-        const imageScalePercent = clampTokenImageScalePercent(draggingToken.baseImageScalePercent);
-        const focalX = clampTokenImageFocal(draggingToken.baseImageFocalX, DEFAULT_TOKEN_IMAGE_FOCAL_X);
-        const focalY = clampTokenImageFocal(draggingToken.baseImageFocalY, DEFAULT_TOKEN_IMAGE_FOCAL_Y);
-        const hasTokenImage = Boolean(displayImageUrl);
-        const hideFrame = hasTokenImage && hideAccentForImageTokens;
-        const hideShape = hasTokenImage && hideShapeForImageTokens;
-        const effectiveRadius = hideShape ? '0' : radius;
-        return createPortal(
-          <div
-            ref={ghostCallbackRef}
-            style={buildDragTokenGhostStaticStyle(
-              tokenSize,
-              draggingToken.accentColor,
-              effectiveRadius,
-              hideFrame,
-            )}
-          >
-            <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
-              {displayImageUrl ? (
-                <img
-                  src={displayImageUrl}
-                  alt={draggingToken.label}
-                  decoding="async"
-                  draggable={false}
-                  style={{
-                    ...buildDragTokenArtworkStyle(tokenImageMaxSizePercent, hideShape, imageFit, imageScalePercent, focalX, focalY),
-                    pointerEvents: 'none',
-                  }}
-                />
-              ) : draggingToken.label}
-            </span>
-          </div>,
-          document.body,
-        );
-      })() : null}
     </div>
   );
 }

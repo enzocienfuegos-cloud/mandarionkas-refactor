@@ -111,13 +111,28 @@ export function resolveWidgetForCanvasVariant(
   return mergeWidgetOverride(widget, override);
 }
 
+const EMPTY_OVERRIDES_SENTINEL = Object.freeze({});
+
+const resolvedWidgetsCache = new WeakMap<
+  Record<string, WidgetNode>,
+  WeakMap<object, Record<string, WidgetNode>>
+>();
+
 export function buildResolvedWidgetsById(
   document: StudioDocument,
   variantId = document.activeCanvasVariantId,
 ): Record<string, WidgetNode> {
-  if (cachedResolvedWidgetsDocument === document && cachedResolvedWidgetsVariantId === variantId && cachedResolvedWidgetsResult) {
-    return cachedResolvedWidgetsResult;
+  const widgetsRef = document.widgets;
+  const overridesRef = (document.widgetOverrides?.[variantId] ?? EMPTY_OVERRIDES_SENTINEL) as object;
+
+  let variantMap = resolvedWidgetsCache.get(widgetsRef);
+  if (!variantMap) {
+    variantMap = new WeakMap();
+    resolvedWidgetsCache.set(widgetsRef, variantMap);
   }
+
+  const cached = variantMap.get(overridesRef);
+  if (cached) return cached;
 
   const result = Object.fromEntries(
     Object.entries(document.widgets).map(([widgetId, widget]) => [
@@ -126,13 +141,6 @@ export function buildResolvedWidgetsById(
     ]),
   );
 
-  cachedResolvedWidgetsDocument = document;
-  cachedResolvedWidgetsVariantId = variantId;
-  cachedResolvedWidgetsResult = result;
-
+  variantMap.set(overridesRef, result);
   return result;
 }
-
-let cachedResolvedWidgetsDocument: StudioDocument | null = null;
-let cachedResolvedWidgetsVariantId: string | undefined;
-let cachedResolvedWidgetsResult: Record<string, WidgetNode> | null = null;

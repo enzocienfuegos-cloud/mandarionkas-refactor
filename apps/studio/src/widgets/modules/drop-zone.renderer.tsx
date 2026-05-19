@@ -1,10 +1,11 @@
 // render-tokenized: brand/theme split enforced by lint-color-literals.mjs
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
 import { parseDragTokenItems } from './drag-token-pool.types';
-import { subscribeTokenDrag, type TokenDragDetail } from './token-drag-runtime';
+import { useDropTarget } from '../../core/drag-runtime';
+import type { DragSourceConfig } from '../../core/drag-runtime';
 import { useLatestRef } from '../../shared/hooks';
 
 function parseActionMap(raw: unknown): Record<string, string> {
@@ -99,11 +100,11 @@ function buildDropZoneLabelStyle(isVisible: boolean): CSSProperties {
 
 function resolveTokenDropTargets(
   ctx: RenderContext,
-  detail: TokenDragDetail,
-): { targetSceneId?: string; targetActionId?: string } {
-  const sourceWidget = ctx.widgetsById[detail.sourceWidgetId];
+  source: DragSourceConfig,
+): { targetActionId?: string; targetSceneId?: string } {
+  const sourceWidget = ctx.widgetsById[source.sourceWidgetId];
   if (sourceWidget?.type === 'drag-token-pool') {
-    const token = parseDragTokenItems(sourceWidget.props.tokens).find((item) => item.id === detail.tokenId);
+    const token = parseDragTokenItems(sourceWidget.props.tokens).find((item) => item.id === source.tokenId);
     const targetActionId = typeof token?.targetActionId === 'string' && token.targetActionId.trim()
       ? token.targetActionId
       : undefined;
@@ -118,11 +119,11 @@ function resolveTokenDropTargets(
     }
   }
 
-  const eventTargetActionId = typeof detail.targetActionId === 'string' && detail.targetActionId.trim()
-    ? detail.targetActionId
+  const eventTargetActionId = typeof source.payload.targetActionId === 'string' && source.payload.targetActionId.trim()
+    ? source.payload.targetActionId
     : undefined;
-  const eventTargetSceneId = typeof detail.targetSceneId === 'string' && detail.targetSceneId.trim()
-    ? detail.targetSceneId
+  const eventTargetSceneId = typeof source.payload.targetSceneId === 'string' && source.payload.targetSceneId.trim()
+    ? source.payload.targetSceneId
     : undefined;
   if (eventTargetActionId || eventTargetSceneId) {
     return {
@@ -136,105 +137,61 @@ function resolveTokenDropTargets(
 function acceptsTokenSource(
   ctx: RenderContext,
   dropZoneWidgetId: string,
-  detail: TokenDragDetail,
+  source: DragSourceConfig,
 ): boolean {
-  const eventDropTargetId = String(detail.dropTargetId ?? '').trim();
-  if (eventDropTargetId === dropZoneWidgetId) return true;
-  const sourceWidget = ctx.widgetsById[detail.sourceWidgetId];
+  const configuredDropTargetId = String(source.dropTargetId ?? '').trim();
+  if (configuredDropTargetId === dropZoneWidgetId) return true;
+  const sourceWidget = ctx.widgetsById[source.sourceWidgetId];
   if (!sourceWidget || sourceWidget.type !== 'drag-token-pool') return false;
-  const configuredDropTargetId = String(sourceWidget.props.dropTargetId ?? '').trim();
-  return !configuredDropTargetId || configuredDropTargetId === dropZoneWidgetId;
+  const widgetDropTargetId = String(sourceWidget.props.dropTargetId ?? '').trim();
+  return !widgetDropTargetId || widgetDropTargetId === dropZoneWidgetId;
 }
 
 function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }) {
   const ctxRef = useLatestRef(ctx);
   const nodeRef = useLatestRef(node);
-  const [isOver, setIsOver] = useState(false);
-  const zoneRef = useRef<HTMLDivElement | null>(null);
-  const cachedRectRef = useRef<DOMRect | null>(null);
-  const lastIsOverRef = useRef(false);
   const width = Math.max(20, Number(node.frame.width ?? node.props.width ?? 120));
   const height = Math.max(20, Number(node.frame.height ?? node.props.height ?? 120));
   const hitPadding = Math.max(0, Number(node.props.hitPadding ?? 16));
   const debugOutline = Boolean(node.props.debugOutline ?? true);
-  useEffect(() => {
-    const invalidateRect = () => {
-      cachedRectRef.current = null;
-    };
 
-    const addInvalidationListeners = () => {
-      window.addEventListener('resize', invalidateRect);
-      document.addEventListener('scroll', invalidateRect, true);
-    };
+  const accepts = useCallback(
+    (source: DragSourceConfig) => acceptsTokenSource(ctxRef.current, nodeRef.current.id, source),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
-    const removeInvalidationListeners = () => {
-      window.removeEventListener('resize', invalidateRect);
-      document.removeEventListener('scroll', invalidateRect, true);
-    };
-
-    const unsubscribe = subscribeTokenDrag((detail) => {
-      const element = zoneRef.current;
-      if (!element) return;
-
-      if (detail.phase === 'start') {
-        cachedRectRef.current = element.getBoundingClientRect();
-        addInvalidationListeners();
-        const rect = cachedRectRef.current;
-        const inside = detail.clientX >= rect.left && detail.clientX <= rect.right && detail.clientY >= rect.top && detail.clientY <= rect.bottom;
-        if (inside !== lastIsOverRef.current) {
-          lastIsOverRef.current = inside;
-          setIsOver(inside);
-        }
-        return;
-      }
-
-      if (detail.phase === 'move') {
-        if (!cachedRectRef.current) {
-          cachedRectRef.current = element.getBoundingClientRect();
-        }
-        const rect = cachedRectRef.current;
-        const inside = detail.clientX >= rect.left && detail.clientX <= rect.right && detail.clientY >= rect.top && detail.clientY <= rect.bottom;
-        if (inside !== lastIsOverRef.current) {
-          lastIsOverRef.current = inside;
-          setIsOver(inside);
-        }
-        return;
-      }
-
-      const rect = element.getBoundingClientRect();
-      const inside = detail.clientX >= rect.left && detail.clientX <= rect.right && detail.clientY >= rect.top && detail.clientY <= rect.bottom;
-      if (detail.phase === 'end' && inside && acceptsTokenSource(ctxRef.current, nodeRef.current.id, detail)) {
-        const { targetActionId, targetSceneId } = resolveTokenDropTargets(ctxRef.current, detail);
-        if (targetActionId) {
-          ctxRef.current.executeAction?.(targetActionId);
-        } else if (targetSceneId) {
-          ctxRef.current.goToScene?.(targetSceneId);
+  const onDrop = useCallback(
+    (source: DragSourceConfig) => {
+      const { targetActionId, targetSceneId } = resolveTokenDropTargets(ctxRef.current, source);
+      if (targetActionId) {
+        ctxRef.current.executeAction?.(targetActionId);
+      } else if (targetSceneId) {
+        ctxRef.current.goToScene?.(targetSceneId);
+      } else {
+        const actionId = resolveFallbackActionId(nodeRef.current, source.tokenId);
+        if (actionId) {
+          ctxRef.current.executeAction?.(actionId);
         } else {
-          const actionId = resolveFallbackActionId(nodeRef.current, detail.tokenId);
-          if (actionId) {
-            ctxRef.current.executeAction?.(actionId);
-          } else {
-            ctxRef.current.triggerWidgetAction('click');
-          }
+          ctxRef.current.triggerWidgetAction('click');
         }
       }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
-      cachedRectRef.current = null;
-      lastIsOverRef.current = false;
-      setIsOver(false);
-      removeInvalidationListeners();
-    });
-
-    return () => {
-      unsubscribe();
-      removeInvalidationListeners();
-    };
-  }, [node.id]);
+  const { isOver, ref } = useDropTarget({
+    targetId: node.id,
+    hitPadding,
+    onDrop,
+    accepts,
+  });
 
   return (
     <div style={dropZoneShellStyle}>
       <div
-        ref={zoneRef}
+        ref={ref}
         onPointerDown={(event) => {
           event.stopPropagation();
         }}

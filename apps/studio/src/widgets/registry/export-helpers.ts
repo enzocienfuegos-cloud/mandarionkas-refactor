@@ -1,4 +1,9 @@
 import type { WidgetNode } from '../../domain/document/types';
+import {
+  composeWidgetAlignment,
+  composeWidgetFrame,
+  composeWidgetTypography,
+} from '../../domain/widget-schema/compose-style';
 
 export function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -9,82 +14,53 @@ export function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;');
 }
 
+/** @deprecated use composeWidgetAlignment */
 export function resolveExportHorizontalAlign(node: WidgetNode): 'flex-start' | 'center' | 'flex-end' {
-  const align = String(node.style.horizontalAlign ?? node.style.textAlign ?? 'center');
-  if (align === 'left') return 'flex-start';
-  if (align === 'right') return 'flex-end';
-  return 'center';
+  return composeWidgetAlignment(node).horizontal;
 }
 
+/** @deprecated use composeWidgetAlignment */
 export function resolveExportVerticalAlign(node: WidgetNode): 'flex-start' | 'center' | 'flex-end' {
-  const align = String(node.style.verticalAlign ?? 'center');
-  if (align === 'top') return 'flex-start';
-  if (align === 'bottom') return 'flex-end';
-  return 'center';
+  return composeWidgetAlignment(node).vertical;
 }
 
+/** @deprecated use composeWidgetAlignment */
 export function resolveExportTextAlign(node: WidgetNode): 'left' | 'center' | 'right' {
-  const align = String(node.style.horizontalAlign ?? node.style.textAlign ?? 'center');
-  if (align === 'left' || align === 'right') return align;
-  return 'center';
-}
-
-function resolveFontWeightCss(value: unknown): string {
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-  if (typeof value === 'string' && value.trim()) return escapeHtml(value);
-  return '700';
-}
-
-function resolveLineHeightCss(value: unknown): string {
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-  if (typeof value === 'string' && value.trim()) return escapeHtml(value);
-  return '1.1';
-}
-
-function resolveLetterSpacingCss(value: unknown): string {
-  if (typeof value === 'number' && Number.isFinite(value)) return `${value}px`;
-  if (typeof value === 'string' && value.trim()) {
-    if (value.trim().toLowerCase() === 'normal') return 'normal';
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? `${numeric}px` : escapeHtml(value);
-  }
-  return 'normal';
+  return composeWidgetAlignment(node).text;
 }
 
 export function getBaseWidgetStyle(node: WidgetNode): string {
-  const frame = node.frame;
+  const layout = composeWidgetFrame(node);
+  const alignment = composeWidgetAlignment(node);
+  const typography = composeWidgetTypography(node, 'export-inline-string');
   const style = node.style ?? {};
   return [
     `position:absolute`,
-    `left:${frame.x}px`,
-    `top:${frame.y}px`,
-    `width:${frame.width}px`,
-    `height:${frame.height}px`,
-    `transform:rotate(${frame.rotation}deg)`,
-    `opacity:${Number(style.opacity ?? 1)}`,
+    `left:${layout.left}px`,
+    `top:${layout.top}px`,
+    `width:${layout.width}px`,
+    `height:${layout.height}px`,
+    `transform:rotate(${layout.rotation}deg)`,
+    `opacity:${layout.opacity}`,
     `display:flex`,
-    `align-items:center`,
-    `justify-content:center`,
+    `align-items:${alignment.vertical}`,
+    `justify-content:${alignment.horizontal}`,
     `overflow:hidden`,
     `box-sizing:border-box`,
     `border-radius:${Number(style.borderRadius ?? 12)}px`,
     `background:${escapeHtml(style.backgroundColor ?? 'transparent')}`,
     `color:${escapeHtml(style.color ?? '#ffffff')}`,
-    `font-family:${escapeHtml(style.fontFamily ?? 'inherit')}`,
-    `font-size:${Number(style.fontSize ?? 18)}px`,
-    `font-weight:${resolveFontWeightCss(style.fontWeight)}`,
-    `font-style:${escapeHtml(style.fontStyle ?? 'normal')}`,
-    `line-height:${resolveLineHeightCss(style.lineHeight)}`,
-    `letter-spacing:${resolveLetterSpacingCss(style.letterSpacing)}`,
-    `text-transform:${escapeHtml(style.textTransform ?? 'none')}`,
-    `text-decoration:${escapeHtml(style.textDecoration ?? 'none')}`,
-    `border:1px solid ${escapeHtml(style.borderColor ?? 'rgba(255,255,255,0.14)')}`,
-    `padding:8px`,
-    `text-align:center`,
+    typography,
   ].join(';');
 }
 
 export function renderGenericExport(node: WidgetNode, label?: string, detail?: string): string {
   const base = getBaseWidgetStyle(node);
-  return `<div class="widget widget-module" data-widget-id="${node.id}" style="${base};flex-direction:column;gap:6px;"><strong>${escapeHtml(label ?? node.name)}</strong>${detail ? `<span style="font-size:12px;opacity:.8;">${escapeHtml(detail)}</span>` : ''}</div>`;
+  const style = node.style ?? {};
+  const genericExtras = [
+    `border:1px solid ${escapeHtml(style.borderColor ?? 'rgba(255,255,255,0.14)')}`,
+    `padding:8px`,
+    `text-align:center`,
+  ].join(';');
+  return `<div class="widget widget-module" data-widget-id="${node.id}" style="${base};${genericExtras};flex-direction:column;gap:6px;"><strong>${escapeHtml(label ?? node.name)}</strong>${detail ? `<span style="font-size:12px;opacity:.8;">${escapeHtml(detail)}</span>` : ''}</div>`;
 }
