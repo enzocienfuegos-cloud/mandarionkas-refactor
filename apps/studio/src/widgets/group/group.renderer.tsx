@@ -336,12 +336,15 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const ctxRef = useLatestRef(ctx);
   const shellRef = useRef<HTMLDivElement | null>(null);
   const maskPathRef = useRef<SVGPathElement | null>(null);
-  const maskRectRef = useRef<SVGRectElement | null>(null);
   const engineRef = useRef<ScratchMaskEngine | null>(null);
   const maskSizeRef = useRef({ width: 0, height: 0 });
   const pendingResizeResetRef = useRef(false);
   const scratchCompletedRef = useRef(false);
   const [scratchCompleted, setScratchCompleted] = useState(false);
+  const [shellSize, setShellSize] = useState(() => ({
+    width: Math.max(1, Math.round(node.frame.width || 1)),
+    height: Math.max(1, Math.round(node.frame.height || 1)),
+  }));
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
   const autoRevealThresholdPercent = Math.max(
     0,
@@ -371,7 +374,6 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const resetScratchMask = ({ force = false, clearCompletion = false } = {}) => {
     const shell = shellRef.current;
     const pathElement = maskPathRef.current;
-    const rectElement = maskRectRef.current;
     if (!shell) return;
     if (scratchCompletedRef.current && !clearCompletion) return;
     const width = Math.max(1, Math.round(shell?.clientWidth ?? node.frame.width ?? 1));
@@ -384,8 +386,6 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
       return;
     }
     maskSizeRef.current = { width, height };
-    rectElement?.setAttribute('width', String(width));
-    rectElement?.setAttribute('height', String(height));
     initializeScratchPathElement(pathElement, scratchRadius);
     pendingResizeResetRef.current = false;
     if (clearCompletion && scratchCompletedRef.current) {
@@ -436,13 +436,35 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   useEffect(() => {
     const shell = shellRef.current;
     if (!shell || typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(() => {
+    const updateShellSize = (width: number, height: number) => {
+      const nextSize = {
+        width: Math.max(1, Math.round(width || node.frame.width || 1)),
+        height: Math.max(1, Math.round(height || node.frame.height || 1)),
+      };
+      setShellSize((current) => (
+        current.width === nextSize.width && current.height === nextSize.height
+          ? current
+          : nextSize
+      ));
+      return nextSize;
+    };
+    updateShellSize(shell.clientWidth, shell.clientHeight);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const nextSize = updateShellSize(
+        entry?.contentRect.width ?? shell.clientWidth,
+        entry?.contentRect.height ?? shell.clientHeight,
+      );
+      const previousSize = maskSizeRef.current;
+      const widthDelta = Math.abs(nextSize.width - previousSize.width) / Math.max(1, previousSize.width);
+      const heightDelta = Math.abs(nextSize.height - previousSize.height) / Math.max(1, previousSize.height);
+      if (widthDelta < 0.05 && heightDelta < 0.05) return;
       resetScratchMask();
       pendingResizeResetRef.current = false;
     });
     observer.observe(shell);
     return () => observer.disconnect();
-  }, [nodeId, previewMode]);
+  }, [node.frame.height, node.frame.width, nodeId, previewMode]);
 
   useEffect(() => {
     if (!previewMode) return undefined;
@@ -519,16 +541,23 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
         </div>
       ) : null}
       <svg
-        width={0}
-        height={0}
         aria-hidden="true"
         focusable="false"
         data-scratch-mask-svg
-        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+        viewBox={`0 0 ${shellSize.width} ${shellSize.height}`}
+        preserveAspectRatio="none"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          overflow: 'visible',
+        }}
       >
         <defs>
           <mask id={maskId} maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse">
-            <rect ref={maskRectRef} x={0} y={0} width="100%" height="100%" fill="white" />
+            <rect x={0} y={0} width={shellSize.width} height={shellSize.height} fill="white" />
             <path ref={maskPathRef} d="" stroke="black" strokeWidth={scratchRadius * 2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </mask>
         </defs>

@@ -146,10 +146,19 @@ describe('scratch flow does not use canvas.toDataURL', () => {
   it('uses a stable inline SVG mask while scratching instead of a blob preview url', () => {
     const { container } = render(<ScratchHarness />);
     const scratchMaskWrapper = container.querySelector<HTMLElement>('[data-scratch-mask-target]');
+    const scratchMaskSvg = container.querySelector<SVGSVGElement>('[data-scratch-mask-svg]');
+    const scratchMaskRect = container.querySelector<SVGRectElement>('[data-scratch-mask-svg] rect');
     const scratchMaskPath = container.querySelector<SVGPathElement>('[data-scratch-mask-svg] path');
     const scratchHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
 
     expect(scratchMaskWrapper).toBeTruthy();
+    expect(scratchMaskSvg?.getAttribute('width')).toBeNull();
+    expect(scratchMaskSvg?.getAttribute('height')).toBeNull();
+    expect(scratchMaskSvg?.getAttribute('viewBox')).toBe('0 0 320 180');
+    expect(scratchMaskSvg?.style.width).toBe('100%');
+    expect(scratchMaskSvg?.style.height).toBe('100%');
+    expect(scratchMaskRect?.getAttribute('width')).toBe('320');
+    expect(scratchMaskRect?.getAttribute('height')).toBe('180');
     expect(scratchMaskWrapper?.style.mask || scratchMaskWrapper?.style.webkitMask).toContain('#scratch-mask-scratch_group');
     expect(scratchMaskPath?.getAttribute('d')).toBe('');
 

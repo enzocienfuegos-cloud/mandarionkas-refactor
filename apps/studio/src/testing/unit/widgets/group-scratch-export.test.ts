@@ -103,6 +103,10 @@ describe('group scratch export', () => {
     expect(html).toContain('class="scratch-reveal-shell"');
     expect(html).toContain('data-scratch-shell');
     expect(html).toContain('data-scratch-mask-svg');
+    expect(html).toContain('viewBox="0 0 220 160"');
+    expect(html).toContain('preserveAspectRatio="none"');
+    expect(html).toContain('style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;"');
+    expect(html).toContain('data-scratch-mask-rect x="0" y="0" width="220" height="160"');
     expect(html).toContain('data-scratch-mask-path');
     expect(html).toContain('data-scratch-mask-target');
     expect(html).toContain('mask:url(#scratch-mask-group_1)');

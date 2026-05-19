@@ -223,10 +223,17 @@ export function renderGroupExport(
       data-scratch-reveal-animation-delay="0"
       style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;background:transparent;"
     >
-      <svg data-scratch-mask-svg style="position:absolute;width:0;height:0;opacity:0;pointer-events:none;" aria-hidden="true" focusable="false">
+      <svg
+        data-scratch-mask-svg
+        viewBox="0 0 ${frame.width} ${frame.height}"
+        preserveAspectRatio="none"
+        style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;"
+        aria-hidden="true"
+        focusable="false"
+      >
         <defs>
           <mask id="${maskId}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" mask-type="luminance">
-            <rect data-scratch-mask-rect x="0" y="0" width="100%" height="100%" fill="white"></rect>
+            <rect data-scratch-mask-rect x="0" y="0" width="${frame.width}" height="${frame.height}" fill="white"></rect>
             <path data-scratch-mask-path d="" stroke="black" stroke-width="${scratchRadius * 2}" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
           </mask>
         </defs>
