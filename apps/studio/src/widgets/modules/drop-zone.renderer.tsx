@@ -101,6 +101,23 @@ function resolveTokenDropTargets(
   ctx: RenderContext,
   detail: TokenDragDetail,
 ): { targetSceneId?: string; targetActionId?: string } {
+  const sourceWidget = ctx.widgetsById[detail.sourceWidgetId];
+  if (sourceWidget?.type === 'drag-token-pool') {
+    const token = parseDragTokenItems(sourceWidget.props.tokens).find((item) => item.id === detail.tokenId);
+    const targetActionId = typeof token?.targetActionId === 'string' && token.targetActionId.trim()
+      ? token.targetActionId
+      : undefined;
+    const targetSceneId = typeof token?.targetSceneId === 'string' && token.targetSceneId.trim()
+      ? token.targetSceneId
+      : undefined;
+    if (targetActionId || targetSceneId) {
+      return {
+        targetActionId,
+        targetSceneId: targetActionId ? undefined : targetSceneId,
+      };
+    }
+  }
+
   const eventTargetActionId = typeof detail.targetActionId === 'string' && detail.targetActionId.trim()
     ? detail.targetActionId
     : undefined;
@@ -113,16 +130,7 @@ function resolveTokenDropTargets(
       targetSceneId: eventTargetActionId ? undefined : eventTargetSceneId,
     };
   }
-
-  const sourceWidget = ctx.widgetsById[detail.sourceWidgetId];
-  if (!sourceWidget || sourceWidget.type !== 'drag-token-pool') return {};
-  const token = parseDragTokenItems(sourceWidget.props.tokens).find((item) => item.id === detail.tokenId);
-  return {
-    targetSceneId: token?.targetSceneId,
-    targetActionId: typeof token?.targetActionId === 'string' && token.targetActionId.trim()
-      ? token.targetActionId
-      : undefined,
-  };
+  return {};
 }
 
 function acceptsTokenSource(
@@ -131,7 +139,7 @@ function acceptsTokenSource(
   detail: TokenDragDetail,
 ): boolean {
   const eventDropTargetId = String(detail.dropTargetId ?? '').trim();
-  if (eventDropTargetId) return eventDropTargetId === dropZoneWidgetId;
+  if (eventDropTargetId === dropZoneWidgetId) return true;
   const sourceWidget = ctx.widgetsById[detail.sourceWidgetId];
   if (!sourceWidget || sourceWidget.type !== 'drag-token-pool') return false;
   const configuredDropTargetId = String(sourceWidget.props.dropTargetId ?? '').trim();

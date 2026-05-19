@@ -1,8 +1,9 @@
 /** @vitest-environment jsdom */
-import { act, render } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RenderContext } from '../../../canvas/stage/render-context';
 import type { WidgetNode } from '../../../domain/document/types';
+import { renderDragTokenPoolStage } from '../../../widgets/modules/drag-token-pool.renderer';
 import { renderDropZoneStage } from '../../../widgets/modules/drop-zone.renderer';
 import { emitTokenDrag } from '../../../widgets/modules/token-drag-runtime';
 
@@ -50,7 +51,7 @@ function createTokenPool(tokens: Array<Record<string, unknown>>, props: Partial<
 }
 
 function mockDropZoneRect(container: HTMLElement): void {
-  const shell = container.firstElementChild as HTMLDivElement | null;
+  const shell = Array.from(container.children).at(-1) as HTMLDivElement | undefined;
   const zone = shell?.firstElementChild as HTMLDivElement | null;
   expect(zone).toBeTruthy();
 
@@ -87,8 +88,23 @@ function createContext(widgetsById: Record<string, WidgetNode>, overrides: Parti
 }
 
 describe('drop zone scene targeting', () => {
+  const rafCallbacks: FrameRequestCallback[] = [];
+
+  beforeEach(() => {
+    rafCallbacks.length = 0;
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      rafCallbacks.push(callback);
+      return rafCallbacks.length;
+    }));
+    vi.stubGlobal('cancelAnimationFrame', vi.fn((id: number) => {
+      if (id <= 0) return;
+      rafCallbacks[id - 1] = () => undefined;
+    }));
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('routes a dropped token directly to its configured target scene', () => {
@@ -190,6 +206,65 @@ describe('drop zone scene targeting', () => {
     expect(executeAction).not.toHaveBeenCalled();
   });
 
+  it('prefers the current source widget config over stale drag event target snapshots', () => {
+    const tokenPool = createTokenPool([{ id: 'tok_current', label: 'Current token', targetActionId: 'act_current_drop' }]);
+    const goToScene = vi.fn();
+    const executeAction = vi.fn();
+    const ctx = createContext(
+      {
+        [tokenPool.id]: tokenPool,
+      },
+      { goToScene, executeAction },
+    );
+
+    const { container } = render(renderDropZoneStage(createDropZone('drop_1'), ctx));
+    mockDropZoneRect(container);
+
+    act(() => {
+      emitTokenDrag({
+        phase: 'end',
+        tokenId: 'tok_current',
+        sourceWidgetId: tokenPool.id,
+        dropTargetId: 'drop_stale',
+        targetSceneId: 'scene_stale',
+        clientX: 80,
+        clientY: 80,
+      });
+    });
+
+    expect(executeAction).toHaveBeenCalledWith('act_current_drop');
+    expect(goToScene).not.toHaveBeenCalled();
+  });
+
+  it('allows the current source widget link to recover from a stale drag event drop target snapshot', () => {
+    const tokenPool = createTokenPool([{ id: 'tok_relinked', label: 'Relinked token', targetSceneId: 'scene_current' }]);
+    const goToScene = vi.fn();
+    const executeAction = vi.fn();
+    const ctx = createContext(
+      {
+        [tokenPool.id]: tokenPool,
+      },
+      { goToScene, executeAction },
+    );
+
+    const { container } = render(renderDropZoneStage(createDropZone('drop_1'), ctx));
+    mockDropZoneRect(container);
+
+    act(() => {
+      emitTokenDrag({
+        phase: 'end',
+        tokenId: 'tok_relinked',
+        sourceWidgetId: tokenPool.id,
+        dropTargetId: 'drop_stale',
+        clientX: 80,
+        clientY: 80,
+      });
+    });
+
+    expect(goToScene).toHaveBeenCalledWith('scene_current');
+    expect(executeAction).not.toHaveBeenCalled();
+  });
+
   it('ignores drops when the source token pool is linked to a different drop zone', () => {
     const tokenPool = createTokenPool([{ id: 'tok_3', label: 'Token 3', targetSceneId: 'scene_4' }]);
     const goToScene = vi.fn();
@@ -281,5 +356,84 @@ describe('drop zone scene targeting', () => {
     expect(executeAction).toHaveBeenCalledWith('act_show_layer');
     expect(goToScene).not.toHaveBeenCalled();
     expect(executeAction).not.toHaveBeenCalledWith('act_fallback');
+  });
+
+  it('keeps drop-zone match action maps working from the real drag token renderer payload', () => {
+    const tokenPool = createTokenPool([{ id: 'tok_fallback', label: 'Fallback token' }]);
+    const goToScene = vi.fn();
+    const executeAction = vi.fn();
+    const ctx = createContext(
+      {
+        [tokenPool.id]: tokenPool,
+      },
+      { goToScene, executeAction },
+    );
+
+    const { container } = render(
+      <>
+        {renderDragTokenPoolStage(tokenPool, ctx)}
+        {renderDropZoneStage(createDropZone('drop_1', {
+          matchActionMap: JSON.stringify({ tok_fallback: 'act_fallback_drop' }),
+        }), ctx)}
+      </>,
+    );
+    mockDropZoneRect(container);
+
+    act(() => {
+      fireEvent.pointerDown(screen.getByText('Fallback token'), { pointerId: 1, clientX: 20, clientY: 30, isPrimary: true });
+    });
+    act(() => {
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 80, clientY: 80 });
+    });
+    act(() => {
+      rafCallbacks.shift()?.(16);
+    });
+    act(() => {
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 80, clientY: 80 });
+    });
+
+    expect(executeAction).toHaveBeenCalledWith('act_fallback_drop');
+    expect(goToScene).not.toHaveBeenCalled();
+  });
+
+  it('keeps legacy onMatchAction working from the real drag token renderer payload', () => {
+    const tokenPool = createTokenPool([{ id: 'tok_legacy_action', label: 'Legacy action token' }], {
+      dropTargetId: '',
+    });
+    const goToScene = vi.fn();
+    const executeAction = vi.fn();
+    const ctx = createContext(
+      {
+        [tokenPool.id]: tokenPool,
+      },
+      { goToScene, executeAction },
+    );
+
+    const { container } = render(
+      <>
+        {renderDragTokenPoolStage(tokenPool, ctx)}
+        {renderDropZoneStage(createDropZone('drop_1', {
+          matchActionMap: '{}',
+          onMatchAction: 'act_legacy_drop',
+        }), ctx)}
+      </>,
+    );
+    mockDropZoneRect(container);
+
+    act(() => {
+      fireEvent.pointerDown(screen.getByText('Legacy action token'), { pointerId: 1, clientX: 20, clientY: 30, isPrimary: true });
+    });
+    act(() => {
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 80, clientY: 80 });
+    });
+    act(() => {
+      rafCallbacks.shift()?.(16);
+    });
+    act(() => {
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 80, clientY: 80 });
+    });
+
+    expect(executeAction).toHaveBeenCalledWith('act_legacy_drop');
+    expect(goToScene).not.toHaveBeenCalled();
   });
 });
