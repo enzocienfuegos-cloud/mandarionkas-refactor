@@ -7,17 +7,22 @@ export type HistoryManager<T> = {
   canRedo: () => boolean;
 };
 
-function cloneSnapshot<T>(snapshot: T): T {
-  return typeof structuredClone === 'function' ? structuredClone(snapshot) : snapshot;
-}
-
+/**
+ * History manager that stores references to immutable snapshots.
+ *
+ * IMPORTANT: snapshots passed to `record(...)` are stored by reference.
+ * The Studio reducer is immutable, so previously recorded states must never
+ * be mutated after dispatch. Do not reintroduce `structuredClone(...)` or
+ * deep-clone fallbacks here: they are prohibitively expensive on real Studio
+ * documents and block the main thread on every history write.
+ */
 export function createHistoryManager<T>(maxEntries = 100): HistoryManager<T> {
   let entries: T[] = [];
   let index = -1;
 
   function push(snapshot: T): void {
     entries = entries.slice(0, index + 1);
-    entries.push(cloneSnapshot(snapshot));
+    entries.push(snapshot);
     if (entries.length > maxEntries) {
       entries.shift();
     }
@@ -36,12 +41,12 @@ export function createHistoryManager<T>(maxEntries = 100): HistoryManager<T> {
     undo() {
       if (index <= 0) return null;
       index -= 1;
-      return entries[index] ? cloneSnapshot(entries[index]) : null;
+      return entries[index] ?? null;
     },
     redo() {
       if (index >= entries.length - 1) return null;
       index += 1;
-      return entries[index] ? cloneSnapshot(entries[index]) : null;
+      return entries[index] ?? null;
     },
     canUndo() {
       return index > 0;

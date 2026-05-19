@@ -297,3 +297,40 @@ Eso mantiene el cover real del scratch group, evita `-webkit-canvas(...)`, y
 preserva la regla principal:
 
 - nunca volver a `canvas.toDataURL(...)` en hot paths interactivos
+
+## The structuredClone trap (Sprint S60)
+
+Despues de cerrar `JSON.stringify(...)` en MotionLayer y autosave, el
+bottleneck grande que quedaba en el editor estaba escondido en
+`history-manager.ts`.
+
+Cada dispatch recordable hacia `history.record(next)`, y el history manager
+hacia deep clone del `StudioState` completo. En profiler eso aparecia como
+`encode @ scriptId:0`, no como una funcion evidente del app, porque el costo
+real estaba dentro de `structuredClone(...)`.
+
+### Regla
+
+`HistoryManager` guarda referencias directas a snapshots inmutables.
+
+Eso es seguro porque:
+
+- `reduceBySlices(...)` devuelve nuevos objetos en vez de mutar el state previo
+- `UNDO` y `REDO` reemplazan el state por referencia, no lo mutan
+- los reducers de Studio quedan cubiertos por test de inmutabilidad
+
+### Guardrails de S60
+
+- `history-manager.test.ts` verifica que history almacena referencias y no llama
+  `structuredClone(...)`
+- `reducer-immutability.test.ts` congela el state previo y cubre comandos
+  representativos del store
+- `lint:no-state-cloning` bloquea `structuredClone(...)` y
+  `JSON.parse(JSON.stringify(...))` en hot paths como `core/store`,
+  `core/history`, `canvas`, `motion`, `hooks` y `persistence`
+
+### Regla operacional
+
+- nunca clonar `StudioState` completo en dispatch, render o selectors
+- si hace falta serializar a red/disco, hacerlo solo en el boundary
+- para undo/redo, confiar en la inmutabilidad del reducer y guardar referencias

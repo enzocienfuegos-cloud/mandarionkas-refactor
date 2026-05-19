@@ -10,6 +10,28 @@ const ALLOWED_PREFIXES = [
   'src/repositories/',
   'src/assets/storage-api.ts',
 ];
+const HOT_PATH_CLONE_PREFIXES = [
+  'src/core/history/',
+  'src/core/store/',
+  'src/persistence/',
+  'src/canvas/',
+  'src/hooks/',
+  'src/motion/',
+];
+const HOT_PATH_CLONE_ALLOWED_FILES = new Set([
+  // Reducer-safe utility used outside the dispatch hot path.
+  'src/core/store/store-utils.ts',
+  // Clipboard and scene duplication are explicit user actions, not per-frame loops.
+  'src/canvas/stage/widget-clipboard.ts',
+  'src/core/store/reducers/document-scene-reducer.ts',
+  'src/core/store/reducers/widgets/widget-create-update-reducer.ts',
+]);
+
+function stripCommentsForHotPathChecks(content) {
+  return content
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+}
 
 function collectFiles(dir) {
   const entries = readdirSync(dir, { withFileTypes: true });
@@ -69,15 +91,32 @@ for (const file of files) {
       });
     }
   }
+
+  if (!HOT_PATH_CLONE_PREFIXES.some((prefix) => file.startsWith(prefix))) continue;
+  if (HOT_PATH_CLONE_ALLOWED_FILES.has(file)) continue;
+
+  const codeOnly = stripCommentsForHotPathChecks(content);
+  if (/\bstructuredClone\s*\(/.test(codeOnly)) {
+    offenders.push({
+      file,
+      reason: 'structuredClone in a Studio hot path — clones the full object graph and blocks the main thread',
+    });
+  }
+  if (/JSON\.parse\s*\(\s*JSON\.stringify\s*\(/.test(codeOnly)) {
+    offenders.push({
+      file,
+      reason: 'JSON.parse(JSON.stringify(...)) deep clone in a Studio hot path — use immutable refs or targeted copies instead',
+    });
+  }
 }
 
 if (offenders.length) {
-  console.error('❌ Expensive JSON.stringify usage detected.');
-  console.error('   JSON.stringify is O(n) over the object graph plus UTF-8 encoding.');
-  console.error('   In selectors or render paths it will dominate the main thread.');
-  console.error('   Prefer immutable reference comparison or a targeted structural helper.');
+  console.error('❌ Expensive state serialization or cloning detected.');
+  console.error('   JSON.stringify, structuredClone, and JSON deep-clone idioms walk the full object graph.');
+  console.error('   In selectors, render paths, history, or store hot paths they dominate the main thread.');
+  console.error('   Prefer immutable reference comparison, targeted structural helpers, or boundary-only serialization.');
   offenders.forEach(({ file, reason }) => console.error(`  - ${file}: ${reason}`));
   process.exit(1);
 }
 
-console.log('✅ No expensive JSON.stringify in hot paths.');
+console.log('✅ No expensive state serialization or cloning in Studio hot paths.');

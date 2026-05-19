@@ -1,18 +1,34 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createHistoryManager } from '../../core/history/history-manager';
 
 describe('createHistoryManager', () => {
-  it('undos and redoes snapshots safely', () => {
+  it('stores immutable snapshots by reference', () => {
     const history = createHistoryManager<{ count: number; nested: { ok: boolean } }>(5);
-    history.record({ count: 1, nested: { ok: true } });
-    history.record({ count: 2, nested: { ok: false } });
+    const snap1 = { count: 1, nested: { ok: true } };
+    const snap2 = { count: 2, nested: { ok: false } };
+    history.record(snap1);
+    history.record(snap2);
 
     const prev = history.undo();
-    expect(prev).toEqual({ count: 1, nested: { ok: true } });
+    expect(prev).toBe(snap1);
 
-    prev!.nested.ok = false;
     const redo = history.redo();
-    expect(redo).toEqual({ count: 2, nested: { ok: false } });
+    expect(redo).toBe(snap2);
+  });
+
+  it('never calls structuredClone while recording or navigating history', () => {
+    const cloneSpy = vi.spyOn(globalThis, 'structuredClone');
+    const history = createHistoryManager<{ id: number }>(5);
+
+    history.record({ id: 1 });
+    history.record({ id: 2 });
+    history.record({ id: 3 });
+    history.undo();
+    history.undo();
+    history.redo();
+
+    expect(cloneSpy).not.toHaveBeenCalled();
+    cloneSpy.mockRestore();
   });
 
   it('respects max entries', () => {

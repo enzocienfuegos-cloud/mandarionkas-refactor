@@ -30,5 +30,9 @@
 - [DONE S59] `AutosaveGate` ya no llama `JSON.stringify(state)` por dispatch; detecta cambios persistibles via referencia de `state.document`.
 - [DONE S59] `createPersistenceSignature` fue eliminada del codigo productivo.
 - [DONE S59] `lint:json-stringify` ahora detecta tambien selectors de store y funciones exportadas con `JSON.stringify(...)` fuera de rutas permitidas.
+- [DONE S60] `HistoryManager` ya no usa `structuredClone(...)`; guarda referencias directas a snapshots inmutables.
+- [DONE S60] `reducer-immutability.test.ts` congela el state previo y cubre comandos representativos del store.
+- [DONE S60] `history-manager.test.ts` verifica que history no llama `structuredClone(...)`.
+- [DONE S60] `lint:no-state-cloning` bloquea `structuredClone(...)` y `JSON.parse(JSON.stringify(...))` en hot paths de store/history/canvas/hooks/motion/persistence.
 - [DONE S57] `lint:canvas-encoding` bloquea `toDataURL(...)` en codigo productivo fuera de pipelines de assets.
 - [DONE S57] `scratch-no-canvas-encoding` verifica que el flow de scratch no invoque `HTMLCanvasElement.prototype.toDataURL`.
