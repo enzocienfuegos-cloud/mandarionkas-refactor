@@ -9,7 +9,10 @@ import { playbackEngine } from '../../hooks/use-playback-engine';
 import { useLatestRef } from '../../shared/hooks';
 import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
 import { isScratchGroupActive } from './group-scratch-activation';
-import { DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD } from './group-scratch-constants';
+import {
+  DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD,
+  DEFAULT_SCRATCH_MILESTONES,
+} from './group-scratch-constants';
 import { resolveScratchInternalTargetIds } from './group-reveal-target';
 import {
   createScratchMaskEngine,
@@ -337,6 +340,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const engineRef = useRef<ScratchMaskEngine | null>(null);
   const maskSizeRef = useRef({ width: 0, height: 0 });
   const pendingResizeResetRef = useRef(false);
+  const scratchCompletedRef = useRef(false);
   const [scratchCompleted, setScratchCompleted] = useState(false);
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
   const autoRevealThresholdPercent = Math.max(
@@ -345,26 +349,49 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   );
   const coverBlur = Math.max(0, Number(node.props.coverBlur ?? 0));
   const boxShadow = shadowConfigToBoxShadow(readShadowFromStyle(node.style));
-  const milestones = Array.isArray(node.props.scratchMilestones) ? node.props.scratchMilestones : [];
+  const milestones = Array.isArray(node.props.scratchMilestones)
+    ? node.props.scratchMilestones
+    : DEFAULT_SCRATCH_MILESTONES;
+  const milestonesKey = milestones
+    .map((milestone) => `${milestone.id}:${milestone.thresholdPercent}:${milestone.emitTrigger}`)
+    .join('|');
   const maskId = `scratch-mask-${nodeId}`;
-  const internalTargetIds = resolveScratchInternalTargetIds(node, ctx.widgetsById);
+  const childIdsKey = (node.childIds ?? []).join('|');
+  const internalTargetIds = useMemo(
+    () => resolveScratchInternalTargetIds(node, ctx.widgetsById),
+    [
+      ctx.widgetsById,
+      childIdsKey,
+      nodeId,
+      node.props.revealTargetId,
+      node.props.revealTargetMode,
+    ],
+  );
 
-  const resetScratchMask = ({ force = false } = {}) => {
+  const resetScratchMask = ({ force = false, clearCompletion = false } = {}) => {
     const shell = shellRef.current;
     const pathElement = maskPathRef.current;
     const rectElement = maskRectRef.current;
     if (!shell) return;
+    if (scratchCompletedRef.current && !clearCompletion) return;
     const width = Math.max(1, Math.round(shell?.clientWidth ?? node.frame.width ?? 1));
     const height = Math.max(1, Math.round(shell?.clientHeight ?? node.frame.height ?? 1));
     const dimensionsChanged = maskSizeRef.current.width !== width || maskSizeRef.current.height !== height;
     if (!force && !dimensionsChanged) return;
+    const didResetEngine = engineRef.current?.reset({ force }) ?? true;
+    if (!didResetEngine) {
+      pendingResizeResetRef.current = true;
+      return;
+    }
     maskSizeRef.current = { width, height };
     rectElement?.setAttribute('width', String(width));
     rectElement?.setAttribute('height', String(height));
     initializeScratchPathElement(pathElement, scratchRadius);
-    engineRef.current?.reset({ force });
     pendingResizeResetRef.current = false;
-    if (scratchCompleted) setScratchCompleted(false);
+    if (clearCompletion && scratchCompletedRef.current) {
+      scratchCompletedRef.current = false;
+      setScratchCompleted(false);
+    }
   };
 
   const flushPendingResizeReset = () => {
@@ -386,6 +413,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
       onMilestone: () => undefined,
       onComplete: (clearedPercent) => {
         const completedAtMs = playbackEngine.getCurrentMs();
+        scratchCompletedRef.current = true;
         setScratchCompleted(true);
         ctxRef.current.triggerWidgetAction('scratch-complete', {
           clearedPercent,
@@ -399,7 +427,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
       engineRef.current?.dispose();
       engineRef.current = null;
     };
-  }, [autoRevealThresholdPercent, ctxRef, milestones, scratchRadius]);
+  }, [autoRevealThresholdPercent, ctxRef, milestonesKey, scratchRadius]);
 
   useLayoutEffect(() => {
     resetScratchMask({ force: false });
@@ -436,7 +464,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
       previousPlayheadMs = nextMs;
       previousPreviewMode = previewMode;
       if (enteredPreview || rewoundToStart) {
-        resetScratchMask({ force: true });
+        resetScratchMask({ force: true, clearCompletion: true });
       }
     };
 
@@ -460,7 +488,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
       playheadMs={playheadMs}
       includedIds={internalTargetIds}
     />
-  ), [ctx, internalTargetIds, node, playheadMs]);
+  ), [ctx.isReproducing, ctx.previewMode, ctx.widgetsById, internalTargetIds, node, playheadMs]);
   const scratchContent = useMemo(() => (
     <GroupScratchCoverChildren
       node={node}
@@ -468,7 +496,7 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
       playheadMs={playheadMs}
       excludedIds={internalTargetIds}
     />
-  ), [ctx, internalTargetIds, node, playheadMs]);
+  ), [ctx.isReproducing, ctx.previewMode, ctx.widgetsById, internalTargetIds, node, playheadMs]);
 
   return (
     <div
@@ -514,47 +542,48 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
           {scratchContent}
         </div>
       ) : null}
-      {!scratchCompleted ? (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 2,
-            cursor: 'crosshair',
-            touchAction: 'none',
-            outline: 'none',
-            background: 'transparent',
-            WebkitTapHighlightColor: 'transparent',
-            userSelect: 'none',
-          }}
-          data-scratch-hit-area
-          onPointerDown={(event) => {
-            if (!event.isPrimary) return;
-            event.preventDefault();
-            event.stopPropagation();
-            event.currentTarget.setPointerCapture?.(event.pointerId);
-            scratchAtEvent(event);
-          }}
-          onPointerMove={(event) => {
-            event.preventDefault();
-            scratchAtEvent(event);
-          }}
-          onPointerUp={(event) => {
-            engineRef.current?.handlePointerUp();
-            event.currentTarget.releasePointerCapture?.(event.pointerId);
-            flushPendingResizeReset();
-          }}
-          onPointerCancel={(event) => {
-            engineRef.current?.handlePointerUp();
-            event.currentTarget.releasePointerCapture?.(event.pointerId);
-            flushPendingResizeReset();
-          }}
-          onLostPointerCapture={() => {
-            engineRef.current?.handlePointerUp();
-            flushPendingResizeReset();
-          }}
-        />
-      ) : null}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 2,
+          cursor: scratchCompleted ? 'default' : 'crosshair',
+          touchAction: 'none',
+          outline: 'none',
+          background: 'transparent',
+          WebkitTapHighlightColor: 'transparent',
+          userSelect: 'none',
+          pointerEvents: scratchCompleted ? 'none' : 'auto',
+        }}
+        data-scratch-hit-area
+        data-scratch-completed={scratchCompleted ? 'true' : 'false'}
+        onPointerDown={(event) => {
+          if (scratchCompleted || !event.isPrimary) return;
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+          scratchAtEvent(event);
+        }}
+        onPointerMove={(event) => {
+          if (scratchCompleted) return;
+          event.preventDefault();
+          scratchAtEvent(event);
+        }}
+        onPointerUp={(event) => {
+          engineRef.current?.handlePointerUp();
+          event.currentTarget.releasePointerCapture?.(event.pointerId);
+          flushPendingResizeReset();
+        }}
+        onPointerCancel={(event) => {
+          engineRef.current?.handlePointerUp();
+          event.currentTarget.releasePointerCapture?.(event.pointerId);
+          flushPendingResizeReset();
+        }}
+        onLostPointerCapture={() => {
+          engineRef.current?.handlePointerUp();
+          flushPendingResizeReset();
+        }}
+      />
     </div>
   );
 }

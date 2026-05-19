@@ -18,7 +18,7 @@ export type ScratchMaskEngine = {
   handlePointerDown: (clientX: number, clientY: number) => void;
   handlePointerMove: (clientX: number, clientY: number) => void;
   handlePointerUp: () => void;
-  reset: (options?: { force?: boolean }) => void;
+  reset: (options?: { force?: boolean }) => boolean;
   dispose: () => void;
 };
 
@@ -196,7 +196,7 @@ export function createScratchMaskEngine(config: ScratchMaskEngineConfig): Scratc
       lastPoint = null;
     },
     reset({ force = false } = {}) {
-      if (!force && (pointerActive || completed)) return;
+      if (!force && (pointerActive || completed)) return false;
       resolveSize();
       initializeScratchPathElement(config.maskPath, config.radius);
       pathData = '';
@@ -204,6 +204,7 @@ export function createScratchMaskEngine(config: ScratchMaskEngineConfig): Scratc
       lastPoint = null;
       completed = false;
       firedMilestoneIds = new Set<string>();
+      return true;
     },
     dispose() {
       pointerActive = false;

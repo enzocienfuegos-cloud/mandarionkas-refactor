@@ -5,14 +5,18 @@ import type { WidgetNode } from '../../../domain/document/types';
 import type { RenderContext } from '../../../canvas/stage/render-context';
 import { renderGroupWidget } from '../../../widgets/group/group.renderer';
 
-function createScratchGroup(autoRevealThresholdPercent = 0): WidgetNode {
+function createScratchGroup(options?: {
+  autoRevealThresholdPercent?: number;
+  width?: number;
+  height?: number;
+}): WidgetNode {
   return {
     id: 'scratch_group',
     type: 'group',
     name: 'Scratch group',
     sceneId: 'scene_1',
     zIndex: 3,
-    frame: { x: 0, y: 0, width: 320, height: 180, rotation: 0 },
+    frame: { x: 0, y: 0, width: options?.width ?? 320, height: options?.height ?? 180, rotation: 0 },
     style: {
       accentColor: '#8b5cf6',
       color: '#ffffff',
@@ -23,7 +27,7 @@ function createScratchGroup(autoRevealThresholdPercent = 0): WidgetNode {
       title: 'Scratch group',
       scratchEnabled: true,
       scratchRadius: 24,
-      autoRevealThresholdPercent,
+      autoRevealThresholdPercent: options?.autoRevealThresholdPercent ?? 0,
     },
     timeline: { startMs: 0, endMs: 1000 },
     childIds: [],
@@ -32,9 +36,11 @@ function createScratchGroup(autoRevealThresholdPercent = 0): WidgetNode {
 
 function createScratchHarness(options?: {
   autoRevealThresholdPercent?: number;
+  width?: number;
+  height?: number;
   triggerWidgetAction?: RenderContext['triggerWidgetAction'];
 }): JSX.Element {
-  const node = createScratchGroup(options?.autoRevealThresholdPercent ?? 0);
+  const node = createScratchGroup(options);
   const ctx = {
     sceneId: 'scene_1',
     widgetsById: { [node.id]: node },
@@ -54,6 +60,8 @@ describe('scratch pointer throughput', () => {
   let revokeObjectURLSpy: ReturnType<typeof vi.fn>;
   let originalCreateObjectURL: typeof URL.createObjectURL;
   let originalRevokeObjectURL: typeof URL.revokeObjectURL;
+  let originalResizeObserver: typeof ResizeObserver | undefined;
+  let resizeObserverCallback: ResizeObserverCallback | null = null;
   let imageDataReads = 0;
 
   beforeEach(() => {
@@ -64,6 +72,16 @@ describe('scratch pointer throughput', () => {
     revokeObjectURLSpy = vi.fn();
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, writable: true, value: createObjectURLSpy });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, writable: true, value: revokeObjectURLSpy });
+    originalResizeObserver = globalThis.ResizeObserver;
+    class MockResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        resizeObserverCallback = callback;
+      }
+      observe = vi.fn();
+      disconnect = vi.fn();
+      unobserve = vi.fn();
+    }
+    vi.stubGlobal('ResizeObserver', MockResizeObserver);
 
     const canvasContexts = new WeakMap<HTMLCanvasElement, CanvasRenderingContext2D>();
     getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function getContext(type: string) {
@@ -110,6 +128,8 @@ describe('scratch pointer throughput', () => {
     getContextSpy.mockRestore();
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, writable: true, value: originalCreateObjectURL });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, writable: true, value: originalRevokeObjectURL });
+    vi.stubGlobal('ResizeObserver', originalResizeObserver);
+    resizeObserverCallback = null;
   });
 
   it('accumulates a long SVG path without blob URLs during sustained scratching', () => {
@@ -162,5 +182,44 @@ describe('scratch pointer throughput', () => {
     expect(completionCalls).toHaveLength(1);
     expect(createObjectURLSpy).not.toHaveBeenCalled();
     expect(revokeObjectURLSpy).not.toHaveBeenCalled();
+  });
+
+  it('keeps the scratch completed after parent resizes or rerenders', () => {
+    const triggerWidgetAction = vi.fn();
+    const { container, rerender } = render(createScratchHarness({
+      autoRevealThresholdPercent: 30,
+      triggerWidgetAction,
+      width: 320,
+    }));
+    const scratchHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
+
+    fireEvent.pointerDown(scratchHitArea!, { isPrimary: true, clientX: 16, clientY: 16, pointerId: 1 });
+    for (let index = 0; index < 10; index += 1) {
+      fireEvent.pointerMove(scratchHitArea!, {
+        clientX: 18 + index,
+        clientY: 18,
+        pointerId: 1,
+      });
+    }
+
+    const coverLayer = container.querySelector<HTMLElement>('[data-scratch-cover-layer]');
+    const completedHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
+    expect(coverLayer?.style.display).toBe('none');
+    expect(completedHitArea?.dataset.scratchCompleted).toBe('true');
+
+    resizeObserverCallback?.([], {} as ResizeObserver);
+    rerender(createScratchHarness({
+      autoRevealThresholdPercent: 30,
+      triggerWidgetAction,
+      width: 420,
+    }));
+
+    const resizedCoverLayer = container.querySelector<HTMLElement>('[data-scratch-cover-layer]');
+    const resizedHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
+    const completionCalls = triggerWidgetAction.mock.calls.filter(([trigger]) => trigger === 'scratch-complete');
+
+    expect(resizedCoverLayer?.style.display).toBe('none');
+    expect(resizedHitArea?.dataset.scratchCompleted).toBe('true');
+    expect(completionCalls).toHaveLength(1);
   });
 });
