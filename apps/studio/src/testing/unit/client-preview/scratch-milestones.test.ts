@@ -255,9 +255,11 @@ describe('scratch milestones', () => {
 
     document.body.innerHTML = `
       <div data-widget-id="scratch_group">
-        <div data-scratch-mask-target></div>
-        <div data-scratch-shell></div>
-        <canvas data-scratch-canvas></canvas>
+        <div data-scratch>
+          <div data-scratch-reveal></div>
+          <div data-scratch-cover><canvas data-scratch-canvas></canvas></div>
+          <div data-scratch-hit-area></div>
+        </div>
       </div>
       <div data-widget-id="cover_text"></div>
       <div data-widget-layer-id="cover_text"></div>
@@ -270,7 +272,7 @@ describe('scratch milestones', () => {
       <div data-widget-id="other_card"></div>
       <div data-widget-layer-id="other_card"></div>
     `;
-    const shell = document.querySelector<HTMLElement>('[data-scratch-shell]');
+    const shell = document.querySelector<HTMLElement>('[data-scratch]');
     const canvas = document.querySelector<HTMLCanvasElement>('[data-scratch-canvas]');
     if (!shell || !canvas) throw new Error('scratch DOM did not mount');
     shell.setAttribute('data-scratch-auto-reveal-threshold', '20');
@@ -380,9 +382,11 @@ describe('scratch milestones', () => {
     document.body.innerHTML = `
       <div data-widget-id="scratch_group">
         <div data-scratch-target-content></div>
-        <div data-scratch-mask-target></div>
-        <div data-scratch-shell></div>
-        <canvas data-scratch-canvas></canvas>
+        <div data-scratch>
+          <div data-scratch-reveal></div>
+          <div data-scratch-cover><canvas data-scratch-canvas></canvas></div>
+          <div data-scratch-hit-area></div>
+        </div>
       </div>
       <div data-widget-id="cover_group"></div>
       <div data-widget-layer-id="cover_group"></div>
@@ -394,7 +398,7 @@ describe('scratch milestones', () => {
       <div data-widget-layer-id="cover_text"></div>
     `;
 
-    const shell = document.querySelector<HTMLElement>('[data-scratch-shell]');
+    const shell = document.querySelector<HTMLElement>('[data-scratch]');
     const canvas = document.querySelector<HTMLCanvasElement>('[data-scratch-canvas]');
     if (!shell || !canvas) throw new Error('scratch DOM did not mount');
     shell.setAttribute('data-scratch-auto-reveal-threshold', '1');

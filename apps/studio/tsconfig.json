@@ -4,6 +4,7 @@
     "baseUrl": ".",
     "paths": {
       "@smx/contracts": ["../../packages/contracts/src/index.ts"],
+      "@smx/scratch-engine": ["../../packages/scratch-engine/src/index.ts"],
       "@actions/*": ["src/actions/*"],
       "@app/*": ["src/app/*"],
       "@assets/*": ["src/assets/*"],

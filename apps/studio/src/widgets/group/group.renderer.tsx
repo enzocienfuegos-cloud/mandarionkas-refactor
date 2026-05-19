@@ -1,5 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { getLiveWidgetFrame, getLiveWidgetOpacity, isWidgetVisibleAt } from '../../domain/document/timeline';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
@@ -7,6 +6,7 @@ import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetColor, resol
 import { playbackEngine } from '../../hooks/use-playback-engine';
 import { useLatestRef } from '../../shared/hooks';
 import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
+import { ScratchSurface } from './ScratchSurface';
 import { isScratchGroupActive } from './group-scratch-activation';
 import {
   DEFAULT_SCRATCH_AUTO_REVEAL_THRESHOLD,
@@ -14,11 +14,6 @@ import {
   type ScratchMilestone,
 } from './group-scratch-constants';
 import { resolveScratchInternalTargetIds } from './group-reveal-target';
-
-const MAX_SCRATCH_DPR = 2;
-const MAX_PROGRESS_CANVAS_SIZE = 96;
-
-type ScratchPoint = { x: number; y: number };
 
 const groupBaseStyle: CSSProperties = {
   width: '100%',
@@ -80,12 +75,6 @@ function renderDefaultGroup(node: WidgetNode, ctx: RenderContext): JSX.Element {
   );
 }
 
-function get2dContext(canvas: HTMLCanvasElement, willReadFrequently = false): CanvasRenderingContext2D | null {
-  return willReadFrequently
-    ? canvas.getContext('2d', { willReadFrequently: true })
-    : canvas.getContext('2d');
-}
-
 function isTransparentPaint(value: unknown): boolean {
   const normalized = String(value ?? '').trim().toLowerCase();
   return !normalized
@@ -117,19 +106,6 @@ function resolveScratchCoverColor(node: WidgetNode, ctx: RenderContext): string 
   if (!isTransparentPaint(accent) && !isPlainWhite(accent)) return accent;
 
   return 'rgba(245, 158, 11, 0.94)';
-}
-
-function createScratchProgressCanvas(width: number, height: number): HTMLCanvasElement | null {
-  if (typeof document === 'undefined') return null;
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(16, Math.min(MAX_PROGRESS_CANVAS_SIZE, Math.round(width / 4)));
-  canvas.height = Math.max(16, Math.min(MAX_PROGRESS_CANVAS_SIZE, Math.round(height / 4)));
-  const ctx = get2dContext(canvas, true);
-  if (!ctx) return null;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'black';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  return canvas;
 }
 
 function drawRoundedRect(ctx: CanvasRenderingContext2D, width: number, height: number, radius: number): void {
@@ -448,133 +424,10 @@ function paintScratchGroupedCoverSnapshot({
   return painted;
 }
 
-function paintScratchCoverCanvas({
-  canvas,
-  width,
-  height,
-  coverColor,
-  coverBlur,
-  paintCover,
-}: {
-  canvas: HTMLCanvasElement;
-  width: number;
-  height: number;
-  coverColor: string;
-  coverBlur: number;
-  paintCover?: (ctx: CanvasRenderingContext2D) => boolean;
-}): { width: number; height: number; dpr: number } | null {
-  const dpr = typeof window === 'undefined'
-    ? 1
-    : Math.max(1, Math.min(MAX_SCRATCH_DPR, Number(window.devicePixelRatio || 1)));
-  const pixelWidth = Math.max(1, Math.round(width * dpr));
-  const pixelHeight = Math.max(1, Math.round(height * dpr));
-  if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
-  if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
-
-  const ctx = get2dContext(canvas);
-  if (!ctx) return null;
-
-  if (typeof ctx.setTransform === 'function') {
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  ctx.clearRect(0, 0, width, height);
-  const paintedGroupedCover = paintCover?.(ctx) ?? false;
-  if (!paintedGroupedCover) {
-    ctx.filter = coverBlur > 0 ? `blur(${Math.max(0, coverBlur)}px)` : 'none';
-    ctx.fillStyle = coverColor;
-    const bleed = Math.max(0, coverBlur * 2);
-    ctx.fillRect(-bleed, -bleed, width + bleed * 2, height + bleed * 2);
-  }
-  ctx.filter = 'none';
-
-  return { width, height, dpr };
-}
-
-function drawDestinationOutStroke(
-  ctx: CanvasRenderingContext2D,
-  point: ScratchPoint,
-  previousPoint: ScratchPoint | null,
-  radius: number,
-): void {
-  ctx.save();
-  ctx.globalCompositeOperation = 'destination-out';
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = radius * 2;
-  ctx.beginPath();
-  if (previousPoint) {
-    ctx.moveTo(previousPoint.x, previousPoint.y);
-    ctx.lineTo(point.x, point.y);
-    ctx.stroke();
-  }
-  ctx.beginPath();
-  ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-}
-
-function readClearedPercent(progressCanvas: HTMLCanvasElement): number {
-  const ctx = get2dContext(progressCanvas, true);
-  if (!ctx) return 100;
-  const imageData = ctx.getImageData(0, 0, progressCanvas.width, progressCanvas.height);
-  const data = imageData.data;
-  if (!data.length) return 100;
-  let alphaTotal = 0;
-  let pixelCount = 0;
-  for (let index = 3; index < data.length; index += 4) {
-    alphaTotal += data[index];
-    pixelCount += 1;
-  }
-  if (!pixelCount) return 100;
-  return Math.max(0, Math.min(100, 100 - (alphaTotal / (255 * pixelCount)) * 100));
-}
-
-function eraseScratchProgress({
-  progressCanvas,
-  point,
-  previousPoint,
-  radius,
-  width,
-  height,
-}: {
-  progressCanvas: HTMLCanvasElement;
-  point: ScratchPoint;
-  previousPoint: ScratchPoint | null;
-  radius: number;
-  width: number;
-  height: number;
-}): number {
-  const ctx = get2dContext(progressCanvas, true);
-  if (!ctx) return 100;
-  const scaleX = progressCanvas.width / Math.max(1, width);
-  const scaleY = progressCanvas.height / Math.max(1, height);
-  const scalePoint = (input: ScratchPoint): ScratchPoint => ({
-    x: input.x * scaleX,
-    y: input.y * scaleY,
-  });
-  drawDestinationOutStroke(
-    ctx,
-    scalePoint(point),
-    previousPoint ? scalePoint(previousPoint) : null,
-    radius * Math.max(scaleX, scaleY),
-  );
-  return readClearedPercent(progressCanvas);
-}
-
 function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }): JSX.Element {
-  const previewMode = ctx.previewMode;
   const nodeId = node.id;
   const ctxRef = useLatestRef(ctx);
-  const shellRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const progressCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const canvasSizeRef = useRef({ width: 0, height: 0, dpr: 1 });
-  const lastPointRef = useRef<ScratchPoint | null>(null);
-  const pointerActiveRef = useRef(false);
-  const hasScratchedRef = useRef(false);
-  const scratchCompletedRef = useRef(false);
-  const firedMilestoneIdsRef = useRef(new Set<string>());
-  const [scratchCompleted, setScratchCompleted] = useState(false);
+  const nodeRef = useLatestRef(node);
   const scratchRadius = Math.max(8, Number(node.props.scratchRadius ?? 22));
   const autoRevealThresholdPercent = Math.max(
     0,
@@ -589,151 +442,11 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
   const milestonesKey = rawMilestones
     .map((milestone) => `${milestone.id}:${milestone.thresholdPercent}:${milestone.emitTrigger}`)
     .join('|');
-  const milestones = useMemo(
-    () => [...rawMilestones].sort((left, right) => left.thresholdPercent - right.thresholdPercent),
-    [milestonesKey],
-  );
-
-  const resetScratchCanvas = ({ force = false, clearCompletion = false } = {}) => {
-    const shell = shellRef.current;
-    const canvas = canvasRef.current;
-    if (!shell || !canvas) return;
-    if (scratchCompletedRef.current && !clearCompletion) return;
-    if (hasScratchedRef.current && !force && !clearCompletion) return;
-
-    const width = Math.max(1, Math.round(shell.clientWidth || node.frame.width || 1));
-    const height = Math.max(1, Math.round(shell.clientHeight || node.frame.height || 1));
-    const dimensionsChanged = canvasSizeRef.current.width !== width || canvasSizeRef.current.height !== height;
-    if (!force && !dimensionsChanged) return;
-
-    const currentCtx = ctxRef.current;
-    const excludedTargetIds = resolveScratchInternalTargetIds(node, currentCtx.widgetsById);
-    const playheadMs = currentCtx.previewMode && currentCtx.isReproducing
-      ? playbackEngine.getCurrentMs()
-      : currentCtx.playheadMs;
-    const paintedSize = paintScratchCoverCanvas({
-      canvas,
-      width,
-      height,
-      coverColor,
-      coverBlur,
-      paintCover: (canvasCtx) => paintScratchGroupedCoverSnapshot({
-        canvasCtx,
-        root: node,
-        renderCtx: currentCtx,
-        playheadMs,
-        excludedTargetIds,
-        coverBlur,
-        shouldPaint: () => !scratchCompletedRef.current && !hasScratchedRef.current,
-      }),
-    });
-    if (!paintedSize) return;
-    canvasSizeRef.current = paintedSize;
-    progressCanvasRef.current = createScratchProgressCanvas(width, height);
-    lastPointRef.current = null;
-    pointerActiveRef.current = false;
-    hasScratchedRef.current = false;
-    firedMilestoneIdsRef.current = new Set<string>();
-
-    if (clearCompletion) {
-      scratchCompletedRef.current = false;
-      setScratchCompleted(false);
-    }
-  };
-
-  const completeScratch = (clearedPercent: number) => {
-    if (scratchCompletedRef.current) return;
-    const completedAtMs = playbackEngine.getCurrentMs();
-    scratchCompletedRef.current = true;
-    pointerActiveRef.current = false;
-    lastPointRef.current = null;
-    setScratchCompleted(true);
-    ctxRef.current.triggerWidgetAction('scratch-complete', {
-      clearedPercent,
-      thresholdPercent: autoRevealThresholdPercent,
-      completedAtMs,
-    });
-  };
-
-  const processScratchProgress = (clearedPercent: number) => {
-    milestones.forEach((milestone) => {
-      if (firedMilestoneIdsRef.current.has(milestone.id)) return;
-      if (clearedPercent < milestone.thresholdPercent) return;
-      firedMilestoneIdsRef.current.add(milestone.id);
-    });
-
-    if (autoRevealThresholdPercent > 0 && clearedPercent >= autoRevealThresholdPercent) {
-      completeScratch(clearedPercent);
-    }
-  };
-
-  const scratchAtEvent = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const shell = shellRef.current;
-    const canvas = canvasRef.current;
-    const progressCanvas = progressCanvasRef.current;
-    if (!shell || !canvas || scratchCompletedRef.current) return;
-
-    const rect = shell.getBoundingClientRect();
-    const width = canvasSizeRef.current.width || Math.max(1, rect.width || node.frame.width || 1);
-    const height = canvasSizeRef.current.height || Math.max(1, rect.height || node.frame.height || 1);
-    const point = {
-      x: Math.max(0, Math.min(width, ((event.clientX - rect.left) / Math.max(1, rect.width || width)) * width)),
-      y: Math.max(0, Math.min(height, ((event.clientY - rect.top) / Math.max(1, rect.height || height)) * height)),
-    };
-
-    const ctx2d = get2dContext(canvas);
-    if (ctx2d) {
-      drawDestinationOutStroke(ctx2d, point, lastPointRef.current, scratchRadius);
-    }
-    const clearedPercent = progressCanvas
-      ? eraseScratchProgress({
-          progressCanvas,
-          point,
-          previousPoint: lastPointRef.current,
-          radius: scratchRadius,
-          width,
-          height,
-        })
-      : 100;
-
-    hasScratchedRef.current = true;
-    lastPointRef.current = point;
-    processScratchProgress(clearedPercent);
-  };
-
-  useLayoutEffect(() => {
-    resetScratchCanvas({ force: true });
-    return () => {
-      progressCanvasRef.current = null;
-      pointerActiveRef.current = false;
-      lastPointRef.current = null;
-    };
-  }, [autoRevealThresholdPercent, coverBlur, coverColor, milestonesKey, nodeId, scratchRadius]);
-
-  useLayoutEffect(() => {
-    resetScratchCanvas({ force: false });
-  }, [node.frame.height, node.frame.width, previewMode]);
+  const coverDescriptor = useMemo(() => ({ kind: 'color', value: coverColor } as const), [coverColor]);
+  const [resetKey, setResetKey] = useState(0);
 
   useEffect(() => {
-    const shell = shellRef.current;
-    if (!shell || typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver((entries) => {
-      if (scratchCompletedRef.current || hasScratchedRef.current) return;
-      const entry = entries[0];
-      const width = Math.max(1, Math.round(entry?.contentRect.width || shell.clientWidth || node.frame.width || 1));
-      const height = Math.max(1, Math.round(entry?.contentRect.height || shell.clientHeight || node.frame.height || 1));
-      const previous = canvasSizeRef.current;
-      const widthDelta = Math.abs(width - previous.width) / Math.max(1, previous.width);
-      const heightDelta = Math.abs(height - previous.height) / Math.max(1, previous.height);
-      if (widthDelta < 0.05 && heightDelta < 0.05) return;
-      resetScratchCanvas({ force: false });
-    });
-    observer.observe(shell);
-    return () => observer.disconnect();
-  }, [node.frame.height, node.frame.width, nodeId, previewMode]);
-
-  useEffect(() => {
-    if (!previewMode) return undefined;
+    if (!ctx.previewMode) return undefined;
     let previousPlayheadMs = playbackEngine.getCurrentMs();
     let previousPreviewMode = ctxRef.current.previewMode;
 
@@ -752,82 +465,57 @@ function ScratchGroupRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderCont
       previousPlayheadMs = nextMs;
       previousPreviewMode = nextPreviewMode;
       if (enteredPreview || rewoundToStart) {
-        resetScratchCanvas({ force: true, clearCompletion: true });
+        setResetKey((value) => value + 1);
       }
     };
 
     return playbackEngine.subscribeDom(checkRewind);
-  }, [ctxRef, previewMode]);
+  }, [ctx.previewMode, ctxRef]);
+
+  const handleReveal = useCallback((cleared: number) => {
+    ctxRef.current.triggerWidgetAction('scratch-complete', {
+      clearedPercent: Math.round(cleared * 10000) / 100,
+      thresholdPercent: autoRevealThresholdPercent,
+      completedAtMs: playbackEngine.getCurrentMs(),
+    });
+  }, [autoRevealThresholdPercent, ctxRef]);
+
+  const paintGroupedCover = useCallback(({ ctx: canvasCtx }: { ctx: CanvasRenderingContext2D }) => {
+    const currentCtx = ctxRef.current;
+    const currentNode = nodeRef.current;
+    const excludedTargetIds = resolveScratchInternalTargetIds(currentNode, currentCtx.widgetsById);
+    const playheadMs = currentCtx.previewMode && currentCtx.isReproducing
+      ? playbackEngine.getCurrentMs()
+      : currentCtx.playheadMs;
+    return paintScratchGroupedCoverSnapshot({
+      canvasCtx,
+      root: currentNode,
+      renderCtx: currentCtx,
+      playheadMs,
+      excludedTargetIds,
+      coverBlur,
+      shouldPaint: () => true,
+    });
+  }, [coverBlur, ctxRef, nodeRef]);
 
   return (
-    <div
-      ref={shellRef}
-      data-scratch-shell
-      data-scratch-widget-id={nodeId}
-      style={{ ...scratchShellStyle, borderRadius: Number(node.style.borderRadius ?? 18), boxShadow }}
-    >
-      <canvas
-        ref={canvasRef}
-        aria-hidden="true"
-        data-scratch-canvas
-        data-scratch-cover-layer
-        style={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 1,
-          width: '100%',
-          height: '100%',
-          opacity: scratchCompleted ? 0 : 1,
-          pointerEvents: 'none',
-          transition: 'opacity 120ms linear',
-          WebkitTapHighlightColor: 'transparent',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 2,
-          cursor: scratchCompleted ? 'default' : 'crosshair',
-          touchAction: 'none',
-          outline: 'none',
-          background: 'transparent',
-          WebkitTapHighlightColor: 'transparent',
-          userSelect: 'none',
-          pointerEvents: scratchCompleted ? 'none' : 'auto',
-        }}
-        data-scratch-hit-area
-        data-scratch-completed={scratchCompleted ? 'true' : 'false'}
-        onPointerDown={(event) => {
-          if (scratchCompletedRef.current || event.isPrimary === false) return;
-          event.preventDefault();
-          event.stopPropagation();
-          pointerActiveRef.current = true;
-          lastPointRef.current = null;
-          event.currentTarget.setPointerCapture?.(event.pointerId);
-          scratchAtEvent(event);
-        }}
-        onPointerMove={(event) => {
-          if (!pointerActiveRef.current || scratchCompletedRef.current) return;
-          event.preventDefault();
-          scratchAtEvent(event);
-        }}
-        onPointerUp={(event) => {
-          pointerActiveRef.current = false;
-          lastPointRef.current = null;
-          event.currentTarget.releasePointerCapture?.(event.pointerId);
-        }}
-        onPointerCancel={(event) => {
-          pointerActiveRef.current = false;
-          lastPointRef.current = null;
-          event.currentTarget.releasePointerCapture?.(event.pointerId);
-        }}
-        onLostPointerCapture={() => {
-          pointerActiveRef.current = false;
-          lastPointRef.current = null;
-        }}
-      />
-    </div>
+    <ScratchSurface
+      className=""
+      threshold={autoRevealThresholdPercent / 100}
+      brushSize={scratchRadius}
+      activationDelayMs={0}
+      fadeOutMs={120}
+      cover={coverDescriptor}
+      coverKey={`${nodeId}:${coverColor}:${coverBlur}:${milestonesKey}:${scratchRadius}:${autoRevealThresholdPercent}`}
+      resetKey={resetKey}
+      onReveal={handleReveal}
+      paintCover={paintGroupedCover}
+      style={{
+        ...scratchShellStyle,
+        borderRadius: Number(node.style.borderRadius ?? 18),
+        boxShadow,
+      }}
+    />
   );
 }
 

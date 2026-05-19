@@ -197,7 +197,7 @@ describe('scratch flow does not use canvas.toDataURL', () => {
     const scratchHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
 
     expect(scratchCanvas).toBeTruthy();
-    expect(scratchCanvas?.dataset.scratchCoverLayer).toBe('true');
+    expect(scratchCanvas?.hasAttribute('data-scratch-cover-layer')).toBe(false);
     expect(scratchCanvas?.style.width).toBe('100%');
     expect(scratchCanvas?.style.height).toBe('100%');
     expect(container.querySelector('[data-scratch-mask-svg]')).toBeNull();

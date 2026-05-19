@@ -25,12 +25,16 @@ export function renderScratchRevealExport(node: WidgetNode): string {
     `background:${escapeHtml(revealBackground)}`,`color:${String(style.color ?? exportPalette.white)}`,`display:flex`,`flex-direction:column`,
   ].join(';');
   return `<div class="widget widget-scratch-reveal" data-widget-id="${node.id}" style="${base}">
-    <div class="scratch-reveal-shell" data-scratch-shell data-scratch-widget-id="${node.id}" data-scratch-cover-image="${escapeHtml(beforeImage)}" data-scratch-cover-blur="${coverBlur}" data-scratch-radius="${scratchRadius}" data-scratch-auto-reveal-threshold="${autoRevealThresholdPercent}" data-scratch-accent="${escapeHtml(accent)}" data-scratch-reveal-animation="${escapeHtml(revealAnimationPreset)}" data-scratch-reveal-animation-duration="${revealAnimationDurationMs}" data-scratch-reveal-animation-delay="${revealAnimationDelayMs}" style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;background:${escapeHtml(revealBackground)};">
-      ${afterImage ? `<img data-scratch-reveal-media src="${escapeHtml(afterImage)}" alt="${escapeHtml(revealLabel)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" />` : ''}
-      <div style="position:absolute;top:12px;left:12px;right:12px;z-index:2;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};text-shadow:0 2px 14px rgba(15,23,42,0.65);pointer-events:none;">${escapeHtml(title)}</div>
-      <div style="position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:22px;text-align:center;padding:16px;text-shadow:0 2px 14px rgba(15,23,42,0.5);pointer-events:none;">${escapeHtml(revealLabel)}</div>
-      <canvas data-scratch-canvas style="position:absolute;inset:0;z-index:1;width:100%;height:100%;cursor:crosshair;touch-action:none;outline:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"></canvas>
-      <div style="position:absolute;left:12px;right:12px;bottom:12px;z-index:2;display:flex;flex-direction:column;gap:6px;pointer-events:none;text-shadow:0 2px 14px rgba(15,23,42,0.65);">
+    <div class="scratch-reveal-shell" data-scratch data-scratch-widget-id="${node.id}" data-scratch-cover-blur="${coverBlur}" data-scratch-radius="${scratchRadius}" data-scratch-auto-reveal-threshold="${autoRevealThresholdPercent}" data-scratch-accent="${escapeHtml(accent)}" data-scratch-reveal-animation="${escapeHtml(revealAnimationPreset)}" data-scratch-reveal-animation-duration="${revealAnimationDurationMs}" data-scratch-reveal-animation-delay="${revealAnimationDelayMs}" style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;background:${escapeHtml(revealBackground)};">
+      <div data-scratch-reveal style="position:absolute;inset:0;z-index:1;pointer-events:none;">
+        ${afterImage ? `<img data-scratch-reveal-media src="${escapeHtml(afterImage)}" alt="${escapeHtml(revealLabel)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" />` : ''}
+      </div>
+      <div data-scratch-cover data-scratch-cover-image="${escapeHtml(beforeImage)}" style="position:absolute;inset:0;z-index:2;pointer-events:none;">
+        <canvas data-scratch-canvas style="position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none;outline:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"></canvas>
+      </div>
+      <div style="position:absolute;top:12px;left:12px;right:12px;z-index:3;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};text-shadow:0 2px 14px rgba(15,23,42,0.65);pointer-events:none;">${escapeHtml(title)}</div>
+      <div style="position:absolute;inset:0;z-index:3;display:grid;place-items:center;font-weight:800;font-size:22px;text-align:center;padding:16px;text-shadow:0 2px 14px rgba(15,23,42,0.5);pointer-events:none;">${escapeHtml(revealLabel)}</div>
+      <div style="position:absolute;left:12px;right:12px;bottom:12px;z-index:3;display:flex;flex-direction:column;gap:6px;pointer-events:none;text-shadow:0 2px 14px rgba(15,23,42,0.65);">
         <div style="font-size:12px;">${escapeHtml(coverLabel)}</div>
       </div>
     </div>

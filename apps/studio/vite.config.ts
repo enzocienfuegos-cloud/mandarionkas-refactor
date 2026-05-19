@@ -29,6 +29,7 @@ export default defineConfig(({ command }) => ({
   resolve: {
     alias: {
       '@smx/contracts': path.resolve(__dirname, '../../packages/contracts/src/index.ts'),
+      '@smx/scratch-engine': path.resolve(__dirname, '../../packages/scratch-engine/src/index.ts'),
       '@smx/vast':      path.resolve(__dirname, '../../packages/vast/src/index.ts'),
     },
   },

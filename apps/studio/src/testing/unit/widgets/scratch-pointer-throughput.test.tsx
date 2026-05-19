@@ -200,7 +200,7 @@ describe('scratch pointer throughput', () => {
       });
     }
 
-    const coverLayer = container.querySelector<HTMLElement>('[data-scratch-cover-layer]');
+    const coverLayer = container.querySelector<HTMLElement>('[data-scratch-canvas]');
     const completedHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
     expect(coverLayer?.style.opacity).toBe('0');
     expect(completedHitArea?.dataset.scratchCompleted).toBe('true');
@@ -212,7 +212,7 @@ describe('scratch pointer throughput', () => {
       width: 420,
     }));
 
-    const resizedCoverLayer = container.querySelector<HTMLElement>('[data-scratch-cover-layer]');
+    const resizedCoverLayer = container.querySelector<HTMLElement>('[data-scratch-canvas]');
     const resizedHitArea = container.querySelector<HTMLElement>('[data-scratch-hit-area]');
     const completionCalls = triggerWidgetAction.mock.calls.filter(([trigger]) => trigger === 'scratch-complete');
 

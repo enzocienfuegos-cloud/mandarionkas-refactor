@@ -89,7 +89,7 @@ export function renderGroupExport(
   return `<div class="widget widget-group widget-group-scratch" data-widget-id="${node.id}" style="${base}">
     <div
       class="scratch-reveal-shell"
-      data-scratch-shell
+      data-scratch
       data-scratch-widget-id="${node.id}"
       data-scratch-radius="${scratchRadius}"
       data-scratch-auto-reveal-threshold="${autoRevealThresholdPercent}"
@@ -97,7 +97,6 @@ export function renderGroupExport(
       data-scratch-reveal-target-mode="${revealTargetMode}"
       data-scratch-reveal-target-id="${revealTargetId}"
       data-scratch-replay-target-motion-on-reveal="${replayTargetMotionOnReveal ? 'true' : 'false'}"
-      data-scratch-cover-color="${escapeHtml(coverColor)}"
       data-scratch-cover-blur="${coverBlur}"
       data-scratch-activation-delay="${scratchActivationDelayMs}"
       data-scratch-reveal-animation="none"
@@ -105,16 +104,26 @@ export function renderGroupExport(
       data-scratch-reveal-animation-delay="0"
       style="position:absolute;inset:0;border-radius:inherit;overflow:hidden;background:transparent;"
     >
-      <canvas
-        data-scratch-canvas
-        data-scratch-cover-layer
+      <div
+        data-scratch-reveal
         aria-hidden="true"
-        style="position:absolute;inset:0;z-index:1;width:100%;height:100%;pointer-events:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"
-      ></canvas>
+        style="position:absolute;inset:0;z-index:1;pointer-events:none;"
+      ></div>
+      <div
+        data-scratch-cover
+        data-scratch-cover-color="${escapeHtml(coverColor)}"
+        style="position:absolute;inset:0;z-index:2;pointer-events:none;"
+      >
+        <canvas
+          data-scratch-canvas
+          aria-hidden="true"
+          style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"
+        ></canvas>
+      </div>
       <div
         data-scratch-hit-area
         data-scratch-completed="false"
-        style="position:absolute;inset:0;z-index:2;cursor:crosshair;touch-action:none;outline:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"
+        style="position:absolute;inset:0;z-index:3;cursor:crosshair;touch-action:none;outline:none;background:transparent;-webkit-tap-highlight-color:transparent;user-select:none;"
       ></div>
     </div>
   </div>`;

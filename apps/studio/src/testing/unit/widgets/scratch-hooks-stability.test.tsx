@@ -104,18 +104,18 @@ describe('scratch group hooks stability under toggles', () => {
     const { node, ctx } = buildScratchGroup(true, true);
     const { container, rerender } = render(renderGroupWidget(node, ctx));
 
-    expect(container.querySelector('[data-scratch-shell]')).toBeTruthy();
+    expect(container.querySelector('[data-scratch]')).toBeTruthy();
 
     node.props.scratchEnabled = false;
     rerender(renderGroupWidget(node, ctx));
 
-    expect(container.querySelector('[data-scratch-shell]')).toBeNull();
+    expect(container.querySelector('[data-scratch]')).toBeNull();
   });
 
   it('renders the editor overlay instead of scratch shell outside preview mode', () => {
     const { node, ctx } = buildScratchGroup(true, false);
     const { container } = render(renderGroupWidget(node, ctx));
 
-    expect(container.querySelector('[data-scratch-shell]')).toBeNull();
+    expect(container.querySelector('[data-scratch]')).toBeNull();
   });
 });

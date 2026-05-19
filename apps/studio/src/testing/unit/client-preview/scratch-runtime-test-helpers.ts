@@ -158,6 +158,13 @@ export function dispatchScratchPointerEvent(target: EventTarget, type: string, c
     pointerId: { configurable: true, value: 1 },
     pointerType: { configurable: true, value: 'mouse' },
   });
+  if (target instanceof HTMLElement) {
+    const hitArea = target.querySelector<HTMLElement>('[data-scratch-hit-area]');
+    if (hitArea) {
+      hitArea.dispatchEvent(event);
+      return;
+    }
+  }
   target.dispatchEvent(event);
 }
 
@@ -246,13 +253,17 @@ export function createSceneManagerStub(overrides: Partial<SceneManager> = {}): S
 export function mountScratchDom(attributes: Record<string, string>): { root: HTMLElement; shell: HTMLElement; canvas: HTMLCanvasElement } {
   document.body.innerHTML = `
     <div data-widget-id="scratch_group">
-      <div data-scratch-mask-target></div>
-      <div data-scratch-shell></div>
-      <canvas data-scratch-canvas></canvas>
+      <div data-scratch>
+        <div data-scratch-reveal></div>
+        <div data-scratch-cover>
+          <canvas data-scratch-canvas></canvas>
+        </div>
+        <div data-scratch-hit-area></div>
+      </div>
     </div>
   `;
   const root = document.querySelector<HTMLElement>('[data-widget-id="scratch_group"]');
-  const shell = document.querySelector<HTMLElement>('[data-scratch-shell]');
+  const shell = document.querySelector<HTMLElement>('[data-scratch]');
   const canvas = document.querySelector<HTMLCanvasElement>('[data-scratch-canvas]');
   if (!root || !shell || !canvas) {
     throw new Error('scratch DOM did not mount');

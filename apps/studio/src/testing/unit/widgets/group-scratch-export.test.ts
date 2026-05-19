@@ -101,9 +101,12 @@ describe('group scratch export', () => {
 
     expect(html).toContain('widget-group-scratch');
     expect(html).toContain('class="scratch-reveal-shell"');
-    expect(html).toContain('data-scratch-shell');
+    expect(html).toContain('data-scratch');
+    expect(html).not.toContain('data-scratch-shell');
+    expect(html).toContain('data-scratch-reveal');
+    expect(html).toContain('data-scratch-cover');
     expect(html).toContain('data-scratch-canvas');
-    expect(html).toContain('data-scratch-cover-layer');
+    expect(html).not.toContain('data-scratch-cover-layer');
     expect(html).toContain('data-scratch-hit-area');
     expect(html).toContain('data-scratch-auto-reveal-threshold="10"');
     expect(html).toContain('data-scratch-milestones="[]"');
