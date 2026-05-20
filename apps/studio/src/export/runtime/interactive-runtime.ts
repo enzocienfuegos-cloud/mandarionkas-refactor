@@ -303,13 +303,15 @@ function createDragGhost(tokenEl: HTMLElement): HTMLElement {
   return ghost;
 }
 
-function findDropZoneAt(x: number, y: number, excludeSource: string): HTMLElement | null {
-  // elementFromPoint ignores pointer-events:none, so use elementsFromPoint
+function findDropZoneAt(x: number, y: number, targetZoneId: string): HTMLElement | null {
+  // elementsFromPoint returns all elements at a coordinate, including those with pointer-events:none
   const els = document.elementsFromPoint(x, y);
   for (const el of els) {
     if (!(el instanceof HTMLElement)) continue;
     const zone = el.closest<HTMLElement>('[data-smx-action="drop-zone"]');
-    if (zone && zone.getAttribute('data-drop-zone-id') !== excludeSource) return zone;
+    if (!zone) continue;
+    // If a specific target zone is required, only match that one; otherwise accept any zone
+    if (!targetZoneId || zone.getAttribute('data-drop-zone-id') === targetZoneId) return zone;
   }
   return null;
 }
@@ -331,13 +333,14 @@ function mountDragTokenRuntime(sceneManager: Pick<SceneManager, 'findSceneIndexB
     event.preventDefault();
     event.stopPropagation();
 
+    // Measure the source token BEFORE cloning — it is guaranteed to be in the painted DOM
+    const tokenRect = tokenEl.getBoundingClientRect();
     const ghost = createDragGhost(tokenEl);
-    const ghostRect = ghost.getBoundingClientRect();
     drag = {
       tokenEl,
       ghost,
-      ghostW: ghostRect.width,
-      ghostH: ghostRect.height,
+      ghostW: tokenRect.width || 72,
+      ghostH: tokenRect.height || 72,
       tokenId: tokenEl.getAttribute('data-token-id') || '',
       targetSceneId: tokenEl.getAttribute('data-target-scene-id') || '',
       targetActionId: tokenEl.getAttribute('data-target-action-id') || '',
