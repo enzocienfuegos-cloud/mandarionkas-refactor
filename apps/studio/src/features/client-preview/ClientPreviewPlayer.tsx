@@ -9,13 +9,20 @@ import { isEditableShortcutTarget } from '../../app/shell/use-keyboard-shortcuts
 import type { ClientPreviewThread } from './types';
 
 export function buildClientPreviewSceneState(state: StudioState, sceneIndex: number): StudioState {
-  const scene = state.document.scenes[sceneIndex] ?? state.document.scenes[0];
+  const scenes = state.document.scenes;
+  const scene = scenes[sceneIndex] ?? scenes[0];
   if (!scene) return state;
+  // Include ALL scenes so the in-iframe scene manager can navigate between them.
+  // The selected scene gets order:0 so it is the initially-visible scene;
+  // remaining scenes follow in their original document order.
+  const otherScenes = scenes
+    .filter((s) => s.id !== scene.id)
+    .map((s, i) => ({ ...s, order: i + 1 }));
   return {
     ...state,
     document: {
       ...state.document,
-      scenes: [{ ...scene, order: 0 }],
+      scenes: [{ ...scene, order: 0 }, ...otherScenes],
       selection: {
         ...state.document.selection,
         activeSceneId: scene.id,
