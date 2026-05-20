@@ -82,11 +82,19 @@ export function renderShapeExport(node: WidgetNode): string {
     innerStyle = `width:100%;height:100%;background:${fill};clip-path:polygon(0% 35%, 64% 35%, 64% 14%, 100% 50%, 64% 86%, 64% 65%, 0% 65%);border:1px solid ${border};box-sizing:border-box;`;
   }
 
-  // With image mask: render img inside the clipped container
+  const imgStyle = `position:absolute;inset:0;width:100%;height:100%;object-fit:${maskFit};object-position:${focalX}% ${focalY}%;display:block;pointer-events:none;`;
+
+  // With image mask + clip path (circle, triangle): clip the container and fill with image
   if (maskSrc && clipPath) {
     const containerStyle = innerStyle.replace(`background:${fill};`, 'background:transparent;')
       + `overflow:hidden;clip-path:${clipPath};position:relative;border:none;`;
-    const imgStyle = `position:absolute;inset:0;width:100%;height:100%;object-fit:${maskFit};object-position:${focalX}% ${focalY}%;display:block;pointer-events:none;`;
+    return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};display:flex;align-items:center;justify-content:center;padding:0;box-shadow:${boxShadow};"><div style="${containerStyle}"><img src="${maskSrc}" alt="" style="${imgStyle}" /></div></div>`;
+  }
+
+  // With image mask but no clip path (rectangle, square, line, arrow): fill the shape with the image
+  if (maskSrc) {
+    const containerStyle = innerStyle.replace(`background:${fill};`, 'background:transparent;')
+      + `overflow:hidden;position:relative;border:none;`;
     return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};display:flex;align-items:center;justify-content:center;padding:0;box-shadow:${boxShadow};"><div style="${containerStyle}"><img src="${maskSrc}" alt="" style="${imgStyle}" /></div></div>`;
   }
 
