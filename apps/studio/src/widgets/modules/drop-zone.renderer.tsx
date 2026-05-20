@@ -103,8 +103,10 @@ function resolveTokenDropTargets(
   source: DragSourceConfig,
 ): { targetActionId?: string; targetSceneId?: string } {
   const sourceWidget = ctx.widgetsById[source.sourceWidgetId];
+  console.debug('[DropZone] resolveTokenDropTargets', { sourceWidgetId: source.sourceWidgetId, sourceWidgetFound: Boolean(sourceWidget), sourceWidgetType: sourceWidget?.type, tokenId: source.tokenId, payload: source.payload });
   if (sourceWidget?.type === 'drag-token-pool') {
     const token = parseDragTokenItems(sourceWidget.props.tokens).find((item) => item.id === source.tokenId);
+    console.debug('[DropZone] token lookup', { tokenFound: Boolean(token), tokenTargetSceneId: token?.targetSceneId, tokenTargetActionId: token?.targetActionId });
     const targetActionId = typeof token?.targetActionId === 'string' && token.targetActionId.trim()
       ? token.targetActionId
       : undefined;
@@ -164,12 +166,14 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
   const onDrop = useCallback(
     (source: DragSourceConfig) => {
       const { targetActionId, targetSceneId } = resolveTokenDropTargets(ctxRef.current, source);
+      console.debug('[DropZone] onDrop', { sourceWidgetId: source.sourceWidgetId, tokenId: source.tokenId, targetActionId, targetSceneId, hasGoToScene: Boolean(ctxRef.current.goToScene), hasExecuteAction: Boolean(ctxRef.current.executeAction) });
       if (targetActionId) {
         ctxRef.current.executeAction?.(targetActionId);
       } else if (targetSceneId) {
         ctxRef.current.goToScene?.(targetSceneId);
       } else {
         const actionId = resolveFallbackActionId(nodeRef.current, source.tokenId);
+        console.debug('[DropZone] fallback', { actionId, tokenId: source.tokenId });
         if (actionId) {
           ctxRef.current.executeAction?.(actionId);
         } else {

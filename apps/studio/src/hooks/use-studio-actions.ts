@@ -103,6 +103,7 @@ export function useSceneActions() {
       if (!sceneId) return;
       const state = stateRef.current;
       const sourceSceneId = state.document.selection.activeSceneId;
+      console.debug('[SceneActions] maybeTransitionToScene', { sceneId, sourceSceneId, isSame: sceneId === sourceSceneId, sceneExists: state.document.scenes.some((s) => s.id === sceneId) });
       if (!sceneId || sceneId === sourceSceneId) return;
 
       const shouldAnimateExit = Boolean(engine) && state.ui.previewMode && state.ui.isPlaying;
