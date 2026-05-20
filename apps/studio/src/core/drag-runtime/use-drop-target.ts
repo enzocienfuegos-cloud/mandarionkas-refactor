@@ -22,18 +22,16 @@ export function useDropTarget(options: {
   useEffect(() => {
     const unsubscribe = store.subscribe((state) => {
       if (state !== null) {
-        const over =
-          state.currentDropTargetId === targetId &&
-          (acceptsRef.current ? acceptsRef.current(state.source) : true);
-        setIsOver(over);
+        const dropTargetMatch = state.currentDropTargetId === targetId;
+        const accepted = dropTargetMatch && (acceptsRef.current ? acceptsRef.current(state.source) : true);
+        setIsOver(accepted);
       } else {
         setIsOver(false);
         const last = store.getLastState();
-        if (
-          last &&
-          last.currentDropTargetId === targetId &&
-          (acceptsRef.current ? acceptsRef.current(last.source) : true)
-        ) {
+        const dropTargetMatch = last?.currentDropTargetId === targetId;
+        const accepted = dropTargetMatch && (acceptsRef.current ? acceptsRef.current(last!.source) : true);
+        console.log('[use-drop-target] commit check', { targetId, lastDropTargetId: last?.currentDropTargetId, tokenId: last?.source?.tokenId, dropTargetMatch, accepted });
+        if (last && accepted) {
           onDropRef.current(last.source);
         }
       }

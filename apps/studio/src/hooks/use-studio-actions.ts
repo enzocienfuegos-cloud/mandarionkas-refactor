@@ -106,6 +106,7 @@ export function useSceneActions() {
       if (!sceneId || sceneId === sourceSceneId) return;
 
       const shouldAnimateExit = Boolean(engine) && state.ui.previewMode && state.ui.isPlaying;
+      console.log('[scene-transition] maybeTransitionToScene', { from: sourceSceneId, to: sceneId, shouldAnimateExit, previewMode: state.ui.previewMode, isPlaying: state.ui.isPlaying });
       if (!shouldAnimateExit) {
         finalizeSceneSelection(sceneId);
         return;

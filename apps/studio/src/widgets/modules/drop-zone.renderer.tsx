@@ -141,15 +141,27 @@ function acceptsTokenSource(
 ): boolean {
   // 1. Per-token explicit target — fast path
   const configuredDropTargetId = String(source.dropTargetId ?? '').trim();
-  if (configuredDropTargetId === dropZoneWidgetId) return true;
+  if (configuredDropTargetId === dropZoneWidgetId) {
+    console.log('[drop-zone] accepts (per-token match)', { dropZoneWidgetId, tokenId: source.tokenId, configuredDropTargetId });
+    return true;
+  }
 
   const sourceWidget = ctx.widgetsById[source.sourceWidgetId];
-  if (!sourceWidget || sourceWidget.type !== 'drag-token-pool') return false;
+  if (!sourceWidget || sourceWidget.type !== 'drag-token-pool') {
+    console.log('[drop-zone] rejects (source not drag-token-pool)', { dropZoneWidgetId, tokenId: source.tokenId, sourceWidgetType: sourceWidget?.type });
+    return false;
+  }
 
   // 2. Widget-level dropTargetId
   const widgetDropTargetId = String(sourceWidget.props.dropTargetId ?? '').trim();
-  if (!widgetDropTargetId) return true; // no restriction
-  if (widgetDropTargetId === dropZoneWidgetId) return true; // exact match
+  if (!widgetDropTargetId) {
+    console.log('[drop-zone] accepts (no widget-level restriction)', { dropZoneWidgetId, tokenId: source.tokenId });
+    return true;
+  }
+  if (widgetDropTargetId === dropZoneWidgetId) {
+    console.log('[drop-zone] accepts (widget-level match)', { dropZoneWidgetId, tokenId: source.tokenId, widgetDropTargetId });
+    return true;
+  }
 
   // 3. Fallback: dropTargetId is set but points to a different widget (stale reference after
   //    template edits or regeneration). Accept if this drop zone explicitly handles the token
@@ -157,9 +169,13 @@ function acceptsTokenSource(
   const dropZoneWidget = ctx.widgetsById[dropZoneWidgetId];
   if (dropZoneWidget?.type === 'drop-zone') {
     const matchMap = parseActionMap(dropZoneWidget.props.matchActionMap);
-    if (matchMap[source.tokenId]) return true;
+    if (matchMap[source.tokenId]) {
+      console.log('[drop-zone] accepts (matchActionMap fallback)', { dropZoneWidgetId, tokenId: source.tokenId, widgetDropTargetId, matchMap });
+      return true;
+    }
   }
 
+  console.log('[drop-zone] rejects (no matching rule)', { dropZoneWidgetId, tokenId: source.tokenId, widgetDropTargetId, configuredDropTargetId });
   return false;
 }
 

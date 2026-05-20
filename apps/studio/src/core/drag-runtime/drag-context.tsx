@@ -28,6 +28,7 @@ export function DragProvider({ children }: { children: React.ReactNode }): JSX.E
       const finalDropTargetId = hitTest.hitTest(e.clientX, e.clientY);
       store.setDropTarget(finalDropTargetId);
       hitTest.stopDrag();
+      console.log('[drag-context] pointerup', { x: e.clientX, y: e.clientY, finalDropTargetId, tokenId: state.source?.tokenId, sourceWidgetId: state.source?.sourceWidgetId });
       store.end('commit');
     };
     const handlePointerCancel = (e: PointerEvent) => {
