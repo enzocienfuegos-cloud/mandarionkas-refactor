@@ -238,15 +238,6 @@ export function ImageCarouselInspector({ widget }: { widget: WidgetNode }): JSX.
               onClear={() => updateSlide(index, { assetId: undefined, src: '' })}
             />
 
-            <div>
-              <label>Caption</label>
-              <input
-                value={slide.caption}
-                onChange={(event) => updateSlide(index, { caption: event.target.value })}
-                placeholder={`Slide ${index + 1}`}
-              />
-            </div>
-
             {describeSlideDelivery(slide) ? (
               <small className="muted">{describeSlideDelivery(slide)}</small>
             ) : null}

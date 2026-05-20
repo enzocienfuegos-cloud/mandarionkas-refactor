@@ -3,14 +3,13 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { usePlaybackDerivedValue } from '../../hooks/use-playback-engine';
-import { clamp, getAccent, isFilenameLikeCaption, moduleBody, moduleHeader, moduleShell, parseCarouselSlides, renderCollapsedIfNeeded } from './shared-styles';
+import { clamp, getAccent, moduleBody, moduleHeader, moduleShell, parseCarouselSlides, renderCollapsedIfNeeded } from './shared-styles';
 import { resolveCornerRadius } from '../shared/corner-style';
 
 const imageCarouselViewportBaseStyle: CSSProperties = {
   position: 'relative',
   flex: 1,
   overflow: 'hidden',
-  background: 'var(--neutral-slate-900)',
   touchAction: 'pan-y pinch-zoom',
 };
 
@@ -31,28 +30,15 @@ const imageCarouselEmptyStyle: CSSProperties = {
   opacity: 0.7,
 };
 
-const imageCarouselOverlayRowStyle: CSSProperties = {
-  position: 'absolute',
-  insetInline: 12,
-  bottom: 10,
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'end',
-  gap: 8,
-};
-
-const imageCarouselCaptionStyle: CSSProperties = {
-  borderRadius: 10,
-  padding: '8px 10px',
-  background: 'var(--scrim-panel-soft)',
-  fontSize: 12,
-};
-
 const imageCarouselPaginationWrapStyle: CSSProperties = {
+  position: 'absolute',
+  bottom: 10,
+  left: 0,
+  right: 0,
   display: 'flex',
+  justifyContent: 'center',
   gap: 4,
   alignItems: 'center',
-  flexShrink: 0,
 };
 
 const imageCarouselDotBaseStyle: CSSProperties = {
@@ -142,9 +128,6 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const effectiveActiveIndex = autoplay && slides.length > 1 && ctx.previewMode
     ? autoplayActiveIndex
     : activeIndex;
-  const activeSlide = slides[effectiveActiveIndex] ?? slides[0];
-  const visibleCaption = activeSlide?.caption && !isFilenameLikeCaption(activeSlide.caption) ? activeSlide.caption : '';
-
   const transitionStyle = transitionDurationMs > 0
     ? `opacity ${transitionDurationMs}ms ease-in-out`
     : undefined;
@@ -198,7 +181,7 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
               <img
                 key={slide.src || index}
                 src={slide.src}
-                alt={index === effectiveActiveIndex ? visibleCaption : ''}
+                alt=""
                 decoding="async"
                 draggable={false}
                 style={{
@@ -214,24 +197,21 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
             <div style={imageCarouselEmptyStyle}>Add slides</div>
           )}
 
-          <div style={imageCarouselOverlayRowStyle}>
-            {visibleCaption ? <div style={imageCarouselCaptionStyle}>{visibleCaption}</div> : <div />}
-            {showPaginationDots && slides.length > 1 ? (
-              <div style={imageCarouselPaginationWrapStyle}>
-                {slides.map((_, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setActiveIndex(index);
-                    }}
-                    style={buildImageCarouselDotStyle(paginationDotSize, index === effectiveActiveIndex, accent)}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </div>
+          {showPaginationDots && slides.length > 1 ? (
+            <div style={imageCarouselPaginationWrapStyle}>
+              {slides.map((_, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setActiveIndex(index);
+                  }}
+                  style={buildImageCarouselDotStyle(paginationDotSize, index === effectiveActiveIndex, accent)}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {showPrevButton || showNextButton ? (
