@@ -387,6 +387,7 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
 
   useEffect(() => {
     if (!revealAnimationTick || !afterImage) return;
+    console.log('[scratch] reveal animation triggered', { preset: revealAnimationPreset, durationMs: revealAnimationDurationMs, delayMs: revealAnimationDelayMs, widgetId: node.id });
     runScratchRevealRevealAnimation(revealMediaRef.current, revealAnimationPreset, revealAnimationDurationMs, revealAnimationDelayMs);
   }, [afterImage, revealAnimationDelayMs, revealAnimationDurationMs, revealAnimationPreset, revealAnimationTick]);
 
@@ -402,16 +403,21 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     eraseScratchStroke(canvas, previousPoint, point, scratchRadius);
     lastScratchPointRef.current = point;
     const progressCanvas = progressCanvasRef.current;
-    if (!progressCanvas || autoRevealThresholdPercent <= 0) return;
+    if (!progressCanvas || autoRevealThresholdPercent <= 0) {
+      console.log('[scratch] progress tracking disabled', { autoRevealThresholdPercent, hasProgressCanvas: Boolean(progressCanvas) });
+      return;
+    }
     const clearedPercent = eraseScratchProgress(progressCanvas, previousPoint, point, scratchRadius, canvas.width, canvas.height);
+    console.log('[scratch] progress', { clearedPercent: clearedPercent.toFixed(1) + '%', threshold: autoRevealThresholdPercent + '%', widgetId: node.id });
     if (clearedPercent < autoRevealThresholdPercent) return;
     scratchCompletedRef.current = true;
     lastScratchPointRef.current = null;
     clearScratchCompletion(canvas);
     setRevealAnimationTick((current) => current + 1);
+    console.log('[scratch] threshold reached → triggerWidgetAction scratch-complete', { clearedPercent: clearedPercent.toFixed(1) + '%', threshold: autoRevealThresholdPercent + '%', widgetId: node.id });
     ctx.triggerWidgetAction('scratch-complete', {
       clearedPercent,
-        thresholdPercent: autoRevealThresholdPercent,
+      thresholdPercent: autoRevealThresholdPercent,
       completedAtMs: playbackEngine.getCurrentMs(),
     });
   };
@@ -437,6 +443,7 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
           pointerActiveRef.current = true;
           lastScratchPointRef.current = null;
           event.currentTarget.setPointerCapture?.(event.pointerId);
+          console.log('[scratch] pointer down', { widgetId: node.id, previewMode, coverReady, scratchCompleted: scratchCompletedRef.current });
           scratchAtEvent(event);
         }}
         onPointerMove={(event) => {
