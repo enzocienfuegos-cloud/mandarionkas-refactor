@@ -286,7 +286,6 @@ function createGameStepScene(
   config: WorldCupStarterConfig,
   tokenPoolJson: string,
   nextSceneId: string,
-  matchActionId: string,
 ): { scene: SceneNode; widgets: WidgetNode[] } {
   const heroToken = getTokenAsset(getTokenConfig(config, step.heroTokenId));
   const expectedToken = getTokenConfig(config, step.expectedTokenId);
@@ -308,7 +307,6 @@ function createGameStepScene(
       height: config.dropZone.height,
       hitPadding: config.dropZone.hitPadding,
       debugOutline: config.dropZone.debugOutline,
-      matchActionMap: JSON.stringify({ [step.expectedTokenId]: matchActionId }),
     },
     style: { accentColor: expectedToken.accent },
   });
@@ -515,7 +513,7 @@ export function createWorldCupStarterState(options: StarterOptions, config: Worl
       targetSceneId: token.id === step.expectedTokenId ? successSceneId : undefined,
     })));
     const actionId = `act_worldcup_step_${step.id}`;
-    const seed = createGameStepScene(sceneId, step, index + 1, config, tokenPoolJson, timeoutSceneId, actionId);
+    const seed = createGameStepScene(sceneId, step, index + 1, config, tokenPoolJson, timeoutSceneId);
     const dropZoneWidgetId = seed.widgets.find((widget) => widget.type === 'drop-zone')?.id ?? '';
     actions[actionId] = {
       id: actionId,

@@ -50,13 +50,8 @@ export function DropZoneInspector({ node }: { node: WidgetNode }): JSX.Element {
           <div><label>Height</label><input type="number" min={20} max={400} step={4} value={Number(node.frame.height ?? node.props.height ?? 120)} onChange={(e) => updateWidgetFrame(node.id, { height: Number(e.target.value) })} /></div>
           <div><label>Hit padding</label><input type="number" min={0} max={60} step={2} value={Number(node.props.hitPadding ?? 16)} onChange={(e) => updateWidgetProps(node.id, { hitPadding: Number(e.target.value) })} /></div>
         </div>
-        <div>
-          <label>Match action map JSON</label>
-          <textarea
-            rows={6}
-            value={String(node.props.matchActionMap ?? '{}')}
-            onChange={(e) => updateWidgetProps(node.id, { matchActionMap: e.target.value })}
-          />
+        <div className="meta-line">
+          Token routing (which scene each token navigates to on drop) is configured per token inside the <strong>Token Pool</strong> widget.
         </div>
         <label className="checkbox-row"><input type="checkbox" checked={Boolean(node.props.debugOutline ?? true)} onChange={(e) => updateWidgetProps(node.id, { debugOutline: e.target.checked })} />Show debug outline</label>
       </div>

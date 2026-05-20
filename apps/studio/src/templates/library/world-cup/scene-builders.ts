@@ -32,7 +32,6 @@ export function createGameStepScene(
   config: WorldCupStarterConfig,
   tokenPoolJson: string,
   nextSceneId: string,
-  matchActionId: string,
 ): { scene: SceneNode; widgets: WidgetNode[] } {
   const heroToken = getTokenAsset(getTokenConfig(config, step.heroTokenId));
   const expectedToken = getTokenConfig(config, step.expectedTokenId);
@@ -54,7 +53,6 @@ export function createGameStepScene(
       height: config.dropZone.height,
       hitPadding: config.dropZone.hitPadding,
       debugOutline: config.dropZone.debugOutline,
-      matchActionMap: JSON.stringify({ [step.expectedTokenId]: matchActionId }),
     },
     style: { accentColor: expectedToken.accent },
   });

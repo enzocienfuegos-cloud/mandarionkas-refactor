@@ -255,7 +255,7 @@ export function buildWorldCupTemplateDocument(
       targetSceneId: token.id === step.expectedTokenId ? successSceneId : undefined,
     })));
     const actionId = `act_worldcup_step_${step.id}`;
-    const seed = createGameStepScene(seedWidget, sceneId, step, index + 1, config, tokenPoolJson, timeoutSceneId, actionId);
+    const seed = createGameStepScene(seedWidget, sceneId, step, index + 1, config, tokenPoolJson, timeoutSceneId);
     const dropZoneWidgetId = seed.widgets.find((widget) => isDropZoneWidgetType(widget.type))?.id ?? '';
     actions[actionId] = {
       id: actionId,
