@@ -51,7 +51,7 @@ export function renderShapeExport(node: WidgetNode): string {
   const height = Number(node.frame.height ?? 0);
   const minSide = Math.max(0, Math.min(width, height));
   const fill = escapeHtml(String(node.style.backgroundColor ?? '#f6a11c'));
-  const border = escapeHtml(String(node.style.borderColor ?? 'rgba(255,255,255,0.14)'));
+  const border = escapeHtml(String(node.style.borderColor ?? 'transparent'));
   const maskSrc = escapeHtml(String(node.props.maskSrc ?? '').trim());
   const maskFit = escapeHtml(String(node.props.maskFit ?? 'cover'));
   const focalX = Number(node.props.maskFocalX ?? 50);

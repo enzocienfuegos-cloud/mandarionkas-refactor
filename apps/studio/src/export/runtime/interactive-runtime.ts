@@ -268,6 +268,8 @@ function runSpeedTest(root: HTMLElement, rafs: Map<string, number>): void {
 type DragState = {
   tokenEl: HTMLElement;
   ghost: HTMLElement;
+  ghostW: number;
+  ghostH: number;
   tokenId: string;
   targetSceneId: string;
   targetActionId: string;
@@ -282,20 +284,20 @@ type DragState = {
 function createDragGhost(tokenEl: HTMLElement): HTMLElement {
   const ghost = tokenEl.cloneNode(true) as HTMLElement;
   const rect = tokenEl.getBoundingClientRect();
-  ghost.style.cssText += [
-    'position:fixed',
-    `width:${rect.width}px`,
-    `height:${rect.height}px`,
-    `left:${rect.left}px`,
-    `top:${rect.top}px`,
-    'pointer-events:none',
-    'z-index:99999',
-    'opacity:0.85',
-    'transform:scale(1.08)',
-    'transition:transform 0.1s ease-out',
-    'will-change:transform,left,top',
-    'cursor:grabbing',
-  ].join(';');
+  // Use direct property setters — avoids conflicts with pre-existing inline cssText
+  ghost.style.setProperty('position', 'fixed', 'important');
+  ghost.style.setProperty('width', `${rect.width}px`, 'important');
+  ghost.style.setProperty('height', `${rect.height}px`, 'important');
+  ghost.style.setProperty('left', `${rect.left}px`, 'important');
+  ghost.style.setProperty('top', `${rect.top}px`, 'important');
+  ghost.style.setProperty('pointer-events', 'none', 'important');
+  ghost.style.setProperty('z-index', '99999', 'important');
+  ghost.style.setProperty('opacity', '0.85', 'important');
+  ghost.style.setProperty('transform', 'scale(1.08)', 'important');
+  ghost.style.setProperty('transition', 'transform 0.1s ease-out', 'important');
+  ghost.style.setProperty('will-change', 'transform,left,top', 'important');
+  ghost.style.setProperty('cursor', 'grabbing', 'important');
+  ghost.style.setProperty('margin', '0', 'important');
   ghost.removeAttribute('data-smx-action');
   document.body.appendChild(ghost);
   return ghost;
@@ -330,9 +332,12 @@ function mountDragTokenRuntime(sceneManager: Pick<SceneManager, 'findSceneIndexB
     event.stopPropagation();
 
     const ghost = createDragGhost(tokenEl);
+    const ghostRect = ghost.getBoundingClientRect();
     drag = {
       tokenEl,
       ghost,
+      ghostW: ghostRect.width,
+      ghostH: ghostRect.height,
       tokenId: tokenEl.getAttribute('data-token-id') || '',
       targetSceneId: tokenEl.getAttribute('data-target-scene-id') || '',
       targetActionId: tokenEl.getAttribute('data-target-action-id') || '',
@@ -351,10 +356,10 @@ function mountDragTokenRuntime(sceneManager: Pick<SceneManager, 'findSceneIndexB
   const onPointerMove = (event: PointerEvent): void => {
     if (!drag) return;
     event.preventDefault();
-    const { ghost, dropTargetId } = drag;
-    const rect = ghost.getBoundingClientRect();
-    ghost.style.left = `${event.clientX - rect.width / 2}px`;
-    ghost.style.top = `${event.clientY - rect.height / 2}px`;
+    const { ghost, ghostW, ghostH, dropTargetId } = drag;
+    // Use cached dimensions — avoids re-layout thrashing every frame
+    ghost.style.setProperty('left', `${event.clientX - ghostW / 2}px`, 'important');
+    ghost.style.setProperty('top', `${event.clientY - ghostH / 2}px`, 'important');
 
     const zone = findDropZoneAt(event.clientX, event.clientY, dropTargetId);
     if (zone !== drag.currentDropZone) {
@@ -367,14 +372,16 @@ function mountDragTokenRuntime(sceneManager: Pick<SceneManager, 'findSceneIndexB
   const onPointerUp = (event: PointerEvent): void => {
     if (!drag) return;
     event.preventDefault();
-    const { ghost, tokenEl, targetSceneId, currentDropZone } = drag;
+    const { ghost, tokenEl, targetSceneId, dropTargetId } = drag;
+    // Do a final position check — currentDropZone may be null if pointermove was never fired
+    const finalDropZone = drag.currentDropZone ?? findDropZoneAt(event.clientX, event.clientY, dropTargetId);
     ghost.remove();
     tokenEl.style.opacity = '';
     document.body.style.userSelect = '';
     document.body.style.webkitUserSelect = '';
-    highlightDropZone(currentDropZone, false);
+    highlightDropZone(finalDropZone, false);
 
-    if (currentDropZone && targetSceneId) {
+    if (finalDropZone && targetSceneId) {
       const sceneIndex = sceneManager.findSceneIndexById(targetSceneId);
       if (sceneIndex >= 0) {
         // Mark this token as used

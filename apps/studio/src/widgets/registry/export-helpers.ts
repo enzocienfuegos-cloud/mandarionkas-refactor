@@ -54,13 +54,14 @@ export function getBaseWidgetStyle(node: WidgetNode): string {
   ].join(';');
 }
 
-export function renderGenericExport(node: WidgetNode, label?: string, detail?: string): string {
+export function renderGenericExport(node: WidgetNode, _label?: string, _detail?: string): string {
   const base = getBaseWidgetStyle(node);
   const style = node.style ?? {};
+  // Render as invisible transparent container — no visible border, no placeholder text.
+  // Modules that need visible output in the exported HTML should provide their own renderExport.
   const genericExtras = [
-    `border:1px solid ${escapeHtml(style.borderColor ?? 'rgba(255,255,255,0.14)')}`,
-    `padding:8px`,
-    `text-align:center`,
+    `border:1px solid ${escapeHtml(style.borderColor ?? 'transparent')}`,
+    `padding:0`,
   ].join(';');
-  return `<div class="widget widget-module" data-widget-id="${node.id}" style="${base};${genericExtras};flex-direction:column;gap:6px;"><strong>${escapeHtml(label ?? node.name)}</strong>${detail ? `<span style="font-size:12px;opacity:.8;">${escapeHtml(detail)}</span>` : ''}</div>`;
+  return `<div class="widget widget-module" data-widget-id="${node.id}" style="${base};${genericExtras};"></div>`;
 }
