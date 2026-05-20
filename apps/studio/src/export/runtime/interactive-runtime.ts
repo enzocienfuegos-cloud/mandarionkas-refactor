@@ -304,24 +304,37 @@ function createDragGhost(tokenEl: HTMLElement): HTMLElement {
 }
 
 function findDropZoneAt(x: number, y: number, targetZoneId: string): HTMLElement | null {
-  // Primary: elementsFromPoint returns all elements at a coordinate, including those with pointer-events:none
-  const els = document.elementsFromPoint(x, y);
-  for (const el of els) {
-    if (!(el instanceof HTMLElement)) continue;
-    const zone = el.closest<HTMLElement>('[data-smx-action="drop-zone"]');
-    if (!zone) continue;
-    // If a specific target zone is required, only match that one; otherwise accept any zone
-    if (!targetZoneId || zone.getAttribute('data-drop-zone-id') === targetZoneId) return zone;
-  }
-  // Fallback: iterate all drop zones and test bounding rect — handles scaled/clipped contexts
-  // where elementsFromPoint may miss elements
-  const allZones = Array.from(document.querySelectorAll<HTMLElement>('[data-smx-action="drop-zone"]'));
-  for (const zone of allZones) {
-    if (targetZoneId && zone.getAttribute('data-drop-zone-id') !== targetZoneId) continue;
-    const rect = zone.getBoundingClientRect();
-    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return zone;
+  // We run two passes: first trying to match targetZoneId exactly, then accepting any drop zone.
+  // The two-pass approach handles templates where dropTargetId is misconfigured but a visible
+  // drop zone still exists at the drop coordinates.
+  const filters = targetZoneId ? [targetZoneId, ''] : [''];
+  for (const filter of filters) {
+    // Primary: elementsFromPoint — includes pointer-events:none elements
+    const els = document.elementsFromPoint(x, y);
+    for (const el of els) {
+      if (!(el instanceof HTMLElement)) continue;
+      const zone = el.closest<HTMLElement>('[data-smx-action="drop-zone"]');
+      if (!zone) continue;
+      if (!filter || zone.getAttribute('data-drop-zone-id') === filter) return zone;
+    }
+    // Fallback: bounding rect — handles scaled/clipped contexts where elementsFromPoint misses
+    const allZones = Array.from(document.querySelectorAll<HTMLElement>('[data-smx-action="drop-zone"]'));
+    for (const zone of allZones) {
+      if (filter && zone.getAttribute('data-drop-zone-id') !== filter) continue;
+      const rect = zone.getBoundingClientRect();
+      if (rect.width > 0 && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return zone;
+    }
   }
   return null;
+}
+
+function resolveDropZoneTargetSceneId(zone: HTMLElement, interactions: ExportRuntimeModel['interactions']): string {
+  const zoneId = zone.getAttribute('data-drop-zone-id') || zone.getAttribute('data-widget-id') || '';
+  if (!zoneId) return '';
+  const interaction = interactions.find(
+    (i) => i.widgetId === zoneId && i.gesture === 'tap' && i.actionType === 'go-to-scene',
+  );
+  return interaction?.targetSceneId ?? '';
 }
 
 function highlightDropZone(zone: HTMLElement | null, active: boolean): void {
@@ -330,7 +343,7 @@ function highlightDropZone(zone: HTMLElement | null, active: boolean): void {
   if (highlight) highlight.style.opacity = active ? '1' : '0';
 }
 
-function mountDragTokenRuntime(sceneManager: Pick<SceneManager, 'findSceneIndexById' | 'showScene'>): () => void {
+function mountDragTokenRuntime(sceneManager: Pick<SceneManager, 'findSceneIndexById' | 'showScene'>, runtimeModel: ExportRuntimeModel): () => void {
   let drag: DragState | null = null;
 
   const onPointerDown = (event: PointerEvent): void => {
@@ -392,14 +405,19 @@ function mountDragTokenRuntime(sceneManager: Pick<SceneManager, 'findSceneIndexB
     document.body.style.webkitUserSelect = '';
     highlightDropZone(finalDropZone, false);
 
-    if (finalDropZone && targetSceneId) {
-      const sceneIndex = sceneManager.findSceneIndexById(targetSceneId);
-      if (sceneIndex >= 0) {
-        // Mark this token as used
-        tokenEl.setAttribute('data-token-disabled', 'true');
-        tokenEl.style.opacity = '0.35';
-        tokenEl.style.cursor = 'not-allowed';
-        sceneManager.showScene(sceneIndex);
+    if (finalDropZone) {
+      // Resolve target scene: token.targetSceneId (old format) or drop zone's tap interaction (new format)
+      const resolvedTargetSceneId = targetSceneId
+        || resolveDropZoneTargetSceneId(finalDropZone, runtimeModel.interactions);
+      if (resolvedTargetSceneId) {
+        const sceneIndex = sceneManager.findSceneIndexById(resolvedTargetSceneId);
+        if (sceneIndex >= 0) {
+          // Mark this token as used
+          tokenEl.setAttribute('data-token-disabled', 'true');
+          tokenEl.style.opacity = '0.35';
+          tokenEl.style.cursor = 'not-allowed';
+          sceneManager.showScene(sceneIndex);
+        }
       }
     }
 
@@ -439,7 +457,7 @@ function mountDragTokenRuntime(sceneManager: Pick<SceneManager, 'findSceneIndexB
 export function mountInteractiveRuntime({ runtimeModel, performExit, resolveExitUrl, sceneManager }: InteractiveRuntimeOptions): { dispose(): void } {
   const shoppableIntervals = new Set<number>();
   const speedTestRafs = new Map<string, number>();
-  const disposeDragRuntime = mountDragTokenRuntime(sceneManager);
+  const disposeDragRuntime = mountDragTokenRuntime(sceneManager, runtimeModel);
 
   const handleClick = (event: MouseEvent): void => {
     if (!isHTMLElement(event.target)) return;
