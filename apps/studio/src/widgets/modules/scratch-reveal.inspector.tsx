@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { assetHasSourceUrl } from '../../assets/policy';
-import type { ReleaseTarget } from '../../domain/document/types';
+import type { ReleaseTarget, SceneNode } from '../../domain/document/types';
 import type { WidgetNode } from '../../domain/document/types';
 import type { AssetRecord } from '../../assets/types';
 import { useStudioStore } from '../../core/store/use-studio-store';
@@ -11,10 +11,16 @@ import { useWidgetActions } from '../../hooks/use-studio-actions';
 import { Button } from '../../shared/ui/Button';
 import { InspectorRangeField } from '../../shared/ui/InspectorRangeField';
 import { requestOpenAssetLibrary } from '../../shared/asset-library-events';
+import type { ScratchRevealMode } from './scratch-reveal.renderer';
 
-function resolveLinkedImageAsset(assets: AssetRecord[], assetId: string, imageUrl: string, targetChannel: ReleaseTarget): AssetRecord | undefined {
-  return assets.find((asset) => asset.id === assetId)
-    ?? assets.find((asset) => assetHasSourceUrl(asset, imageUrl, targetChannel));
+function resolveLinkedImageAsset(
+  assets: AssetRecord[],
+  assetId: string,
+  imageUrl: string,
+  targetChannel: ReleaseTarget,
+): AssetRecord | undefined {
+  return assets.find((a) => a.id === assetId)
+    ?? assets.find((a) => assetHasSourceUrl(a, imageUrl, targetChannel));
 }
 
 function ScratchImageSlot({
@@ -40,7 +46,7 @@ function ScratchImageSlot({
           <div className="meta-line asset-detail-head">
             <div className="asset-detail-title">
               <strong>{asset?.name ?? 'Selected image'}</strong>
-              <small>{asset ? 'Linked from the asset library.' : 'Attached to this scratch slot.'}</small>
+              <small>{asset ? 'Linked from asset library.' : 'Attached to this scratch slot.'}</small>
             </div>
           </div>
           <div className="asset-detail-preview">
@@ -55,7 +61,7 @@ function ScratchImageSlot({
           {imageUrl ? 'Change image' : 'Choose image'}
         </Button>
         <Button variant="ghost" size="sm" className="compact-action" onClick={onClear} disabled={!imageUrl}>
-          Remove image
+          Remove
         </Button>
       </div>
     </div>
@@ -66,6 +72,10 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
   const widgetActions = useWidgetActions();
   const platform = usePlatformSnapshot();
   const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel) as ReleaseTarget;
+  const scenes = useStudioStore((state) => state.document.scenes);
+  const currentSceneId = widget.sceneId;
+  const otherScenes: SceneNode[] = scenes.filter((s) => s.id !== currentSceneId);
+
   const [assets, setAssets] = useState<AssetRecord[]>([]);
 
   useEffect(() => {
@@ -74,60 +84,103 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
       return;
     }
     let cancelled = false;
-    const syncAssets = () => {
+    const sync = () => {
       void listAssets()
-        .then((records) => {
-          if (!cancelled) setAssets(records.filter((asset) => asset.kind === 'image'));
-        })
-        .catch(() => {
-          if (!cancelled) setAssets([]);
-        });
+        .then((records) => { if (!cancelled) setAssets(records.filter((a) => a.kind === 'image')); })
+        .catch(() => { if (!cancelled) setAssets([]); });
     };
-    syncAssets();
-    const unsubscribe = subscribeToAssetLibraryChanges(syncAssets);
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
+    sync();
+    const unsub = subscribeToAssetLibraryChanges(sync);
+    return () => { cancelled = true; unsub(); };
   }, [platform.session.isAuthenticated, platform.session.sessionId]);
 
+  const revealMode = String(widget.props.revealMode ?? 'image') as ScratchRevealMode;
   const beforeImage = String(widget.props.beforeImage ?? '').trim();
   const afterImage = String(widget.props.afterImage ?? '').trim();
+  const coverColor = String(widget.props.coverColor ?? '').trim();
+  const revealTargetSceneId = String(widget.props.revealTargetSceneId ?? '').trim();
+
   const linkedBeforeAsset = resolveLinkedImageAsset(assets, String(widget.props.beforeAssetId ?? '').trim(), beforeImage, targetChannel);
   const linkedAfterAsset = resolveLinkedImageAsset(assets, String(widget.props.afterAssetId ?? '').trim(), afterImage, targetChannel);
+
+  const set = (patch: Record<string, unknown>) => widgetActions.updateWidgetProps(widget.id, patch);
 
   return (
     <section className="section section-premium">
       <h3>Scratch & reveal</h3>
       <div className="field-stack">
+
+        {/* ── Reveal mode ───────────────────────────────── */}
+        <strong>Reveal mode</strong>
         <div>
-          <label>Title</label>
-          <input value={String(widget.props.title ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { title: event.target.value })} />
+          <label>When threshold is reached</label>
+          <select value={revealMode} onChange={(e) => set({ revealMode: e.target.value })}>
+            <option value="image">Show a reveal image</option>
+            <option value="layers-below">Reveal layers below this widget</option>
+            <option value="scene">Transition to another scene</option>
+          </select>
         </div>
-        <div>
-          <label>Cover label</label>
-          <input value={String(widget.props.coverLabel ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { coverLabel: event.target.value })} />
-        </div>
-        <div>
-          <label>Reveal label</label>
-          <input value={String(widget.props.revealLabel ?? '')} onChange={(event) => widgetActions.updateWidgetProps(widget.id, { revealLabel: event.target.value })} />
-        </div>
+
+        {revealMode === 'layers-below' && (
+          <div className="meta-line">
+            This widget acts as a scratch cover overlay. Position it on top of the widgets you want to reveal.
+            Those widgets keep all their animations (fade, float, pulse) — they&apos;re never canvas-painted.
+          </div>
+        )}
+
+        {revealMode === 'scene' && (
+          <div>
+            <label>Go to scene</label>
+            <select
+              value={revealTargetSceneId}
+              onChange={(e) => set({ revealTargetSceneId: e.target.value })}
+            >
+              <option value="">Select scene…</option>
+              {otherScenes.map((s) => (
+                <option key={s.id} value={s.id}>{s.name || `Scene ${s.order}`}</option>
+              ))}
+            </select>
+            {!revealTargetSceneId && (
+              <small className="muted">Pick a destination scene above.</small>
+            )}
+          </div>
+        )}
+
+        {revealMode === 'image' && (
+          <ScratchImageSlot
+            label="Reveal image"
+            imageUrl={afterImage}
+            asset={linkedAfterAsset}
+            emptyLabel="No reveal image selected yet."
+            onChoose={() => requestOpenAssetLibrary({ target: 'scratch-reveal' })}
+            onClear={() => set({ afterAssetId: '', afterImage: '' })}
+          />
+        )}
+
+        {/* ── Cover ─────────────────────────────────────── */}
+        <strong>Cover</strong>
         <ScratchImageSlot
-          label="Cover image"
+          label="Cover image (optional)"
           imageUrl={beforeImage}
           asset={linkedBeforeAsset}
-          emptyLabel="No cover image selected yet."
+          emptyLabel="No cover image — a solid color will be used."
           onChoose={() => requestOpenAssetLibrary({ target: 'scratch-cover' })}
-          onClear={() => widgetActions.updateWidgetProps(widget.id, { beforeAssetId: '', beforeImage: '' })}
+          onClear={() => set({ beforeAssetId: '', beforeImage: '' })}
         />
-        <ScratchImageSlot
-          label="Reveal image"
-          imageUrl={afterImage}
-          asset={linkedAfterAsset}
-          emptyLabel="No reveal image selected yet."
-          onChoose={() => requestOpenAssetLibrary({ target: 'scratch-reveal' })}
-          onClear={() => widgetActions.updateWidgetProps(widget.id, { afterAssetId: '', afterImage: '' })}
-        />
+        <div>
+          <label>Cover color</label>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="color"
+              value={coverColor || '#1e293b'}
+              onChange={(e) => set({ coverColor: e.target.value })}
+              style={{ width: 40, height: 32, padding: 2, cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 12, opacity: 0.7 }}>
+              {beforeImage ? 'Image takes priority over color' : 'Used as fallback when no image'}
+            </span>
+          </div>
+        </div>
         <InspectorRangeField
           label="Cover blur"
           min={0}
@@ -135,58 +188,81 @@ export function ScratchRevealInspector({ widget }: { widget: WidgetNode }): JSX.
           step={1}
           unit="px"
           value={Number(widget.props.coverBlur ?? 0)}
-          onChange={(coverBlur) => widgetActions.updateWidgetProps(widget.id, { coverBlur })}
+          onChange={(v) => set({ coverBlur: v })}
         />
+
+        {/* ── Scratch ───────────────────────────────────── */}
+        <strong>Scratch</strong>
         <InspectorRangeField
-          label="Scratch radius"
+          label="Brush radius"
           min={8}
           max={80}
           step={1}
           unit="px"
           value={Number(widget.props.scratchRadius ?? 22)}
-          onChange={(scratchRadius) => widgetActions.updateWidgetProps(widget.id, { scratchRadius })}
-          helpText="Larger radius makes each swipe clear more cover."
+          onChange={(v) => set({ scratchRadius: v })}
+          helpText="Larger brush clears more area per swipe."
         />
         <InspectorRangeField
-          label="Auto reveal"
+          label="Auto-reveal threshold"
           min={0}
           max={100}
           step={1}
           unit="%"
-          value={Number(widget.props.autoRevealThresholdPercent ?? 10)}
-          onChange={(autoRevealThresholdPercent) => widgetActions.updateWidgetProps(widget.id, { autoRevealThresholdPercent })}
-          helpText="Set 0% to disable automatic completion."
+          value={Number(widget.props.autoRevealThresholdPercent ?? 60)}
+          onChange={(v) => set({ autoRevealThresholdPercent: v })}
+          helpText="How much must be cleared to auto-complete. 0 = manual only."
         />
-        <div>
-          <label>Reveal animation</label>
-          <select
-            value={String(widget.props.revealAnimationPreset ?? 'none')}
-            onChange={(event) => widgetActions.updateWidgetProps(widget.id, { revealAnimationPreset: event.target.value })}
-          >
-            <option value="none">None</option>
-            <option value="appear">Appear</option>
-            <option value="fade-up">Fade up</option>
-            <option value="zoom-in">Zoom in</option>
-          </select>
-        </div>
-        <InspectorRangeField
-          label="Reveal animation"
-          min={150}
-          max={3000}
-          step={50}
-          unit="ms"
-          value={Number(widget.props.revealAnimationDurationMs ?? 700)}
-          onChange={(revealAnimationDurationMs) => widgetActions.updateWidgetProps(widget.id, { revealAnimationDurationMs })}
-        />
-        <InspectorRangeField
-          label="Reveal delay"
-          min={0}
-          max={3000}
-          step={50}
-          unit="ms"
-          value={Number(widget.props.revealAnimationDelayMs ?? 0)}
-          onChange={(revealAnimationDelayMs) => widgetActions.updateWidgetProps(widget.id, { revealAnimationDelayMs })}
-        />
+
+        {/* ── Reveal animation (image mode only) ────────── */}
+        {revealMode === 'image' && (
+          <>
+            <strong>Reveal animation</strong>
+            <div>
+              <label>Animation preset</label>
+              <select
+                value={String(widget.props.revealAnimationPreset ?? 'none')}
+                onChange={(e) => set({ revealAnimationPreset: e.target.value })}
+              >
+                <option value="none">None</option>
+                <option value="appear">Appear (fade in)</option>
+                <option value="fade-up">Fade up</option>
+                <option value="zoom-in">Zoom in</option>
+              </select>
+            </div>
+            <InspectorRangeField
+              label="Duration"
+              min={150}
+              max={3000}
+              step={50}
+              unit="ms"
+              value={Number(widget.props.revealAnimationDurationMs ?? 700)}
+              onChange={(v) => set({ revealAnimationDurationMs: v })}
+            />
+            <InspectorRangeField
+              label="Delay"
+              min={0}
+              max={3000}
+              step={50}
+              unit="ms"
+              value={Number(widget.props.revealAnimationDelayMs ?? 0)}
+              onChange={(v) => set({ revealAnimationDelayMs: v })}
+            />
+            <div>
+              <label>Title</label>
+              <input value={String(widget.props.title ?? '')} onChange={(e) => set({ title: e.target.value })} />
+            </div>
+            <div>
+              <label>Cover label</label>
+              <input value={String(widget.props.coverLabel ?? '')} onChange={(e) => set({ coverLabel: e.target.value })} />
+            </div>
+            <div>
+              <label>Reveal label</label>
+              <input value={String(widget.props.revealLabel ?? '')} onChange={(e) => set({ revealLabel: e.target.value })} />
+            </div>
+          </>
+        )}
+
       </div>
     </section>
   );
