@@ -43,7 +43,6 @@ const dragTokenBaseStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
   textAlign: 'center',
-  padding: 6,
   userSelect: 'none',
   WebkitUserSelect: 'none',
   touchAction: 'none',
@@ -58,12 +57,15 @@ function buildDragTokenStyle(
   radius: string,
   hideFrame: boolean,
   isDragging: boolean,
+  hasImage: boolean,
 ): CSSProperties {
   return {
     ...dragTokenBaseStyle,
     borderRadius: radius,
     width: tokenSize,
     height: tokenSize,
+    // No padding when showing an image — imageMaxSizePercent should be relative to the full token size
+    padding: hasImage ? 0 : 6,
     border: hideFrame ? 'none' : `2px solid ${accentColor ?? 'var(--white-a-35)'}`,
     boxShadow: hideFrame || isDisabled ? 'none' : `0 0 14px ${accentColor ?? 'var(--white-a-24)'}`,
     opacity: isDisabled ? 0.35 : isDragging ? 0.4 : 1,
@@ -147,7 +149,7 @@ function DragTokenItem({
   return (
     <div
       onPointerDown={handlePointerDown}
-      style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, effectiveRadius, hideFrame, isDragging)}
+      style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, effectiveRadius, hideFrame, isDragging, hasTokenImage)}
     >
       <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
         {displayImageUrl ? (

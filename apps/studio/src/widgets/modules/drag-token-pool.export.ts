@@ -53,7 +53,7 @@ function renderTokenHtml(
     `font-size:11px`,
     `font-weight:700`,
     `text-align:center`,
-    `padding:6px`,
+    `padding:${hasImage ? '0' : '6px'}`,
     `user-select:none`,
     `-webkit-user-select:none`,
     `touch-action:none`,
