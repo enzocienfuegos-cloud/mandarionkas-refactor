@@ -103,10 +103,8 @@ function resolveTokenDropTargets(
   source: DragSourceConfig,
 ): { targetActionId?: string; targetSceneId?: string } {
   const sourceWidget = ctx.widgetsById[source.sourceWidgetId];
-  console.log('[DropZone] resolveTokenDropTargets', { sourceWidgetId: source.sourceWidgetId, sourceWidgetFound: Boolean(sourceWidget), sourceWidgetType: sourceWidget?.type, tokenId: source.tokenId, payload: source.payload });
   if (sourceWidget?.type === 'drag-token-pool') {
     const token = parseDragTokenItems(sourceWidget.props.tokens).find((item) => item.id === source.tokenId);
-    console.log('[DropZone] token lookup', { tokenFound: Boolean(token), tokenTargetSceneId: token?.targetSceneId, tokenTargetActionId: token?.targetActionId });
     const targetActionId = typeof token?.targetActionId === 'string' && token.targetActionId.trim()
       ? token.targetActionId
       : undefined;
@@ -141,12 +139,28 @@ function acceptsTokenSource(
   dropZoneWidgetId: string,
   source: DragSourceConfig,
 ): boolean {
+  // 1. Per-token explicit target — fast path
   const configuredDropTargetId = String(source.dropTargetId ?? '').trim();
   if (configuredDropTargetId === dropZoneWidgetId) return true;
+
   const sourceWidget = ctx.widgetsById[source.sourceWidgetId];
   if (!sourceWidget || sourceWidget.type !== 'drag-token-pool') return false;
+
+  // 2. Widget-level dropTargetId
   const widgetDropTargetId = String(sourceWidget.props.dropTargetId ?? '').trim();
-  return !widgetDropTargetId || widgetDropTargetId === dropZoneWidgetId;
+  if (!widgetDropTargetId) return true; // no restriction
+  if (widgetDropTargetId === dropZoneWidgetId) return true; // exact match
+
+  // 3. Fallback: dropTargetId is set but points to a different widget (stale reference after
+  //    template edits or regeneration). Accept if this drop zone explicitly handles the token
+  //    via matchActionMap — that proves it was configured to receive this token type.
+  const dropZoneWidget = ctx.widgetsById[dropZoneWidgetId];
+  if (dropZoneWidget?.type === 'drop-zone') {
+    const matchMap = parseActionMap(dropZoneWidget.props.matchActionMap);
+    if (matchMap[source.tokenId]) return true;
+  }
+
+  return false;
 }
 
 function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext }) {
@@ -166,14 +180,12 @@ function DropZoneRenderer({ node, ctx }: { node: WidgetNode; ctx: RenderContext 
   const onDrop = useCallback(
     (source: DragSourceConfig) => {
       const { targetActionId, targetSceneId } = resolveTokenDropTargets(ctxRef.current, source);
-      console.log('[DropZone] onDrop', { sourceWidgetId: source.sourceWidgetId, tokenId: source.tokenId, targetActionId, targetSceneId, hasGoToScene: Boolean(ctxRef.current.goToScene), hasExecuteAction: Boolean(ctxRef.current.executeAction) });
       if (targetActionId) {
         ctxRef.current.executeAction?.(targetActionId);
       } else if (targetSceneId) {
         ctxRef.current.goToScene?.(targetSceneId);
       } else {
         const actionId = resolveFallbackActionId(nodeRef.current, source.tokenId);
-        console.log('[DropZone] fallback', { actionId, tokenId: source.tokenId });
         if (actionId) {
           ctxRef.current.executeAction?.(actionId);
         } else {

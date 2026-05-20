@@ -29,10 +29,11 @@ export function useDropTarget(options: {
       } else {
         setIsOver(false);
         const last = store.getLastState();
-        const dropTargetMatch = last ? last.currentDropTargetId === targetId : false;
-        const accepted = last && acceptsRef.current ? acceptsRef.current(last.source) : true;
-        console.log('[DragRuntime] drop-zone check', { targetId, lastDropTargetId: last?.currentDropTargetId, dropTargetMatch, accepted, sourceId: last?.source.sourceWidgetId });
-        if (last && dropTargetMatch && accepted) {
+        if (
+          last &&
+          last.currentDropTargetId === targetId &&
+          (acceptsRef.current ? acceptsRef.current(last.source) : true)
+        ) {
           onDropRef.current(last.source);
         }
       }
