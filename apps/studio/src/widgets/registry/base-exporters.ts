@@ -11,7 +11,7 @@ export function renderTextExport(node: WidgetNode): string {
 
 export function renderCtaExport(node: WidgetNode): string {
   const boxShadow = escapeHtml(shadowConfigToBoxShadow(readShadowFromStyle(node.style)));
-  const base = `${getBaseWidgetStyle(node)};cursor:pointer;justify-content:${resolveExportVerticalAlign(node)};align-items:${resolveExportHorizontalAlign(node)};text-align:${resolveExportTextAlign(node)};border-radius:${Number(node.style.borderRadius ?? 10)}px;box-shadow:${boxShadow};`;
+  const base = `${getBaseWidgetStyle(node)};cursor:pointer;justify-content:${resolveExportVerticalAlign(node)};align-items:${resolveExportHorizontalAlign(node)};text-align:${resolveExportTextAlign(node)};border-radius:${Number(node.style.borderRadius ?? 10)}px;box-shadow:${boxShadow};border:none;appearance:none;-webkit-appearance:none;`;
   return `<button class="widget widget-cta" data-widget-id="${node.id}" style="${base}">${escapeHtml(node.props.text ?? node.name)}</button>`;
 }
 
@@ -84,19 +84,27 @@ export function renderShapeExport(node: WidgetNode): string {
 
   const imgStyle = `position:absolute;inset:0;width:100%;height:100%;object-fit:${maskFit};object-position:${focalX}% ${focalY}%;display:block;pointer-events:none;`;
 
+  // getBaseWidgetStyle adds background + border-radius (default 12px) + overflow:hidden from the widget
+  // style, but for shape widgets the outer shell must be transparent — the inner element owns the fill.
+  // We also need the outer border-radius / overflow to match the shape so clipping works correctly.
+  // Appending overrides at the end of the style string wins via CSS last-value-wins.
+  const outerRadius = shape === 'circle' ? '50%' : '0';
+  const outerOverflow = (shape === 'triangle' || shape === 'arrow') ? 'visible' : shape === 'circle' ? 'hidden' : 'visible';
+  const outerShellOverrides = `;background:transparent;border-radius:${outerRadius};overflow:${outerOverflow}`;
+
   // With image mask + clip path (circle, triangle): clip the container and fill with image
   if (maskSrc && clipPath) {
     const containerStyle = innerStyle.replace(`background:${fill};`, 'background:transparent;')
       + `overflow:hidden;clip-path:${clipPath};position:relative;border:none;`;
-    return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};display:flex;align-items:center;justify-content:center;padding:0;box-shadow:${boxShadow};"><div style="${containerStyle}"><img src="${maskSrc}" alt="" style="${imgStyle}" /></div></div>`;
+    return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base}${outerShellOverrides};display:flex;align-items:center;justify-content:center;padding:0;box-shadow:${boxShadow};"><div style="${containerStyle}"><img src="${maskSrc}" alt="" style="${imgStyle}" /></div></div>`;
   }
 
   // With image mask but no clip path (rectangle, square, line, arrow): fill the shape with the image
   if (maskSrc) {
     const containerStyle = innerStyle.replace(`background:${fill};`, 'background:transparent;')
       + `overflow:hidden;position:relative;border:none;`;
-    return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};display:flex;align-items:center;justify-content:center;padding:0;box-shadow:${boxShadow};"><div style="${containerStyle}"><img src="${maskSrc}" alt="" style="${imgStyle}" /></div></div>`;
+    return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base}${outerShellOverrides};display:flex;align-items:center;justify-content:center;padding:0;box-shadow:${boxShadow};"><div style="${containerStyle}"><img src="${maskSrc}" alt="" style="${imgStyle}" /></div></div>`;
   }
 
-  return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base};display:flex;align-items:center;justify-content:center;padding:0;box-shadow:${boxShadow};"><div style="${innerStyle}"></div></div>`;
+  return `<div class="widget widget-shape" data-widget-id="${node.id}" style="${base}${outerShellOverrides};display:flex;align-items:center;justify-content:center;padding:0;box-shadow:${boxShadow};"><div style="${innerStyle}"></div></div>`;
 }

@@ -80,7 +80,7 @@ export function renderImageCarouselExport(node: WidgetNode, _state: unknown, ass
   const base = [
     `position:absolute`,`left:${frame.x}px`,`top:${frame.y}px`,`width:${frame.width}px`,`height:${frame.height}px`,
     `transform:rotate(${frame.rotation}deg)`,`opacity:${Number(style.opacity ?? 1)}`,`overflow:hidden`,`box-sizing:border-box`,
-    `border-radius:${borderRadius}px`,`background:${String(style.backgroundColor || exportPalette.ink)}`,`color:${String(style.color ?? exportPalette.white)}`,
+    `border-radius:${borderRadius}px`,`background:${String(style.backgroundColor || 'transparent')}`,`color:${String(style.color ?? exportPalette.white)}`,
     `display:flex`,`flex-direction:column`,
   ].join(';');
   const resolvedBg = String(style.backgroundColor || exportPalette.ink);
@@ -92,7 +92,7 @@ export function renderImageCarouselExport(node: WidgetNode, _state: unknown, ass
   const carouselTitle = String(node.props.title ?? '').trim();
   return `<div class="widget widget-image-carousel" data-widget-id="${node.id}" data-carousel-slides="${slidesJson}" data-carousel-index="0" data-carousel-accent="${escapeHtml(accent)}" style="${base}">
     ${carouselTitle ? `<div style="padding:10px 12px 0;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${escapeHtml(accent)};">${escapeHtml(carouselTitle)}</div>` : ''}
-    <div style="position:relative;flex:1;${carouselTitle ? 'margin:8px 12px 12px' : 'margin:0'};border-radius:${carouselTitle ? 12 : borderRadius}px;overflow:hidden;background:${escapeHtml(resolvedBg)};">
+    <div style="position:relative;flex:1;${carouselTitle ? 'margin:8px 12px 12px' : 'margin:0'};border-radius:${carouselTitle ? 12 : borderRadius}px;overflow:hidden;background:${activeSlide ? 'transparent' : escapeHtml(resolvedBg)};">
       ${activeSlide ? `<img data-carousel-image src="${escapeHtml(activeSlide.src)}" alt="${escapeHtml(activeSlide.caption && !isFilenameLikeCaption(activeSlide.caption) ? activeSlide.caption : '')}" style="width:100%;height:100%;display:block;object-fit:cover;" />` : '<div style="width:100%;height:100%;display:grid;place-items:center;opacity:.7;">Add slides</div>'}
       <div style="position:absolute;inset-inline:12px;bottom:10px;display:flex;justify-content:space-between;align-items:end;gap:8px;">
         ${(activeSlide?.caption && !isFilenameLikeCaption(activeSlide.caption)) ? `<div data-carousel-caption style="border-radius:10px;padding:8px 10px;background:${exportPalette.darkOverlay};font-size:12px;">${escapeHtml(activeSlide.caption)}</div>` : '<div data-carousel-caption style="display:none;"></div>'}
