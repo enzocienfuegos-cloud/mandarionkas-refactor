@@ -26,7 +26,7 @@ export function DragProvider({ children }: { children: React.ReactNode }): JSX.E
       // Refresh the drop target at the exact release position — the last pointermove
       // may have been a few pixels away (common on touch where events fire less frequently).
       const finalDropTargetId = hitTest.hitTest(e.clientX, e.clientY);
-      console.debug('[DragRuntime] pointerup', { clientX: e.clientX, clientY: e.clientY, finalDropTargetId, prevDropTargetId: state.currentDropTargetId });
+      console.log('[DragRuntime] pointerup', { clientX: e.clientX, clientY: e.clientY, finalDropTargetId, prevDropTargetId: state.currentDropTargetId });
       store.setDropTarget(finalDropTargetId);
       hitTest.stopDrag();
       store.end('commit');
