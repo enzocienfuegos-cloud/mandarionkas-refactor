@@ -23,10 +23,15 @@ function normalizeDragTokenItem(raw: unknown): DragTokenItem | undefined {
   const id = String(item.id ?? '').trim();
   if (!id) return undefined;
   const label = String(item.label ?? id).trim() || id;
+  // Templates (e.g. world-cup) store the image in a 'src' field; normalise it into imageUrl
+  const resolvedImageUrl =
+    (typeof item.imageUrl === 'string' && item.imageUrl.trim() ? item.imageUrl.trim() : undefined)
+    ?? (typeof item.src === 'string' && item.src.trim() ? item.src.trim() : undefined);
   return {
     ...(item as DragTokenItem),
     id,
     label,
+    imageUrl: resolvedImageUrl ?? (item as DragTokenItem).imageUrl,
     targetSceneId: typeof item.targetSceneId === 'string' && item.targetSceneId.trim() ? item.targetSceneId : undefined,
     targetActionId: typeof item.targetActionId === 'string' && item.targetActionId.trim() ? item.targetActionId : undefined,
   };

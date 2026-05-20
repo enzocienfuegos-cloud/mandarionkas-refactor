@@ -304,7 +304,7 @@ function createDragGhost(tokenEl: HTMLElement): HTMLElement {
 }
 
 function findDropZoneAt(x: number, y: number, targetZoneId: string): HTMLElement | null {
-  // elementsFromPoint returns all elements at a coordinate, including those with pointer-events:none
+  // Primary: elementsFromPoint returns all elements at a coordinate, including those with pointer-events:none
   const els = document.elementsFromPoint(x, y);
   for (const el of els) {
     if (!(el instanceof HTMLElement)) continue;
@@ -312,6 +312,14 @@ function findDropZoneAt(x: number, y: number, targetZoneId: string): HTMLElement
     if (!zone) continue;
     // If a specific target zone is required, only match that one; otherwise accept any zone
     if (!targetZoneId || zone.getAttribute('data-drop-zone-id') === targetZoneId) return zone;
+  }
+  // Fallback: iterate all drop zones and test bounding rect — handles scaled/clipped contexts
+  // where elementsFromPoint may miss elements
+  const allZones = Array.from(document.querySelectorAll<HTMLElement>('[data-smx-action="drop-zone"]'));
+  for (const zone of allZones) {
+    if (targetZoneId && zone.getAttribute('data-drop-zone-id') !== targetZoneId) continue;
+    const rect = zone.getBoundingClientRect();
+    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) return zone;
   }
   return null;
 }

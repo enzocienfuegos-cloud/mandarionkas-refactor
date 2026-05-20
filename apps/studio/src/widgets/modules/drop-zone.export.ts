@@ -25,7 +25,7 @@ export function renderDropZoneExport(node: WidgetNode): string {
     'background:transparent',
     'border:none',
     'outline:none',
-    'pointer-events:auto',
+    'pointer-events:none',
     'box-sizing:border-box',
     `border-radius:50%`,
   ].join(';');
