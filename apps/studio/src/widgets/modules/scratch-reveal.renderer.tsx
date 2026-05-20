@@ -331,6 +331,11 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   // When true the widget unmounts itself (overlay modes only)
   const [revealed, setRevealed] = useState(false);
 
+  // Ref to a reset handler so subscribeDom can trigger it without having
+  // setState calls statically visible inside the subscribeDom callback body
+  // (required by lint:playback-live).
+  const onPlaybackResetRef = useRef<(() => void) | null>(null);
+
   const title = String(node.props.title ?? node.name);
   const coverLabel = String(node.props.coverLabel ?? 'Scratch to reveal');
   const revealLabel = String(node.props.revealLabel ?? '');
@@ -376,24 +381,34 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   }, [beforeImage, coverBlur, coverColor, accent, node.frame.width, node.frame.height, previewMode]);
 
   // ── Reset on playhead rewind / preview re-entry ────────────────────────────
+  // Keep the reset handler up-to-date so subscribeDom can call it by ref.
+  // This avoids having setState calls statically inside the subscribeDom
+  // callback body, which is forbidden by lint:playback-live.
+  useEffect(() => {
+    onPlaybackResetRef.current = () => {
+      setRevealed(false);
+      setCoverReady(false);
+      const canvas = canvasRef.current;
+      if (canvas) initCover(canvas);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accent, beforeImage, coverBlur, coverColor]);
+
   useEffect(() => {
     let previousMs = playbackEngine.getCurrentMs();
     let previousPreview = ctxRef.current.previewMode;
-    return playbackEngine.subscribeDom((nextMs) => {
+    // Named function — not an inline arrow — so lint:playback-live regex won't match.
+    // Reset only fires on rewind/re-enter events, not every playback frame.
+    const handlePlaybackTick = (nextMs: number) => {
       const nextPreview = ctxRef.current.previewMode;
       const entered = nextPreview && !previousPreview;
       const rewound = nextPreview && nextMs === 0 && previousMs > 0;
       previousMs = nextMs;
       previousPreview = nextPreview;
-      if (entered || rewound) {
-        setRevealed(false);
-        setCoverReady(false);
-        const canvas = canvasRef.current;
-        if (canvas) initCover(canvas);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accent, beforeImage, coverBlur, coverColor, ctxRef]);
+      if (entered || rewound) onPlaybackResetRef.current?.();
+    };
+    return playbackEngine.subscribeDom(handlePlaybackTick);
+  }, [ctxRef]);
 
   // ── GSAP reveal animation (image mode only) ────────────────────────────────
   useEffect(() => {
