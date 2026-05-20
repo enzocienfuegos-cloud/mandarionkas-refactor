@@ -3,7 +3,7 @@ import { triggerExportPreflight, triggerExportReviewPackage } from '../../../exp
 import { useDocumentActions } from '../../../hooks/use-studio-actions';
 import { useExportReadinessController } from '../../../app/shell/topbar/use-export-readiness-controller';
 import { useTopBarStudioSnapshot } from '../../../app/shell/topbar/use-top-bar-studio-snapshot';
-import { buildClientPreviewToken, buildClientPreviewUrl, persistClientPreviewSnapshot } from '../../../features/client-preview/project-loader';
+import { buildClientPreviewToken, buildClientPreviewUrl, persistClientPreviewSnapshotWithAssets } from '../../../features/client-preview/project-loader';
 import { Button } from '../../../shared/ui/Button';
 import { useToast } from '../../../shared/ui/ToastProvider';
 
@@ -25,7 +25,7 @@ export function ShareHandoffSection(): JSX.Element {
   async function handleCopyLink(): Promise<void> {
     try {
       const nextShareLink = generatedShareLink || shareLink;
-      persistClientPreviewSnapshot(previewProjectId, state);
+      await persistClientPreviewSnapshotWithAssets(previewProjectId, state);
       setShareLink(nextShareLink);
       await navigator.clipboard?.writeText(nextShareLink);
       pushToast({

@@ -4,7 +4,7 @@ import { Button } from '../../../shared/ui/Button';
 import { IconButton } from '../../../shared/ui/IconButton';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { useToast } from '../../../shared/ui/ToastProvider';
-import { buildClientPreviewToken, buildClientPreviewUrl, persistClientPreviewSnapshot } from '../../../features/client-preview/project-loader';
+import { buildClientPreviewToken, buildClientPreviewUrl, persistClientPreviewSnapshotWithAssets } from '../../../features/client-preview/project-loader';
 import type { TopBarController } from './use-top-bar-controller';
 import { PreviewLaunchModal } from './PreviewLaunchModal';
 
@@ -75,14 +75,14 @@ export function TopBarCenterContent({
     uiActions.setZoom(fitZoomForWorkspace({ canvas }));
   }
 
-  function prepareClientPreviewLink(): string {
-    persistClientPreviewSnapshot(projectId, state);
+  async function prepareClientPreviewLink(): Promise<string> {
+    await persistClientPreviewSnapshotWithAssets(projectId, state);
     documentActions.setShareLink(previewUrl);
     return previewUrl;
   }
 
   async function copyClientPreviewLink(): Promise<void> {
-    const nextPreviewUrl = prepareClientPreviewLink();
+    const nextPreviewUrl = await prepareClientPreviewLink();
     try {
       await navigator.clipboard?.writeText(nextPreviewUrl);
       pushToast({
@@ -199,9 +199,10 @@ export function TopBarCenterContent({
           previewUrl={previewUrl}
           onClose={() => setPreviewLauncherOpen(false)}
           onOpenClientPreview={() => {
-            const nextPreviewUrl = prepareClientPreviewLink();
-            setPreviewLauncherOpen(false);
-            window.open(nextPreviewUrl, '_blank', 'noopener,noreferrer');
+            void prepareClientPreviewLink().then((nextPreviewUrl) => {
+              setPreviewLauncherOpen(false);
+              window.open(nextPreviewUrl, '_blank', 'noopener,noreferrer');
+            });
           }}
           onCopyClientPreviewLink={() => {
             void copyClientPreviewLink();

@@ -51,6 +51,20 @@ export function persistClientPreviewSnapshot(projectId: string, state: StudioSta
   return snapshot;
 }
 
+/**
+ * Resolve all asset URLs (images, fonts, videos) in the state using the
+ * authenticated session, then persist the snapshot. Call this from the editor
+ * (where the user IS authenticated) so that the public preview can load assets
+ * without needing session cookies.
+ */
+export async function persistClientPreviewSnapshotWithAssets(
+  projectId: string,
+  state: StudioState,
+): Promise<StudioState> {
+  const preparedState = await prepareClientPreviewProjectState(state);
+  return persistClientPreviewSnapshot(projectId, preparedState);
+}
+
 function readProjectFromLocalStorage(projectId: string): StudioState | null {
   const raw = readStorageItem(`${PROJECT_KEY_PREFIX}${projectId}`, '');
   if (!raw) return null;

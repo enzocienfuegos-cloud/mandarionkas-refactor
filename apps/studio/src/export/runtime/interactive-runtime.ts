@@ -6,7 +6,7 @@ type InteractiveRuntimeOptions = {
   runtimeModel: ExportRuntimeModel;
   performExit: (url: string) => void;
   resolveExitUrl: (widgetId: string) => string;
-  sceneManager: Pick<SceneManager, 'nextScene'>;
+  sceneManager: Pick<SceneManager, 'nextScene' | 'findSceneIndexById' | 'showScene'>;
 };
 
 type CarouselSlide = {
@@ -261,9 +261,167 @@ function runSpeedTest(root: HTMLElement, rafs: Map<string, number>): void {
   rafs.set(widgetId, window.requestAnimationFrame(tick));
 }
 
+// ─── Drag token runtime ───────────────────────────────────────────────────────
+// Implements pointer-based drag-and-drop for drag-token-pool → drop-zone widgets.
+// Uses only vanilla DOM — no React or external dependencies.
+
+type DragState = {
+  tokenEl: HTMLElement;
+  ghost: HTMLElement;
+  tokenId: string;
+  targetSceneId: string;
+  targetActionId: string;
+  sourceWidgetId: string;
+  dropTargetId: string;
+  tokenImage: string;
+  startX: number;
+  startY: number;
+  currentDropZone: HTMLElement | null;
+};
+
+function createDragGhost(tokenEl: HTMLElement): HTMLElement {
+  const ghost = tokenEl.cloneNode(true) as HTMLElement;
+  const rect = tokenEl.getBoundingClientRect();
+  ghost.style.cssText += [
+    'position:fixed',
+    `width:${rect.width}px`,
+    `height:${rect.height}px`,
+    `left:${rect.left}px`,
+    `top:${rect.top}px`,
+    'pointer-events:none',
+    'z-index:99999',
+    'opacity:0.85',
+    'transform:scale(1.08)',
+    'transition:transform 0.1s ease-out',
+    'will-change:transform,left,top',
+    'cursor:grabbing',
+  ].join(';');
+  ghost.removeAttribute('data-smx-action');
+  document.body.appendChild(ghost);
+  return ghost;
+}
+
+function findDropZoneAt(x: number, y: number, excludeSource: string): HTMLElement | null {
+  // elementFromPoint ignores pointer-events:none, so use elementsFromPoint
+  const els = document.elementsFromPoint(x, y);
+  for (const el of els) {
+    if (!(el instanceof HTMLElement)) continue;
+    const zone = el.closest<HTMLElement>('[data-smx-action="drop-zone"]');
+    if (zone && zone.getAttribute('data-drop-zone-id') !== excludeSource) return zone;
+  }
+  return null;
+}
+
+function highlightDropZone(zone: HTMLElement | null, active: boolean): void {
+  if (!zone) return;
+  const highlight = zone.querySelector<HTMLElement>('.smx-drop-zone-highlight');
+  if (highlight) highlight.style.opacity = active ? '1' : '0';
+}
+
+function mountDragTokenRuntime(sceneManager: Pick<SceneManager, 'findSceneIndexById' | 'showScene'>): () => void {
+  let drag: DragState | null = null;
+
+  const onPointerDown = (event: PointerEvent): void => {
+    if (!isHTMLElement(event.target)) return;
+    const tokenEl = event.target.closest<HTMLElement>('[data-smx-action="token-drag"]');
+    if (!tokenEl) return;
+    if (tokenEl.getAttribute('data-token-disabled') === 'true') return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const ghost = createDragGhost(tokenEl);
+    drag = {
+      tokenEl,
+      ghost,
+      tokenId: tokenEl.getAttribute('data-token-id') || '',
+      targetSceneId: tokenEl.getAttribute('data-target-scene-id') || '',
+      targetActionId: tokenEl.getAttribute('data-target-action-id') || '',
+      sourceWidgetId: tokenEl.getAttribute('data-source-widget-id') || '',
+      dropTargetId: tokenEl.getAttribute('data-drop-target-id') || '',
+      tokenImage: tokenEl.getAttribute('data-token-image') || '',
+      startX: event.clientX,
+      startY: event.clientY,
+      currentDropZone: null,
+    };
+    tokenEl.style.opacity = '0.35';
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
+  };
+
+  const onPointerMove = (event: PointerEvent): void => {
+    if (!drag) return;
+    event.preventDefault();
+    const { ghost, dropTargetId } = drag;
+    const rect = ghost.getBoundingClientRect();
+    ghost.style.left = `${event.clientX - rect.width / 2}px`;
+    ghost.style.top = `${event.clientY - rect.height / 2}px`;
+
+    const zone = findDropZoneAt(event.clientX, event.clientY, dropTargetId);
+    if (zone !== drag.currentDropZone) {
+      highlightDropZone(drag.currentDropZone, false);
+      highlightDropZone(zone, true);
+      drag.currentDropZone = zone;
+    }
+  };
+
+  const onPointerUp = (event: PointerEvent): void => {
+    if (!drag) return;
+    event.preventDefault();
+    const { ghost, tokenEl, targetSceneId, currentDropZone } = drag;
+    ghost.remove();
+    tokenEl.style.opacity = '';
+    document.body.style.userSelect = '';
+    document.body.style.webkitUserSelect = '';
+    highlightDropZone(currentDropZone, false);
+
+    if (currentDropZone && targetSceneId) {
+      const sceneIndex = sceneManager.findSceneIndexById(targetSceneId);
+      if (sceneIndex >= 0) {
+        // Mark this token as used
+        tokenEl.setAttribute('data-token-disabled', 'true');
+        tokenEl.style.opacity = '0.35';
+        tokenEl.style.cursor = 'not-allowed';
+        sceneManager.showScene(sceneIndex);
+      }
+    }
+
+    drag = null;
+  };
+
+  const onPointerCancel = (): void => {
+    if (!drag) return;
+    drag.ghost.remove();
+    drag.tokenEl.style.opacity = '';
+    highlightDropZone(drag.currentDropZone, false);
+    document.body.style.userSelect = '';
+    document.body.style.webkitUserSelect = '';
+    drag = null;
+  };
+
+  document.addEventListener('pointerdown', onPointerDown, { capture: true });
+  document.addEventListener('pointermove', onPointerMove, { passive: false });
+  document.addEventListener('pointerup', onPointerUp);
+  document.addEventListener('pointercancel', onPointerCancel);
+
+  return () => {
+    document.removeEventListener('pointerdown', onPointerDown, { capture: true });
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    document.removeEventListener('pointercancel', onPointerCancel);
+    if (drag) {
+      drag.ghost.remove();
+      drag.tokenEl.style.opacity = '';
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+      drag = null;
+    }
+  };
+}
+
 export function mountInteractiveRuntime({ runtimeModel, performExit, resolveExitUrl, sceneManager }: InteractiveRuntimeOptions): { dispose(): void } {
   const shoppableIntervals = new Set<number>();
   const speedTestRafs = new Map<string, number>();
+  const disposeDragRuntime = mountDragTokenRuntime(sceneManager);
 
   const handleClick = (event: MouseEvent): void => {
     if (!isHTMLElement(event.target)) return;
@@ -431,6 +589,7 @@ export function mountInteractiveRuntime({ runtimeModel, performExit, resolveExit
       document.removeEventListener('input', handleInput);
       document.removeEventListener('change', handleChange);
       document.removeEventListener('submit', handleSubmit);
+      disposeDragRuntime();
       shoppableIntervals.forEach((intervalId) => window.clearInterval(intervalId));
       shoppableIntervals.clear();
       speedTestRafs.forEach((rafId) => window.cancelAnimationFrame(rafId));

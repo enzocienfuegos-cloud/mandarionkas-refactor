@@ -19,6 +19,8 @@ const INTERACTIVE_WIDGET_TYPES = new Set<string>([
   'speed-test',
   'range-slider',
   'slider',
+  'drag-token-pool',
+  'drop-zone',
 ]);
 
 export function analyzeRuntimeCapabilities(document: PortableExportProject) {

@@ -10,7 +10,7 @@ import { useToast } from '../../../shared/ui/ToastProvider';
 import { Button } from '../../../shared/ui/Button';
 import { StudioIcon, StudioIcons } from '../../../shared/ui/icons';
 import { useStudioStore } from '../../../core/store/use-studio-store';
-import { buildClientPreviewToken, buildClientPreviewUrl, persistClientPreviewSnapshot } from '../../../features/client-preview/project-loader';
+import { buildClientPreviewToken, buildClientPreviewUrl, persistClientPreviewSnapshotWithAssets } from '../../../features/client-preview/project-loader';
 
 function buildInitials(name?: string): string {
   const parts = (name ?? 'Guest')
@@ -133,7 +133,7 @@ export function TopBarActions({
       ? buildClientPreviewUrl(window.location, previewProjectId, previewToken)
       : '';
     try {
-      persistClientPreviewSnapshot(previewProjectId, state);
+      await persistClientPreviewSnapshotWithAssets(previewProjectId, state);
       setShareLink(shareLink);
       await navigator.clipboard?.writeText(shareLink);
       pushToast({
