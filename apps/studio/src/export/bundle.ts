@@ -7,7 +7,7 @@ import { buildMraidAdapter } from './adapters/mraid';
 import { buildPlayableExportAdapter } from './adapters/playable';
 import { buildVastSimidAdapter } from './adapters/vast-simid';
 import { buildVastSimidXml, type PlayableExportAdapterResult, type VastSimidAdapterResult } from './adapters';
-import { buildExportAssetPlan, buildLocalizedPortableProject, buildRemoteAssetFetchPlan, materializeExportAssetFiles, materializeRemoteExportAssetFiles } from './assets';
+import { buildExportAssetPathMap, buildExportAssetPlan, buildLocalizedPortableProject, buildRemoteAssetFetchPlan, materializeExportAssetFiles, materializeRemoteExportAssetFiles } from './assets';
 import { buildChannelHtml, buildPlayableSingleFileHtml } from './html';
 import { buildExportManifest } from './manifest';
 import { buildExportPackageMetrics } from './package-metrics';
@@ -39,6 +39,16 @@ type PreparedExportBundleInput = {
   portableProject: ReturnType<typeof buildPortableProjectExport>;
   localizedPortableProject: ReturnType<typeof buildPortableProjectExport>;
   assetPlan: ReturnType<typeof buildExportAssetPlan>;
+  /**
+   * Optional asset plan filtered to only entries whose files were actually
+   * materialized (i.e. successfully downloaded).  When provided, the HTML
+   * is generated from the original portable project (CDN URLs) with an
+   * assetPathMap built from these succeeded entries only, so that:
+   *  1. Images that downloaded → mapped to local path + onerror CDN fallback
+   *  2. Images that failed to download → CDN URL passes through, loads from CDN
+   * When absent (e.g. inline-asset-only bundles) the full assetPlan is used.
+   */
+  htmlAssetPlan?: ReturnType<typeof buildExportAssetPlan>;
   assetFiles: ExportBundleFile[];
 };
 
@@ -166,22 +176,33 @@ function buildBundleFromPreparedAssets(
   state: StudioState,
   input: PreparedExportBundleInput,
 ): ExportBundle {
-  const { portableProject, localizedPortableProject, assetPlan, assetFiles } = input;
+  const { portableProject, localizedPortableProject, assetPlan, htmlAssetPlan, assetFiles } = input;
   const adapter = buildChannelAdapter(state);
   const remoteFetchPlan = buildRemoteAssetFetchPlan(assetPlan);
   const localizedAdapter = adapter.adapter === 'playable-ad'
     ? { ...adapter, playableProject: localizedPortableProject }
     : { ...adapter, portableProject: localizedPortableProject };
-  const runtimeProject = localizedAdapter.adapter === 'playable-ad' ? localizedAdapter.playableProject : localizedAdapter.portableProject;
+
+  // For HTML generation use the ORIGINAL portableProject (CDN URLs in props) with an
+  // explicit assetPathMap built from only the entries that were actually materialized.
+  // This ensures renderImageExport sees CDN→local remapping and adds proper onerror
+  // CDN fallbacks.  Images that failed to download are simply not in the map, so their
+  // CDN URL passes through directly instead of referencing a missing local file.
+  const htmlAssetPathMap = buildExportAssetPathMap(htmlAssetPlan ?? assetPlan);
+  const htmlAdapter = adapter.adapter === 'playable-ad'
+    ? { ...adapter, playableProject: portableProject }
+    : { ...adapter, portableProject };
+
+  const runtimeProject = htmlAdapter.adapter === 'playable-ad' ? htmlAdapter.playableProject : htmlAdapter.portableProject;
   const runtimeModel = buildExportRuntimeModelFromPortable(runtimeProject);
-  const html = localizedAdapter.adapter === 'playable-ad'
-    ? buildPlayableSingleFileHtml(state, localizedAdapter as PlayableExportAdapterResult, {})
-    : localizedAdapter.adapter === 'vast-simid'
-      ? buildChannelHtml(state, { ...(localizedAdapter as VastSimidAdapterResult), adapter: 'generic-html5' } as any)
-      : buildChannelHtml(state, localizedAdapter as any);
+  const html = htmlAdapter.adapter === 'playable-ad'
+    ? buildPlayableSingleFileHtml(state, htmlAdapter as PlayableExportAdapterResult, {})
+    : htmlAdapter.adapter === 'vast-simid'
+      ? buildChannelHtml(state, { ...(htmlAdapter as VastSimidAdapterResult), adapter: 'generic-html5' } as any, { assetPathMap: htmlAssetPathMap })
+      : buildChannelHtml(state, htmlAdapter as any, { assetPathMap: htmlAssetPathMap });
   const packagingPlan = buildExportPackagingPlan(localizedAdapter);
   const exitConfig = buildExportExitConfig(localizedAdapter);
-  const runtimeScript = compileRuntime(runtimeProject, localizedAdapter as any);
+  const runtimeScript = compileRuntime(runtimeProject, htmlAdapter as any);
   const staticBundleFiles: ExportBundleFile[] = [
     { path: 'index.html', mime: 'text/html;charset=utf-8', content: html },
     ...(localizedAdapter.adapter === 'vast-simid'
@@ -288,7 +309,23 @@ export async function buildExportBundleWithRemoteAssets(
   const assetPlan = buildExportAssetPlan(portableProject);
   const inlineAssetFiles = materializeExportAssetFiles(assetPlan);
   const remoteAssetFiles = await materializeRemoteExportAssetFiles(assetPlan, fetchImpl);
-  return buildBundleFromAssetFiles(state, [...inlineAssetFiles, ...remoteAssetFiles]);
+
+  // Only localize asset URLs for entries that were actually downloaded.
+  // Assets that failed to download stay as CDN URLs in the HTML so the browser
+  // can load them directly, instead of referencing missing local files.
+  const downloadedPaths = new Set(remoteAssetFiles.map((f) => f.path));
+  const htmlAssetPlan = assetPlan.filter(
+    (e) => e.strategy === 'inline-data-uri' || downloadedPaths.has(e.packagingPath),
+  );
+  const localizedPortableProject = buildLocalizedPortableProject(portableProject, assetPlan);
+
+  return buildBundleFromPreparedAssets(state, {
+    portableProject,
+    localizedPortableProject,
+    assetPlan,
+    htmlAssetPlan,
+    assetFiles: [...inlineAssetFiles, ...remoteAssetFiles],
+  });
 }
 
 export function buildExportSizeSetBundle(state: StudioState): ExportBundle {
