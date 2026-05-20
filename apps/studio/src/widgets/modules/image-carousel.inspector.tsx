@@ -62,11 +62,18 @@ function stringifyCarouselSlideDrafts(slides: CarouselSlideDraft[]): string {
   return JSON.stringify(slides);
 }
 
+const TRANSITION_OPTIONS = [
+  { value: 0,   label: 'Instant' },
+  { value: 150, label: 'Fast (150ms)' },
+  { value: 300, label: 'Normal (300ms)' },
+  { value: 500, label: 'Slow (500ms)' },
+  { value: 800, label: 'Very slow (800ms)' },
+];
+
 export function ImageCarouselInspector({ widget }: { widget: WidgetNode }): JSX.Element {
   const { updateWidgetProps } = useWidgetActions();
   const platform = usePlatformSnapshot();
   const [assets, setAssets] = useState<AssetRecord[]>([]);
-  const [selectedAssetId, setSelectedAssetId] = useState('');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
 
@@ -94,16 +101,18 @@ export function ImageCarouselInspector({ widget }: { widget: WidgetNode }): JSX.
   }, [platform.session.isAuthenticated, platform.session.sessionId]);
 
   const slides = useMemo(() => parseCarouselSlideDrafts(widget.props.slides), [widget.props.slides]);
-  const selectedAsset = assets.find((asset) => asset.id === selectedAssetId);
+
+  const autoplay = Boolean(widget.props.autoplay ?? true);
+  const intervalMs = Math.max(1000, Math.min(30000, Number(widget.props.intervalMs ?? 2600)));
+  const intervalSec = Math.round(intervalMs / 100) / 10;
+  const showPrevButton = Boolean(widget.props.showPrevButton ?? true);
+  const showNextButton = Boolean(widget.props.showNextButton ?? true);
+  const showPaginationDots = Boolean(widget.props.showPaginationDots ?? true);
+  const paginationDotSize = Math.max(2, Math.min(10, Number(widget.props.paginationDotSize ?? 4)));
+  const transitionDurationMs = Number(widget.props.transitionDurationMs ?? 300);
 
   function commitSlides(nextSlides: CarouselSlideDraft[]): void {
     updateWidgetProps(widget.id, { slides: stringifyCarouselSlideDrafts(nextSlides) });
-  }
-
-  function addAssetSlide(): void {
-    if (!selectedAsset) return;
-    appendAssetSlide(selectedAsset);
-    setSelectedAssetId('');
   }
 
   function appendAssetSlide(asset: AssetRecord): void {
@@ -119,11 +128,11 @@ export function ImageCarouselInspector({ widget }: { widget: WidgetNode }): JSX.
   }
 
   function updateSlide(index: number, patch: Partial<CarouselSlideDraft>): void {
-    commitSlides(slides.map((slide, slideIndex) => (slideIndex === index ? { ...slide, ...patch } : slide)));
+    commitSlides(slides.map((slide, i) => (i === index ? { ...slide, ...patch } : slide)));
   }
 
   function removeSlide(index: number): void {
-    commitSlides(slides.filter((_, slideIndex) => slideIndex !== index));
+    commitSlides(slides.filter((_, i) => i !== index));
   }
 
   function moveSlide(index: number, direction: -1 | 1): void {
@@ -156,119 +165,176 @@ export function ImageCarouselInspector({ widget }: { widget: WidgetNode }): JSX.
     const asset = assets.find((item) => item.id === slide.assetId);
     if (!asset) return null;
     const tier = resolveAssetQualityPreference(asset, targetChannel, asset.qualityPreference ?? 'auto');
-    return `Uses ${tier} for ${targetChannel}`;
+    return `${tier} · ${targetChannel}`;
   }
 
   return (
     <section className="section section-premium">
       <h3>Image carousel</h3>
       <div className="field-stack">
-        <div>
-          <label>Title</label>
-          <input value={String(widget.props.title ?? '')} onChange={(event) => updateWidgetProps(widget.id, { title: event.target.value })} />
-        </div>
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={Boolean(widget.props.autoplay ?? true)}
-            onChange={(event) => updateWidgetProps(widget.id, { autoplay: event.target.checked })}
-          />
-          Autoplay
-        </label>
-        <div>
-          <label>Interval ms</label>
-          <input
-            type="number"
-            step="100"
-            value={String(widget.props.intervalMs ?? 2600)}
-            onChange={(event) => updateWidgetProps(widget.id, { intervalMs: Number(event.target.value) })}
-          />
+
+        {/* ── Slides ───────────────────────────────────── */}
+        <div className="meta-line inspector-spread-row">
+          <strong>{`Slides (${slides.length})`}</strong>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => requestOpenAssetLibrary({
+              accept: 'image',
+              title: 'Add slides',
+              onSelect: appendAssetSlide,
+            })}
+          >
+            + Add from library
+          </Button>
         </div>
 
-        <div>
-          <label>Add slide from assets</label>
-          <div className="asset-inline-actions">
-            <select value={selectedAssetId} onChange={(event) => setSelectedAssetId(event.target.value)}>
-              <option value="">Select image asset</option>
-              {assets.map((asset) => (
-                <option key={asset.id} value={asset.id}>{asset.name}</option>
-              ))}
-            </select>
-            <Button size="sm" className="left-button compact-action" onClick={addAssetSlide} disabled={!selectedAsset}>Add slide</Button>
-            <Button
-              size="sm"
-              className="left-button compact-action"
-              onClick={() => requestOpenAssetLibrary({
-                accept: 'image',
-                title: 'Add slide from library',
-                onSelect: appendAssetSlide,
+        {slides.length === 0 && (
+          <div className="meta-line">No slides yet. Add images from the library above.</div>
+        )}
+
+        {slides.map((slide, index) => (
+          <div
+            key={`${widget.id}-slide-${index}`}
+            className={dragIndex === index ? 'inspector-draggable-card is-dragging' : 'inspector-draggable-card'}
+            draggable
+            onDragStart={() => setDragIndex(index)}
+            onDragEnd={() => setDragIndex(null)}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (dragIndex == null) return;
+              reorderSlides(dragIndex, index);
+              setDragIndex(null);
+            }}
+          >
+            <div className="inspector-card-header">
+              <strong className="inspector-card-title">Slide {index + 1}</strong>
+              <div className="inspector-card-actions">
+                <IconButton variant="ghost" size="sm" label="Move up" icon={<StudioIcon icon={StudioIcons.chevronUp} size={14} />} onClick={() => moveSlide(index, -1)} disabled={index === 0} />
+                <IconButton variant="ghost" size="sm" label="Move down" icon={<StudioIcon icon={StudioIcons.chevronDown} size={14} />} onClick={() => moveSlide(index, 1)} disabled={index === slides.length - 1} />
+                <Button variant="danger" size="sm" onClick={() => removeSlide(index)}>×</Button>
+              </div>
+            </div>
+
+            <div className="inspector-preview-frame">
+              {resolveSlidePreview(slide) ? (
+                <img src={resolveSlidePreview(slide)} alt={slide.caption} className="inspector-preview-media" />
+              ) : (
+                <div className="inspector-preview-empty">No preview</div>
+              )}
+            </div>
+
+            <AssetPickerButton
+              label="Image"
+              assetId={slide.assetId}
+              imageUrl={slide.src}
+              accept="image"
+              assets={assets}
+              onChange={(asset) => updateSlide(index, {
+                assetId: asset.id,
+                src: resolveAssetDeliveryUrl(asset, targetChannel, asset.qualityPreference ?? 'auto'),
               })}
-            >
-              Open library
-            </Button>
-          </div>
-        </div>
+              onClear={() => updateSlide(index, { assetId: undefined, src: '' })}
+            />
 
-        <div className="field-stack inspector-list-stack">
-          <label>Slides</label>
-          {slides.length ? slides.map((slide, index) => (
-            <div
-              key={`${widget.id}-slide-${index}`}
-              className={dragIndex === index ? 'inspector-draggable-card is-dragging' : 'inspector-draggable-card'}
-              draggable
-              onDragStart={() => setDragIndex(index)}
-              onDragEnd={() => setDragIndex(null)}
-              onDragOver={(event) => {
-                event.preventDefault();
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                if (dragIndex == null) return;
-                reorderSlides(dragIndex, index);
-                setDragIndex(null);
-              }}
-            >
-              <div className="inspector-card-header">
-                <strong className="inspector-card-title">Slide {index + 1}</strong>
-                <div className="inspector-card-actions">
-                  <IconButton variant="ghost" size="sm" label={`Move slide ${index + 1} up`} icon={<StudioIcon icon={StudioIcons.chevronUp} size={14} />} onClick={() => moveSlide(index, -1)} disabled={index === 0} />
-                  <IconButton variant="ghost" size="sm" label={`Move slide ${index + 1} down`} icon={<StudioIcon icon={StudioIcons.chevronDown} size={14} />} onClick={() => moveSlide(index, 1)} disabled={index === slides.length - 1} />
-                  <Button variant="danger" size="sm" onClick={() => removeSlide(index)}>Remove</Button>
-                </div>
-              </div>
-              <small className="muted">Drag to reorder</small>
-              <div className="inspector-preview-frame">
-                {resolveSlidePreview(slide) ? (
-                  <img
-                    src={resolveSlidePreview(slide)}
-                    alt={slide.caption}
-                    className="inspector-preview-media"
-                  />
-                ) : (
-                  <div className="inspector-preview-empty">
-                    No preview
-                  </div>
-                )}
-              </div>
-              <AssetPickerButton
-                label="Slide image"
-                assetId={slide.assetId}
-                imageUrl={slide.src}
-                accept="image"
-                assets={assets}
-                onChange={(asset) => updateSlide(index, { assetId: asset.id, src: asset.src })}
-                onClear={() => updateSlide(index, { assetId: undefined, src: '' })}
-              />
+            <div>
+              <label>Caption</label>
               <input
                 value={slide.caption}
                 onChange={(event) => updateSlide(index, { caption: event.target.value })}
-                placeholder="Caption"
+                placeholder={`Slide ${index + 1}`}
               />
-              {describeSlideDelivery(slide) ? <small className="muted">{describeSlideDelivery(slide)}</small> : null}
-              {slide.assetId ? <small className="muted">Linked asset: {slide.assetId}</small> : null}
             </div>
-          )) : <small className="muted">No slides yet. Add one from the asset library.</small>}
+
+            {describeSlideDelivery(slide) ? (
+              <small className="muted">{describeSlideDelivery(slide)}</small>
+            ) : null}
+          </div>
+        ))}
+
+        {/* ── Auto-slide ───────────────────────────────── */}
+        <strong>Auto-slide</strong>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={autoplay}
+            onChange={(event) => updateWidgetProps(widget.id, { autoplay: event.target.checked })}
+          />
+          Enable auto-slide
+        </label>
+
+        {autoplay && (
+          <div>
+            <label>Change slide every</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={0.5}
+                value={intervalSec}
+                style={{ flex: 1 }}
+                onChange={(event) => updateWidgetProps(widget.id, { intervalMs: Math.round(Number(event.target.value) * 1000) })}
+              />
+              <span style={{ minWidth: 40, textAlign: 'right', fontSize: 12 }}>{intervalSec}s</span>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label>Slide transition</label>
+          <select
+            value={transitionDurationMs}
+            onChange={(event) => updateWidgetProps(widget.id, { transitionDurationMs: Number(event.target.value) })}
+          >
+            {TRANSITION_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
+
+        {/* ── Navigation ───────────────────────────────── */}
+        <strong>Navigation</strong>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={showPrevButton}
+            onChange={(event) => updateWidgetProps(widget.id, { showPrevButton: event.target.checked })}
+          />
+          Show Prev button
+        </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={showNextButton}
+            onChange={(event) => updateWidgetProps(widget.id, { showNextButton: event.target.checked })}
+          />
+          Show Next button
+        </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={showPaginationDots}
+            onChange={(event) => updateWidgetProps(widget.id, { showPaginationDots: event.target.checked })}
+          />
+          Show pagination dots
+        </label>
+        {showPaginationDots && (
+          <div>
+            <label>Dot size</label>
+            <input
+              type="range"
+              min={2}
+              max={10}
+              step={1}
+              value={paginationDotSize}
+              onChange={(event) => updateWidgetProps(widget.id, { paginationDotSize: Number(event.target.value) })}
+            />
+            <div className="meta-line">{paginationDotSize}px</div>
+          </div>
+        )}
+
       </div>
     </section>
   );

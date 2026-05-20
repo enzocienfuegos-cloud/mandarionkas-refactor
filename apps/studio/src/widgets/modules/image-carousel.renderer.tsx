@@ -125,12 +125,13 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   const accent = getAccent(node);
   const borderRadius = resolveCornerRadius(node, 20);
   const slides = useMemo(() => parseCarouselSlides(String(node.props.slides ?? '')), [node.props.slides]);
-  const intervalMs = clamp(Number(node.props.intervalMs ?? 2600), 1000, 10000);
+  const intervalMs = clamp(Number(node.props.intervalMs ?? 2600), 1000, 30000);
   const autoplay = Boolean(node.props.autoplay ?? true);
   const showPrevButton = Boolean(node.props.showPrevButton ?? true);
   const showNextButton = Boolean(node.props.showNextButton ?? true);
   const showPaginationDots = Boolean(node.props.showPaginationDots ?? true);
-  const paginationDotSize = clamp(Number(node.props.paginationDotSize ?? 4), 2, 6);
+  const paginationDotSize = clamp(Number(node.props.paginationDotSize ?? 4), 2, 10);
+  const transitionDurationMs = clamp(Number(node.props.transitionDurationMs ?? 300), 0, 1000);
   const [activeIndex, setActiveIndex] = useState(clamp(Number(node.props.activeIndex ?? 1), 1, Math.max(1, slides.length || 1)) - 1);
   const swipeStartRef = useRef<number | null>(null);
   const swipeLastRef = useRef<number | null>(null);
@@ -143,6 +144,11 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     : activeIndex;
   const activeSlide = slides[effectiveActiveIndex] ?? slides[0];
   const visibleCaption = activeSlide?.caption && !isFilenameLikeCaption(activeSlide.caption) ? activeSlide.caption : '';
+
+  const transitionStyle = transitionDurationMs > 0
+    ? `opacity ${transitionDurationMs}ms ease-in-out`
+    : undefined;
+
   const handleSwipeCommit = () => {
     if (swipeStartRef.current == null || swipeLastRef.current == null || slides.length <= 1) return;
     const delta = swipeLastRef.current - swipeStartRef.current;
@@ -150,10 +156,10 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     swipeLastRef.current = null;
     if (Math.abs(delta) < 22) return;
     if (delta < 0) {
-      setActiveIndex((value)=> slides.length ? (value + 1) % slides.length : 0);
+      setActiveIndex((value) => slides.length ? (value + 1) % slides.length : 0);
       ctx.triggerWidgetAction('click');
     } else {
-      setActiveIndex((value)=> slides.length ? (value - 1 + slides.length) % slides.length : 0);
+      setActiveIndex((value) => slides.length ? (value - 1 + slides.length) % slides.length : 0);
     }
   };
 
@@ -187,15 +193,30 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
           }}
           onLostPointerCapture={resetSwipe}
         >
-          {activeSlide ? (
-            <img src={activeSlide.src} alt={visibleCaption} decoding="async" style={imageCarouselMediaStyle} draggable={false} />
+          {slides.length > 0 ? (
+            slides.map((slide, index) => (
+              <img
+                key={slide.src || index}
+                src={slide.src}
+                alt={index === effectiveActiveIndex ? visibleCaption : ''}
+                decoding="async"
+                draggable={false}
+                style={{
+                  ...imageCarouselMediaStyle,
+                  position: 'absolute',
+                  inset: 0,
+                  opacity: index === effectiveActiveIndex ? 1 : 0,
+                  transition: transitionStyle,
+                }}
+              />
+            ))
           ) : (
             <div style={imageCarouselEmptyStyle}>Add slides</div>
           )}
 
           <div style={imageCarouselOverlayRowStyle}>
             {visibleCaption ? <div style={imageCarouselCaptionStyle}>{visibleCaption}</div> : <div />}
-            {showPaginationDots ? (
+            {showPaginationDots && slides.length > 1 ? (
               <div style={imageCarouselPaginationWrapStyle}>
                 {slides.map((_, index) => (
                   <button
@@ -224,7 +245,7 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
                 }}
                 style={buildImageCarouselPrevButtonStyle(accent)}
               >
-                Prev
+                ‹ Prev
               </button>
             ) : null}
             {showNextButton ? (
@@ -237,7 +258,7 @@ function ImageCarouselModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
                 }}
                 style={buildImageCarouselNextButtonStyle(accent)}
               >
-                Next
+                Next ›
               </button>
             ) : null}
           </div>
