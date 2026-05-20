@@ -105,22 +105,14 @@ export function renderLegacyWidgetExport(context: ExportRenderContext): string {
     `height:${frame.height}px`,
     `transform:rotate(${frame.rotation}deg)`,
     `opacity:${Number(style.opacity ?? 1)}`,
-    'display:flex',
-    'align-items:center',
-    'justify-content:center',
     'overflow:hidden',
     'box-sizing:border-box',
-    `border-radius:${Number(style.borderRadius ?? 12)}px`,
-    `background:${String(style.backgroundColor ?? 'transparent')}`,
-    `color:${String(style.color ?? '#ffffff')}`,
-    `font-size:${Number(style.fontSize ?? 18)}px`,
-    `font-weight:${Number(style.fontWeight ?? 700)}`,
-    `border:1px solid ${String(style.borderColor ?? 'rgba(255,255,255,0.14)')}`,
-    'padding:8px',
-    'text-align:center',
+    'background:transparent',
+    'border:none',
+    'pointer-events:none',
   ].join(';');
 
-  return `<div class="widget widget-module" data-widget-id="${context.node.id}" style="${base};flex-direction:column;gap:6px;"><strong>${escapeHtml(context.node.name)}</strong><span style="font-size:12px;opacity:.8;">${escapeHtml(context.node.type)}</span></div>`;
+  return `<div class="widget widget-module" data-widget-id="${context.node.id}" style="${base}"></div>`;
 }
 
 export function renderWidgetExport(context: ExportRenderContext): string {
