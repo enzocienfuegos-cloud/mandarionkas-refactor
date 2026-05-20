@@ -417,6 +417,14 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     runScratchRevealRevealAnimation(revealMediaRef.current, revealAnimationPreset, revealAnimationDurationMs, revealAnimationDelayMs);
   }, [afterImage, revealAnimationDelayMs, revealAnimationDurationMs, revealAnimationPreset, revealAnimationTick]);
 
+  // ── Reveal background (image mode only) — must be before any early return ──
+  // Rules of Hooks: hooks cannot be called after conditional returns.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const revealBackground = useMemo(
+    () => (afterImage ? undefined : `linear-gradient(135deg, ${accent}22, var(--white-a-12))`),
+    [afterImage, accent],
+  );
+
   // ── Scratch erase ──────────────────────────────────────────────────────────
   const scratchAtEvent = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -451,11 +459,9 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
     } else {
       // Overlay modes: disappear entirely so DOM layers below are fully visible
       setRevealed(true);
-      // Scene mode: also trigger scene transition
-      if (revealMode === 'scene') {
-        const targetSceneId = String(ctxRef.current.widgetsById?.[node.id]
-          ? (node.props.revealTargetSceneId ?? '')
-          : '').trim();
+      // Scene mode: trigger scene transition (only in preview mode)
+      if (revealMode === 'scene' && previewMode) {
+        const targetSceneId = String(node.props.revealTargetSceneId ?? '').trim();
         if (targetSceneId) {
           console.log('[scratch] scene transition →', targetSceneId);
           ctxRef.current.goToScene?.(targetSceneId);
@@ -510,12 +516,16 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
 
   // ── Render: overlay modes ──────────────────────────────────────────────────
   if (isOverlayMode) {
+    const editorHint =
+      revealMode === 'layers-below'
+        ? '↓ Capa de scratch — coloca capas animadas debajo de este widget'
+        : !String(node.props.revealTargetSceneId ?? '').trim()
+          ? '⚠ Selecciona una escena destino en el inspector'
+          : '↓ Capa de scratch — al completar, transiciona a otra escena';
     return (
       <div style={scratchOverlayShell}>
         {!previewMode && (
-          <div style={scratchEditorHintStyle}>
-            {revealMode === 'layers-below' ? '↓ Scratch cover · reveals layers below' : '↓ Scratch cover · transitions to scene'}
-          </div>
+          <div style={scratchEditorHintStyle}>{editorHint}</div>
         )}
         <canvas
           ref={canvasRef}
@@ -531,11 +541,6 @@ function ScratchRevealModuleRenderer({ node, ctx }: { node: WidgetNode; ctx: Ren
   }
 
   // ── Render: image mode ─────────────────────────────────────────────────────
-  const revealBackground = useMemo(() => (
-    afterImage ? undefined : `linear-gradient(135deg, ${accent}22, var(--white-a-12))`
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [afterImage, accent]);
-
   return (
     <div style={buildImageModeShell(node, ctx, revealBackground ?? 'var(--neutral-slate-900)')}>
       {afterImage ? <img ref={revealMediaRef} src={afterImage} alt={revealLabel} decoding="async" style={scratchRevealMediaStyle} /> : null}
