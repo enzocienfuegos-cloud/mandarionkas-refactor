@@ -23,6 +23,10 @@ export function DragProvider({ children }: { children: React.ReactNode }): JSX.E
     const handlePointerUp = (e: PointerEvent) => {
       const state = store.getState();
       if (!state || e.pointerId !== state.pointerId) return;
+      // Refresh the drop target at the exact release position — the last pointermove
+      // may have been a few pixels away (common on touch where events fire less frequently).
+      const finalDropTargetId = hitTest.hitTest(e.clientX, e.clientY);
+      store.setDropTarget(finalDropTargetId);
       hitTest.stopDrag();
       store.end('commit');
     };

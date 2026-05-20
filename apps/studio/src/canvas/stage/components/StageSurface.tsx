@@ -564,6 +564,9 @@ export function StageSurface({
       transformOrigin: 'top left',
       opacity: sceneTransitionOpacity(sceneTransitionType, sceneTransitionActive),
       transition: `transform ${transitionDuration}ms ease, opacity ${transitionDuration}ms ease`,
+      // Prevent the browser from cancelling custom drag gestures with pointercancel
+      // (e.g. when a drag moves over areas that would otherwise trigger scroll).
+      touchAction: previewMode ? 'none' : undefined,
     };
   }
 
