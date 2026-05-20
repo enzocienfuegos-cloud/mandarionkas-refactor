@@ -159,8 +159,9 @@ function parseDragTokenSpecs(raw: unknown): DragTokenSpec[] {
       if (!item || typeof item !== 'object') return null;
       const token = item as Record<string, unknown>;
       const id = typeof token.id === 'string' ? token.id.trim() : '';
+      if (!id) return null;
+      // label may be empty (world-cup template leaves it blank; normalisation uses id as label)
       const label = typeof token.label === 'string' ? token.label.trim() : '';
-      if (!id || !label) return null;
       return {
         id,
         label,

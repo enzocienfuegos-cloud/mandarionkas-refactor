@@ -19,7 +19,8 @@ export function renderImageExport(node: WidgetNode, kind: 'image' | 'hero-image'
   const frame = node.frame;
   const style = node.style ?? {};
   const borderRadius = Number(style.borderRadius ?? (kind === 'hero-image' ? 20 : 12));
-  const src = typeof node.props.src === 'string' ? (assetPathMap[node.props.src] ?? node.props.src) : '';
+  const originalSrc = typeof node.props.src === 'string' ? node.props.src : '';
+  const src = originalSrc ? (assetPathMap[originalSrc] ?? originalSrc) : '';
   const alt = escapeHtml(String(node.props.alt ?? (kind === 'hero-image' ? 'Hero image' : 'Image')));
   const fit = kind === 'hero-image' ? 'cover' : String(node.props.fit ?? node.style.fit ?? 'cover');
   const boxShadow = escapeHtml(shadowConfigToBoxShadow(readShadowFromStyle(node.style)));
@@ -37,7 +38,13 @@ export function renderImageExport(node: WidgetNode, kind: 'image' | 'hero-image'
     `background:${escapeHtml(String(style.backgroundColor ?? 'transparent'))}`,
     `box-shadow:${boxShadow}`,
   ].join(';');
-  return `<div class="widget widget-${kind}" data-widget-id="${node.id}" style="${base}"><img src="${escapeHtml(src)}" alt="${alt}" style="width:100%;height:100%;display:block;object-fit:${escapeHtml(fit)};" /></div>`;
+  // When the asset is mapped to a local packaged path, add a CDN fallback so the image
+  // still loads if the local file is missing (e.g. when the ZIP is opened without
+  // having gone through the full remote-asset download step).
+  const onerrorAttr = src !== originalSrc && originalSrc
+    ? ` onerror="this.onerror=null;this.src='${escapeHtml(originalSrc)}'"`
+    : '';
+  return `<div class="widget widget-${kind}" data-widget-id="${node.id}" style="${base}"><img src="${escapeHtml(src)}" alt="${alt}"${onerrorAttr} style="width:100%;height:100%;display:block;object-fit:${escapeHtml(fit)};" /></div>`;
 }
 
 export function renderVideoExport(node: WidgetNode): string {
