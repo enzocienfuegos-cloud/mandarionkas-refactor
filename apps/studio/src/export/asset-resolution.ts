@@ -50,6 +50,14 @@ type DragTokenSpec = {
   accentColor?: string;
   baseAssetId?: string;
   baseImageUrl?: string;
+  // Per-token display settings — must be preserved through asset resolution
+  targetSceneId?: string;
+  targetActionId?: string;
+  baseImageFit?: string;
+  baseImageScalePercent?: number;
+  baseImageFocalX?: number;
+  baseImageFocalY?: number;
+  [key: string]: unknown;
 };
 
 type AssetPropBinding = {
@@ -162,7 +170,12 @@ function parseDragTokenSpecs(raw: unknown): DragTokenSpec[] {
       if (!id) return null;
       // label may be empty (world-cup template leaves it blank; normalisation uses id as label)
       const label = typeof token.label === 'string' ? token.label.trim() : '';
+      // Spread ALL original fields first so per-token settings (baseImageFit,
+      // baseImageScalePercent, baseImageFocalX/Y, targetSceneId, targetActionId, etc.)
+      // are preserved through asset resolution. Only override the fields that need
+      // normalisation for asset delivery.
       return {
+        ...token,
         id,
         label,
         assetId: readAssetId(token.assetId),
