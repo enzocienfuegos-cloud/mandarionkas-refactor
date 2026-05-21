@@ -8,6 +8,29 @@ type Props = {
   variant?: 'text' | 'element';
 };
 
+/**
+ * One-click shadow presets. Each entry is a plain ShadowConfig patch applied
+ * via the existing `update()` call — no new fields, no hardcoded behaviour.
+ * All controls remain fully editable after applying a preset.
+ */
+const SHADOW_PRESETS: Array<{ label: string; title: string; patch: Partial<ShadowConfig> }> = [
+  {
+    label: 'Soft under',
+    title: 'Diffused shadow below the element. Negative spread hides boxy corners.',
+    patch: { offsetX: 0, offsetY: 6, blur: 22, spread: -8, layers: 3, color: 'rgba(0,0,0,0.32)', inset: false },
+  },
+  {
+    label: 'Glow',
+    title: 'Symmetric ambient glow around the element.',
+    patch: { offsetX: 0, offsetY: 0, blur: 24, spread: 0, layers: 2, color: 'rgba(0,0,0,0.28)', inset: false },
+  },
+  {
+    label: 'Sharp',
+    title: 'Small, tight shadow for a crisp lifted look.',
+    patch: { offsetX: 2, offsetY: 4, blur: 8, spread: 0, layers: 1, color: 'rgba(0,0,0,0.30)', inset: false },
+  },
+];
+
 export function ShadowSection({ node, variant = 'element' }: Props): JSX.Element {
   const { updateWidgetStyle } = useWidgetActions();
   const shadow = readShadowFromStyle(node.style);
@@ -30,6 +53,31 @@ export function ShadowSection({ node, variant = 'element' }: Props): JSX.Element
         </label>
         {shadow.enabled ? (
           <>
+            {/* Presets row — only for element variant (not text) */}
+            {variant === 'element' ? (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {SHADOW_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    title={preset.title}
+                    onClick={() => update(preset.patch)}
+                    style={{
+                      fontSize: 11,
+                      padding: '3px 8px',
+                      borderRadius: 6,
+                      border: '1px solid var(--surface-border, #333)',
+                      background: 'var(--surface-card, #1e2128)',
+                      color: 'var(--text-muted, #aaa)',
+                      cursor: 'pointer',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             <div className="fields-grid">
               <div>
                 <label>Offset X (px)</label>
