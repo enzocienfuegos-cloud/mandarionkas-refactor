@@ -37,6 +37,7 @@ function setSceneVisibility(sceneNodes: Element[], activeSceneIndex: number): vo
   });
 }
 
+
 function emitSceneEvent(
   engine: AnimationEngine,
   trigger: 'load' | 'scene-enter' | 'scene-exit',
@@ -68,6 +69,7 @@ export function createSceneManager({ runtimeModel, engine }: SceneManagerOptions
   let activeSceneIndex = 0;
   let sceneTimer = 0;
   let transitionTimer = 0;
+  let animTimer = 0;
   let sceneStartedAtMs = nowMs();
   let transitionRevision = 0;
 
@@ -85,6 +87,23 @@ export function createSceneManager({ runtimeModel, engine }: SceneManagerOptions
     if (!transitionTimer) return;
     window.clearTimeout(transitionTimer);
     transitionTimer = 0;
+  };
+
+  const clearAnimTimer = (): void => {
+    if (!animTimer) return;
+    window.clearTimeout(animTimer);
+    animTimer = 0;
+  };
+
+  /** Strip any leftover inline animation styles from all scene nodes. */
+  const cleanupSceneAnimStyles = (): void => {
+    sceneNodes.forEach((node) => {
+      const el = node as HTMLElement;
+      el.style.transition = '';
+      el.style.opacity = '';
+      el.style.transform = '';
+      el.style.zIndex = '';
+    });
   };
 
   const scheduleSceneAdvance = (): void => {
@@ -118,11 +137,56 @@ export function createSceneManager({ runtimeModel, engine }: SceneManagerOptions
     const previousScene = runtimeModel.scenes[previousIndex];
     const finalizeSceneChange = (targetIndex: number, revision: number): void => {
       if (revision !== transitionRevision) return;
+
+      // Cancel any in-flight visual animation and strip leftover styles
+      clearAnimTimer();
+      cleanupSceneAnimStyles();
+
       activeSceneIndex = targetIndex;
       sceneStartedAtMs = nowMs();
       engine.resetEventClocks();
       engine.seekScene(0);
-      setSceneVisibility(sceneNodes, activeSceneIndex);
+
+      const nextScene = runtimeModel.scenes[targetIndex];
+      const isRealTransition = targetIndex !== previousIndex;
+      const transitionCfg = isRealTransition ? nextScene?.transition : undefined;
+      const transitionType = transitionCfg?.type ?? 'cut';
+
+      if (isRealTransition && transitionCfg && transitionType !== 'cut') {
+        // Show both scenes during the visual transition
+        sceneNodes.forEach((node, i) => {
+          const el = node as HTMLElement;
+          el.style.display = (i === previousIndex || i === targetIndex) ? 'block' : 'none';
+        });
+
+        const nextEl = sceneNodes[targetIndex] as HTMLElement;
+        const durationMs = Math.max(120, transitionCfg.durationMs);
+        nextEl.style.zIndex = '9999';
+
+        if (transitionType === 'fade') {
+          nextEl.style.opacity = '0';
+          nextEl.style.transition = 'none';
+          void nextEl.offsetHeight;
+          nextEl.style.transition = `opacity ${durationMs}ms ease`;
+          nextEl.style.opacity = '1';
+        } else if (transitionType === 'slide-left' || transitionType === 'slide-right') {
+          const fromX = transitionType === 'slide-left' ? '100%' : '-100%';
+          nextEl.style.transform = `translateX(${fromX})`;
+          nextEl.style.transition = 'none';
+          void nextEl.offsetHeight;
+          nextEl.style.transition = `transform ${durationMs}ms ease`;
+          nextEl.style.transform = 'translateX(0)';
+        }
+
+        animTimer = window.setTimeout(() => {
+          animTimer = 0;
+          cleanupSceneAnimStyles();
+          setSceneVisibility(sceneNodes, targetIndex);
+        }, durationMs + 60);
+      } else {
+        setSceneVisibility(sceneNodes, activeSceneIndex);
+      }
+
       gsap.ticker.remove(tick);
       gsap.ticker.add(tick);
       scheduleSceneAdvance();
@@ -190,6 +254,7 @@ export function createSceneManager({ runtimeModel, engine }: SceneManagerOptions
     dispose: () => {
       clearSceneTimer();
       clearTransitionTimer();
+      clearAnimTimer();
       gsap.ticker.remove(tick);
     },
   };

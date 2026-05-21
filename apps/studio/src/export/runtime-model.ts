@@ -54,6 +54,7 @@ export type ExportRuntimeScene = {
   order: number;
   durationMs: number;
   nextSceneId?: string;
+  transition?: { type: string; durationMs: number };
   widgets: ExportRuntimeWidget[];
 };
 
@@ -205,6 +206,7 @@ export function buildExportRuntimeModelFromPortable(project: PortableExportProje
     order: scene.order,
     durationMs: scene.durationMs,
     nextSceneId: scene.flow?.nextSceneId,
+    transition: scene.transition ?? undefined,
     widgets: scene.widgets.map(buildRuntimeWidget),
   }));
 
