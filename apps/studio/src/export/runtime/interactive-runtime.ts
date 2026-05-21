@@ -552,6 +552,20 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
 
   if (!tokenEl || (slideX === 0 && slideY === 0)) return () => undefined;
 
+  // Lift token and its widget shell above all other widgets during animation
+  const liftStack: Array<{ el: HTMLElement; prev: string }> = [];
+  const liftEl = (el: HTMLElement | null) => {
+    if (!el) return;
+    liftStack.push({ el, prev: el.style.zIndex });
+    el.style.zIndex = '9999';
+  };
+  liftEl(tokenEl);
+  let ancestor: HTMLElement | null = tokenEl.parentElement;
+  while (ancestor && ancestor !== document.body) {
+    if (ancestor.style.zIndex) { liftEl(ancestor); break; }
+    ancestor = ancestor.parentElement;
+  }
+
   let cancelled = false;
   let cycles = 0;
   let animTimer = 0;
@@ -569,6 +583,10 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     window.clearTimeout(animTimer);
     document.removeEventListener('pointerdown', cancel);
     restore();
+    // Restore z-index after transition completes
+    window.setTimeout(() => {
+      liftStack.forEach(({ el, prev }) => { el.style.zIndex = prev; });
+    }, 340);
   };
 
   document.addEventListener('pointerdown', cancel, { once: true });

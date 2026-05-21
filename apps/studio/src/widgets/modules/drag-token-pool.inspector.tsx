@@ -75,6 +75,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const incentivatorDelayMs = Math.max(0, Number(node.props.incentivatorDelayMs ?? 1000));
   const incentivatorOffsetX = Number(node.props.incentivatorOffsetX ?? 0);
   const incentivatorOffsetY = Number(node.props.incentivatorOffsetY ?? 0);
+  const incentivatorInvert = node.props.incentivatorInvert === true;
 
   useEffect(() => {
     if (!platform.session.isAuthenticated || !platform.session.sessionId) {
@@ -619,6 +620,14 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
               </label>
             </div>
             <small className="muted">Pixels the token slides from its rest position. Negative X = left, positive Y = down.</small>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={incentivatorInvert}
+                onChange={(e) => updateWidgetProps(node.id, { incentivatorInvert: e.target.checked })}
+              />
+              Invert direction
+            </label>
             <div className="fields-grid">
               <label>
                 Repeat (0 = loop)
@@ -652,15 +661,37 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                   `[data-widget-id="${node.id}"] [data-token-id="${incentivatorTokenId}"]`,
                 );
                 if (!tokenEl) return;
+                const dx = incentivatorInvert ? -incentivatorOffsetX : incentivatorOffsetX;
+                const dy = incentivatorInvert ? -incentivatorOffsetY : incentivatorOffsetY;
+
+                // Lift the token and its nearest z-index ancestor so it renders above all sibling widgets
+                const liftStack: Array<{ el: HTMLElement; prev: string }> = [];
+                const liftEl = (el: HTMLElement | null) => {
+                  if (!el) return;
+                  liftStack.push({ el, prev: el.style.zIndex });
+                  el.style.zIndex = '9999';
+                };
+                liftEl(tokenEl);
+                // Walk up to find the widget shell (first ancestor with an inline z-index)
+                let ancestor: HTMLElement | null = tokenEl.parentElement;
+                while (ancestor && ancestor !== document.body) {
+                  if (ancestor.style.zIndex) { liftEl(ancestor); break; }
+                  ancestor = ancestor.parentElement;
+                }
+
                 tokenEl.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, opacity 0.3s';
-                tokenEl.style.transform = `translate(${incentivatorOffsetX}px, ${incentivatorOffsetY}px) scale(1.1)`;
+                tokenEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.1)`;
                 tokenEl.style.boxShadow = '0 10px 28px rgba(0,0,0,0.45)';
                 tokenEl.style.opacity = '0.88';
+
                 window.setTimeout(() => {
                   tokenEl.style.transition = 'transform 0.32s ease-out, box-shadow 0.28s, opacity 0.28s';
                   tokenEl.style.transform = '';
                   tokenEl.style.boxShadow = '';
                   tokenEl.style.opacity = '';
+                  window.setTimeout(() => {
+                    liftStack.forEach(({ el, prev }) => { el.style.zIndex = prev; });
+                  }, 340);
                 }, 620);
               }}
             >
