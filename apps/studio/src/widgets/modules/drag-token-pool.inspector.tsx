@@ -73,6 +73,8 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const incentivatorTokenId = String(node.props.incentivatorTokenId ?? '');
   const incentivatorRepeat = Math.max(0, Number(node.props.incentivatorRepeat ?? 2));
   const incentivatorDelayMs = Math.max(0, Number(node.props.incentivatorDelayMs ?? 1000));
+  const incentivatorOffsetX = Number(node.props.incentivatorOffsetX ?? 0);
+  const incentivatorOffsetY = Number(node.props.incentivatorOffsetY ?? 0);
 
   useEffect(() => {
     if (!platform.session.isAuthenticated || !platform.session.sessionId) {
@@ -598,6 +600,27 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
             </label>
             <div className="fields-grid">
               <label>
+                Offset X (px)
+                <input
+                  type="number"
+                  step={4}
+                  value={incentivatorOffsetX}
+                  onChange={(e) => updateWidgetProps(node.id, { incentivatorOffsetX: Number(e.target.value) })}
+                />
+              </label>
+              <label>
+                Offset Y (px)
+                <input
+                  type="number"
+                  step={4}
+                  value={incentivatorOffsetY}
+                  onChange={(e) => updateWidgetProps(node.id, { incentivatorOffsetY: Number(e.target.value) })}
+                />
+              </label>
+            </div>
+            <small className="muted">Pixels the token slides from its rest position. Negative X = left, positive Y = down.</small>
+            <div className="fields-grid">
+              <label>
                 Repeat (0 = loop)
                 <input
                   type="number"
@@ -619,6 +642,30 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 />
               </label>
             </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="compact-action"
+              disabled={!incentivatorTokenId || (incentivatorOffsetX === 0 && incentivatorOffsetY === 0)}
+              onClick={() => {
+                const tokenEl = document.querySelector<HTMLElement>(
+                  `[data-widget-id="${node.id}"] [data-token-id="${incentivatorTokenId}"]`,
+                );
+                if (!tokenEl) return;
+                tokenEl.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, opacity 0.3s';
+                tokenEl.style.transform = `translate(${incentivatorOffsetX}px, ${incentivatorOffsetY}px) scale(1.1)`;
+                tokenEl.style.boxShadow = '0 10px 28px rgba(0,0,0,0.45)';
+                tokenEl.style.opacity = '0.88';
+                window.setTimeout(() => {
+                  tokenEl.style.transition = 'transform 0.32s ease-out, box-shadow 0.28s, opacity 0.28s';
+                  tokenEl.style.transform = '';
+                  tokenEl.style.boxShadow = '';
+                  tokenEl.style.opacity = '';
+                }, 620);
+              }}
+            >
+              ▶ Preview animation
+            </Button>
           </>
         )}
       </div>

@@ -149,6 +149,7 @@ function DragTokenItem({
   return (
     <div
       onPointerDown={handlePointerDown}
+      data-token-id={token.id}
       style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, effectiveRadius, hideFrame, isDragging, hasTokenImage)}
     >
       <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
@@ -180,7 +181,7 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
   const radius = tokenShapeToBorderRadius(tokenShape);
 
   return (
-    <div style={dragTokenPoolShellStyle}>
+    <div style={dragTokenPoolShellStyle} data-widget-id={node.id}>
       <div style={{ ...dragTokenPoolTrackBaseStyle, gap }}>
         {tokens.map((token) => (
           <DragTokenItem

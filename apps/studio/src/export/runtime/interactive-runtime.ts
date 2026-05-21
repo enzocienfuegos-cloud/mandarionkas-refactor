@@ -543,25 +543,21 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
   const tokenId = poolRoot.getAttribute('data-incentivator-token-id') || '';
   const maxCycles = Math.max(0, Number(poolRoot.getAttribute('data-incentivator-repeat') || 2));
   const delayMs = Math.max(0, Number(poolRoot.getAttribute('data-incentivator-delay') || 1000));
-  const dropTargetId = poolRoot.getAttribute('data-drop-target-id') || '';
+  const slideX = Number(poolRoot.getAttribute('data-incentivator-offset-x') || 0);
+  const slideY = Number(poolRoot.getAttribute('data-incentivator-offset-y') || 0);
 
   const tokenEl = tokenId
     ? poolRoot.querySelector<HTMLElement>(`[data-token-id="${tokenId}"]`)
     : poolRoot.querySelector<HTMLElement>('[data-smx-action="token-drag"]');
-  const dropZone = dropTargetId
-    ? (document.querySelector<HTMLElement>(`[data-drop-zone-id="${dropTargetId}"]`) ?? document.querySelector<HTMLElement>('[data-smx-action="drop-zone"]'))
-    : document.querySelector<HTMLElement>('[data-smx-action="drop-zone"]');
 
-  if (!tokenEl || !dropZone) return () => undefined;
+  if (!tokenEl || (slideX === 0 && slideY === 0)) return () => undefined;
 
   let cancelled = false;
   let cycles = 0;
   let animTimer = 0;
 
-  const restore = (fast = false) => {
-    tokenEl.style.transition = fast
-      ? 'none'
-      : 'transform 0.32s ease-out, box-shadow 0.28s, opacity 0.28s';
+  const restore = () => {
+    tokenEl.style.transition = 'transform 0.32s ease-out, box-shadow 0.28s, opacity 0.28s';
     tokenEl.style.transform = '';
     tokenEl.style.boxShadow = '';
     tokenEl.style.opacity = '';
@@ -581,14 +577,7 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     if (cancelled) return;
     if (maxCycles > 0 && cycles >= maxCycles) { cancel(); return; }
 
-    const tokenRect = tokenEl.getBoundingClientRect();
-    const dropRect = dropZone.getBoundingClientRect();
-    const dx = (dropRect.left + dropRect.width / 2) - (tokenRect.left + tokenRect.width / 2);
-    const dy = (dropRect.top + dropRect.height / 2) - (tokenRect.top + tokenRect.height / 2);
-    const slideX = dx * 0.45;
-    const slideY = dy * 0.45;
-
-    // Phase 1 — lift and slide toward drop zone
+    // Phase 1 — lift and slide to configured offset
     tokenEl.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, opacity 0.3s';
     tokenEl.style.transform = `translate(${slideX}px, ${slideY}px) scale(1.1)`;
     tokenEl.style.boxShadow = '0 10px 28px rgba(0,0,0,0.45)';
@@ -598,7 +587,7 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     animTimer = window.setTimeout(() => {
       if (cancelled) return;
       restore();
-      // Phase 3 — pause, then next cycle
+      // Phase 3 — brief pause, then next cycle
       animTimer = window.setTimeout(() => {
         cycles += 1;
         runCycle();

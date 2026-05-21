@@ -118,6 +118,8 @@ export function renderDragTokenPoolExport(node: WidgetNode): string {
   const incentivatorTokenId = String(node.props.incentivatorTokenId ?? '').trim();
   const incentivatorRepeat = Math.max(0, Number(node.props.incentivatorRepeat ?? 2));
   const incentivatorDelayMs = Math.max(0, Number(node.props.incentivatorDelayMs ?? 1000));
+  const incentivatorOffsetX = Number(node.props.incentivatorOffsetX ?? 0);
+  const incentivatorOffsetY = Number(node.props.incentivatorOffsetY ?? 0);
 
   const shellStyle = [
     `position:absolute`,
@@ -159,7 +161,7 @@ export function renderDragTokenPoolExport(node: WidgetNode): string {
     .join('');
 
   const incentivatorAttrs = incentivatorEnabled
-    ? ` data-incentivator-enabled="true" data-incentivator-token-id="${escapeHtml(incentivatorTokenId)}" data-incentivator-repeat="${incentivatorRepeat}" data-incentivator-delay="${incentivatorDelayMs}"`
+    ? ` data-incentivator-enabled="true" data-incentivator-token-id="${escapeHtml(incentivatorTokenId)}" data-incentivator-repeat="${incentivatorRepeat}" data-incentivator-delay="${incentivatorDelayMs}" data-incentivator-offset-x="${incentivatorOffsetX}" data-incentivator-offset-y="${incentivatorOffsetY}"`
     : '';
 
   return `<div class="widget widget-drag-token-pool" data-widget-id="${escapeHtml(node.id)}" data-drop-target-id="${escapeHtml(dropTargetId)}"${incentivatorAttrs} style="${shellStyle}"><div style="${trackStyle}">${tokenHtml}</div></div>`;
