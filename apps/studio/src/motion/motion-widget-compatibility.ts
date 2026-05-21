@@ -10,7 +10,9 @@ function supportsWidgetCapability(
   const definition = getWidgetDefinition(widget.type);
   const capabilities = definition.capabilities;
   const explicit = capabilityKey === 'supportsHoverMotion' ? capabilities?.supportsHoverMotion : capabilities?.supportsMotion;
-  return explicit === true;
+  // Default to true — any widget supports motion unless explicitly opted out with false.
+  // Widgets that want to block motion (e.g. group's hover motion) set the flag to false.
+  return explicit !== false;
 }
 
 export function widgetSupportsMotion(widget: Pick<WidgetNode, 'type'>, template?: MotionTemplate): boolean {

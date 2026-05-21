@@ -57,7 +57,6 @@ const DEFAULT_HOVER_CONFIG: Omit<HoverMotionConfig, 'preset'> = {
   scale: 1.04,
 };
 
-export const ANIMATION_PRESET_WIDGET_TYPES = new Set<WidgetNode['type']>(['text', 'image', 'cta', 'buttons', 'group']);
 export function supportsAnimationPresets(widget: WidgetNode): boolean {
   return widgetSupportsMotion(widget);
 }

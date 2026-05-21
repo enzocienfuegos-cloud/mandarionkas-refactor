@@ -103,6 +103,8 @@ function resolveModuleCapabilities(spec: ModuleSpec): WidgetCapabilities {
   const analyticsTypes = new Set<WidgetType>(['interactive-video']);
 
   return {
+    supportsMotion: true,
+    supportsHoverMotion: true,
     hasFill: true,
     isMedia: spec.category === 'media' || imageAssetSwapTypes.has(spec.type) || videoAssetSwapTypes.has(spec.type),
     isInteractive: spec.category === 'interactive',
@@ -118,6 +120,7 @@ function resolveModuleCapabilities(spec: ModuleSpec): WidgetCapabilities {
       || spec.capabilities?.acceptsAssetSwap,
     hasAccentColor: spec.capabilities?.hasAccentColor,
     acceptsFontAsset: spec.capabilities?.acceptsFontAsset,
+    // Spread last so individual module specs can override specific flags (e.g. supportsHoverMotion: false)
     ...spec.capabilities,
   };
 }
