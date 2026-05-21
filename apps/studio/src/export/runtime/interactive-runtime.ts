@@ -454,10 +454,83 @@ function mountDragTokenRuntime(sceneManager: Pick<SceneManager, 'findSceneIndexB
   };
 }
 
+/**
+ * Studio-wide end card trigger.
+ *
+ * Reads `runtimeModel.canvas.endCardTrigger` and sets up:
+ *   • a scene-visit counter (incremented on every showScene call via MutationObserver
+ *     watching the active-scene attribute on the stage root)
+ *   • an elapsed-time timer (window.setInterval at 1-second resolution)
+ *
+ * When the first condition fires it cancels the other, waits `delayMs`, then calls
+ * `sceneManager.showScene(targetIndex)` exactly once. Both trigger legs are 0-based
+ * threshold guards so setting either to 0 disables that leg.
+ *
+ * Returns a dispose function that clears all timers / observers.
+ */
+function mountEndCardTriggerRuntime(
+  sceneManager: Pick<SceneManager, 'findSceneIndexById' | 'showScene'>,
+  runtimeModel: ExportRuntimeModel,
+): () => void {
+  const cfg = (runtimeModel.canvas as { endCardTrigger?: import('../../domain/document/types').EndCardTriggerConfig | undefined }).endCardTrigger;
+  if (!cfg?.enabled) return () => undefined;
+
+  const { targetSceneId, afterSceneCount, afterSeconds, delayMs } = cfg;
+  if (!targetSceneId) return () => undefined;
+  if (afterSceneCount <= 0 && afterSeconds <= 0) return () => undefined;
+
+  const targetIndex = sceneManager.findSceneIndexById(targetSceneId);
+  if (targetIndex < 0) return () => undefined;
+
+  let fired = false;
+  let secondsElapsed = 0;
+  let scenesVisited = 0;
+
+  const fire = () => {
+    if (fired) return;
+    fired = true;
+    cleanup();
+    const navigate = () => sceneManager.showScene(targetIndex);
+    if (delayMs > 0) {
+      window.setTimeout(navigate, delayMs);
+    } else {
+      navigate();
+    }
+  };
+
+  // --- scene-visit counter via MutationObserver on [data-active-scene] ---
+  let observer: MutationObserver | null = null;
+  if (afterSceneCount > 0) {
+    const stageRoot = document.querySelector<HTMLElement>('[data-smx-stage]') ?? document.body;
+    observer = new MutationObserver(() => {
+      scenesVisited += 1;
+      if (scenesVisited >= afterSceneCount) fire();
+    });
+    observer.observe(stageRoot, { attributes: true, attributeFilter: ['data-active-scene'], subtree: true });
+  }
+
+  // --- elapsed-time counter ---
+  let intervalId = 0;
+  if (afterSeconds > 0) {
+    intervalId = window.setInterval(() => {
+      secondsElapsed += 1;
+      if (secondsElapsed >= afterSeconds) fire();
+    }, 1000);
+  }
+
+  function cleanup() {
+    if (observer) { observer.disconnect(); observer = null; }
+    if (intervalId) { window.clearInterval(intervalId); intervalId = 0; }
+  }
+
+  return cleanup;
+}
+
 export function mountInteractiveRuntime({ runtimeModel, performExit, resolveExitUrl, sceneManager }: InteractiveRuntimeOptions): { dispose(): void } {
   const shoppableIntervals = new Set<number>();
   const speedTestRafs = new Map<string, number>();
   const disposeDragRuntime = mountDragTokenRuntime(sceneManager, runtimeModel);
+  const disposeEndCardTrigger = mountEndCardTriggerRuntime(sceneManager, runtimeModel);
 
   const handleClick = (event: MouseEvent): void => {
     if (!isHTMLElement(event.target)) return;
@@ -626,6 +699,7 @@ export function mountInteractiveRuntime({ runtimeModel, performExit, resolveExit
       document.removeEventListener('change', handleChange);
       document.removeEventListener('submit', handleSubmit);
       disposeDragRuntime();
+      disposeEndCardTrigger();
       shoppableIntervals.forEach((intervalId) => window.clearInterval(intervalId));
       shoppableIntervals.clear();
       speedTestRafs.forEach((rafId) => window.cancelAnimationFrame(rafId));

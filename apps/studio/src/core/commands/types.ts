@@ -28,6 +28,7 @@ export type StudioCommand =
   | { type: 'DELETE_CANVAS_VARIANT'; variantId: string }
   | { type: 'SET_MASTER_CANVAS_VARIANT'; variantId: string }
   | { type: 'UPDATE_CANVAS_BACKGROUND'; backgroundColor: string }
+  | { type: 'UPDATE_END_CARD_TRIGGER'; patch: Partial<import('../../domain/document/types').EndCardTriggerConfig> }
   | { type: 'SET_ZOOM'; zoom: number }
   | { type: 'UPDATE_WIDGET_NAME'; widgetId: string; name: string }
   | { type: 'UPDATE_WIDGET_FRAME'; widgetId: string; patch: Partial<WidgetNode['frame']> }

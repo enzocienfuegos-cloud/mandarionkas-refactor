@@ -1,6 +1,7 @@
 import { ApprovalsSection } from './sections/document/ApprovalsSection';
 import { BrandKitSection } from './sections/document/BrandKitSection';
 import { CanvasSection } from './sections/document/CanvasSection';
+import { EndCardTriggerSection } from './sections/document/EndCardTriggerSection';
 import { CommentsSection } from './sections/document/CommentsSection';
 import { DiagnosticsSection } from './sections/document/DiagnosticsSection';
 import { FeedCatalogSection } from './sections/document/FeedCatalogSection';
@@ -20,6 +21,7 @@ function CanvasRuntimePanel(): JSX.Element {
   return (
     <>
       <CanvasSection />
+      <EndCardTriggerSection />
       <RuntimeSection />
     </>
   );

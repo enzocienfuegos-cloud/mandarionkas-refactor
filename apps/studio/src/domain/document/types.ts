@@ -181,7 +181,24 @@ export type SharedWidgetLayer = {
 };
 export type WidgetNode = { id: string; type: WidgetType; name: string; sceneId: string; zIndex: number; hidden?: boolean; locked?: boolean; parentId?: string; childIds?: string[]; sharedLayerId?: string; frame: WidgetFrame; props: Record<string, unknown>; style: Record<string, unknown>; motion?: WidgetMotion; hoverMotion?: WidgetHoverMotion; bindings?: Record<string, WidgetBinding>; variants?: Partial<Record<VariantName, VariantOverride>>; conditions?: WidgetConditions; timeline: WidgetTimeline; };
 export type SceneNode = { id: string; name: string; order: number; widgetIds: string[]; durationMs: number; conditions?: SceneConditions; flow?: SceneFlow; transition?: SceneTransition; };
-export type CanvasNode = { width: number; height: number; backgroundColor: string; presetId?: string; };
+/**
+ * Studio-wide end card trigger. When enabled, the runtime automatically
+ * navigates to `targetSceneId` once the user has visited `afterSceneCount`
+ * distinct scenes OR `afterSeconds` total seconds have elapsed — whichever
+ * condition is met first. An optional `delayMs` holds the navigation off
+ * briefly so the current scene can finish gracefully.
+ */
+export type EndCardTriggerConfig = {
+  enabled: boolean;
+  targetSceneId: string;
+  /** Navigate after this many distinct scenes have been visited (0 = disabled). */
+  afterSceneCount: number;
+  /** Navigate after this many seconds of total elapsed time (0 = disabled). */
+  afterSeconds: number;
+  /** Milliseconds to wait after the condition is met before navigating. */
+  delayMs: number;
+};
+export type CanvasNode = { width: number; height: number; backgroundColor: string; presetId?: string; endCardTrigger?: EndCardTriggerConfig; };
 export type ReleaseTarget = 'generic-html5' | 'google-display' | 'gam-html5' | 'mraid' | 'meta-story' | 'tiktok-vertical' | 'vast-simid';
 export type QaStatus = 'draft' | 'ready-for-qa' | 'qa-passed';
 export type ReleaseSettings = {

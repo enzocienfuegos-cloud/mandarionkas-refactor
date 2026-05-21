@@ -62,6 +62,7 @@ export function useDocumentActions() {
     setMasterCanvasVariant: (variantId: string) => dispatch({ type: 'SET_MASTER_CANVAS_VARIANT', variantId }),
     updateCanvasSize: (width: number, height: number) => dispatch({ type: 'UPDATE_CANVAS_SIZE', width, height }),
     updateCanvasBackground: (backgroundColor: string) => dispatch({ type: 'UPDATE_CANVAS_BACKGROUND', backgroundColor }),
+    updateEndCardTrigger: (patch: Partial<import('../domain/document/types').EndCardTriggerConfig>) => dispatch({ type: 'UPDATE_END_CARD_TRIGGER', patch }),
     updatePlatformMetadata: (patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_DOCUMENT_PLATFORM_METADATA', patch }),
     updateReleaseSettings: (patch: Record<string, unknown>) => dispatch({ type: 'UPDATE_RELEASE_SETTINGS', patch }),
     applyDocumentVariantRules: (context: VariantContext, rules?: VariantRule[]) => dispatch({ type: 'APPLY_DOCUMENT_VARIANT_RULES', context, rules }),

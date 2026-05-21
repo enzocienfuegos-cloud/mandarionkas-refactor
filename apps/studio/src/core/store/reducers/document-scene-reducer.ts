@@ -172,6 +172,22 @@ export function documentSceneReducer(state: StudioState, command: StudioCommand)
       });
       return withDirty({ ...state, document: nextDocument });
     }
+    case 'UPDATE_END_CARD_TRIGGER': {
+      const existing = state.document.canvas.endCardTrigger ?? {
+        enabled: false,
+        targetSceneId: '',
+        afterSceneCount: 0,
+        afterSeconds: 0,
+        delayMs: 0,
+      };
+      return withDirty({
+        ...state,
+        document: {
+          ...state.document,
+          canvas: { ...state.document.canvas, endCardTrigger: { ...existing, ...command.patch } },
+        },
+      });
+    }
     case 'ADD_SCENE': {
       const order = state.document.scenes.length;
       const scene = createScene(order);
