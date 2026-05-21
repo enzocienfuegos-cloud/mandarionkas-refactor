@@ -73,6 +73,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const incentivatorTokenId = String(node.props.incentivatorTokenId ?? '');
   const incentivatorRepeat = Math.max(0, Number(node.props.incentivatorRepeat ?? 2));
   const incentivatorDelayMs = Math.max(0, Number(node.props.incentivatorDelayMs ?? 1000));
+  const incentivatorDurationMs = Math.max(100, Number(node.props.incentivatorDurationMs ?? 520));
   const incentivatorOffsetX = Number(node.props.incentivatorOffsetX ?? 0);
   const incentivatorOffsetY = Number(node.props.incentivatorOffsetY ?? 0);
   const incentivatorInvert = node.props.incentivatorInvert === true;
@@ -650,6 +651,17 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                   onChange={(e) => updateWidgetProps(node.id, { incentivatorDelayMs: Math.max(0, Number(e.target.value)) })}
                 />
               </label>
+              <label>
+                Speed (ms)
+                <input
+                  type="number"
+                  min={100}
+                  max={2000}
+                  step={50}
+                  value={incentivatorDurationMs}
+                  onChange={(e) => updateWidgetProps(node.id, { incentivatorDurationMs: Math.max(100, Number(e.target.value)) })}
+                />
+              </label>
             </div>
             <Button
               size="sm"
@@ -726,14 +738,17 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 // Force reflow so the browser registers the start state before transition begins
                 void ghost.offsetHeight;
 
-                ghost.style.transition = 'transform 0.52s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.42s ease-in 0.12s';
+                const dur = incentivatorDurationMs / 1000;
+                const fadeDur = (incentivatorDurationMs * 0.8) / 1000;
+                const fadeDelay = (incentivatorDurationMs * 0.23) / 1000;
+                ghost.style.transition = `transform ${dur}s cubic-bezier(0.25,0.46,0.45,0.94), opacity ${fadeDur}s ease-in ${fadeDelay}s`;
                 ghost.style.transform = `translate(${dx}px, ${dy}px) scale(1.08)`;
                 ghost.style.opacity = '0';
 
                 window.setTimeout(() => {
                   ghost.remove();
                   tokenEl.style.visibility = prevVisibility;
-                }, 820);
+                }, incentivatorDurationMs + 80);
               }}
             >
               ▶ Preview animation

@@ -580,6 +580,7 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
   const tokenId = poolRoot.getAttribute('data-incentivator-token-id') || '';
   const maxCycles = Math.max(0, Number(poolRoot.getAttribute('data-incentivator-repeat') || 2));
   const delayMs = Math.max(0, Number(poolRoot.getAttribute('data-incentivator-delay') || 1000));
+  const durationMs = Math.max(100, Number(poolRoot.getAttribute('data-incentivator-duration') || 520));
   const slideX = Number(poolRoot.getAttribute('data-incentivator-offset-x') || 0);
   const slideY = Number(poolRoot.getAttribute('data-incentivator-offset-y') || 0);
 
@@ -680,14 +681,17 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     void ghost.offsetHeight;
 
     // Fly from token position toward drop zone, fading out on arrival
-    ghost.style.transition = 'transform 0.52s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.42s ease-in 0.12s';
+    const dur = durationMs / 1000;
+    const fadeDur = (durationMs * 0.8) / 1000;
+    const fadeDelay = (durationMs * 0.23) / 1000;
+    ghost.style.transition = `transform ${dur}s cubic-bezier(0.25,0.46,0.45,0.94), opacity ${fadeDur}s ease-in ${fadeDelay}s`;
     ghost.style.transform = `translate(${slideX}px, ${slideY}px) scale(1.08)`;
     ghost.style.opacity = '0';
 
     animTimer = window.setTimeout(() => {
       cycles += 1;
       runCycle();
-    }, 820);
+    }, durationMs + 80);
   };
 
   animTimer = window.setTimeout(runCycle, delayMs);

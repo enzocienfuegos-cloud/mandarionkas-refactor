@@ -118,6 +118,7 @@ export function renderDragTokenPoolExport(node: WidgetNode): string {
   const incentivatorTokenId = String(node.props.incentivatorTokenId ?? '').trim();
   const incentivatorRepeat = Math.max(0, Number(node.props.incentivatorRepeat ?? 2));
   const incentivatorDelayMs = Math.max(0, Number(node.props.incentivatorDelayMs ?? 1000));
+  const incentivatorDurationMs = Math.max(100, Number(node.props.incentivatorDurationMs ?? 520));
   const incentivatorOffsetX = Number(node.props.incentivatorOffsetX ?? 0);
   const incentivatorOffsetY = Number(node.props.incentivatorOffsetY ?? 0);
   const incentivatorInvert = node.props.incentivatorInvert === true;
@@ -164,7 +165,7 @@ export function renderDragTokenPoolExport(node: WidgetNode): string {
   const effectiveX = incentivatorInvert ? -incentivatorOffsetX : incentivatorOffsetX;
   const effectiveY = incentivatorInvert ? -incentivatorOffsetY : incentivatorOffsetY;
   const incentivatorAttrs = incentivatorEnabled
-    ? ` data-incentivator-enabled="true" data-incentivator-token-id="${escapeHtml(incentivatorTokenId)}" data-incentivator-repeat="${incentivatorRepeat}" data-incentivator-delay="${incentivatorDelayMs}" data-incentivator-offset-x="${effectiveX}" data-incentivator-offset-y="${effectiveY}"`
+    ? ` data-incentivator-enabled="true" data-incentivator-token-id="${escapeHtml(incentivatorTokenId)}" data-incentivator-repeat="${incentivatorRepeat}" data-incentivator-delay="${incentivatorDelayMs}" data-incentivator-duration="${incentivatorDurationMs}" data-incentivator-offset-x="${effectiveX}" data-incentivator-offset-y="${effectiveY}"`
     : '';
 
   return `<div class="widget widget-drag-token-pool" data-widget-id="${escapeHtml(node.id)}" data-drop-target-id="${escapeHtml(dropTargetId)}"${incentivatorAttrs} style="${shellStyle}"><div style="${trackStyle}">${tokenHtml}</div></div>`;
