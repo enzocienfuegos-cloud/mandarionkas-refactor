@@ -7,6 +7,7 @@ export type InspectorSectionKey =
   | 'position-size'
   | 'text-content'
   | 'fill'
+  | 'overlay'
   | 'shadow'
   | 'timing'
   | 'module-config'
