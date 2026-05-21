@@ -498,15 +498,14 @@ function mountEndCardTriggerRuntime(
     }
   };
 
-  // --- scene-visit counter via MutationObserver on [data-active-scene] ---
-  let observer: MutationObserver | null = null;
+  // --- scene-visit counter via smx:scene-change custom event ---
+  let sceneChangeHandler: (() => void) | null = null;
   if (afterSceneCount > 0) {
-    const stageRoot = document.querySelector<HTMLElement>('[data-smx-stage]') ?? document.body;
-    observer = new MutationObserver(() => {
+    sceneChangeHandler = () => {
       scenesVisited += 1;
       if (scenesVisited >= afterSceneCount) fire();
-    });
-    observer.observe(stageRoot, { attributes: true, attributeFilter: ['data-active-scene'], subtree: true });
+    };
+    window.addEventListener('smx:scene-change', sceneChangeHandler);
   }
 
   // --- elapsed-time counter ---
@@ -519,7 +518,7 @@ function mountEndCardTriggerRuntime(
   }
 
   function cleanup() {
-    if (observer) { observer.disconnect(); observer = null; }
+    if (sceneChangeHandler) { window.removeEventListener('smx:scene-change', sceneChangeHandler); sceneChangeHandler = null; }
     if (intervalId) { window.clearInterval(intervalId); intervalId = 0; }
   }
 

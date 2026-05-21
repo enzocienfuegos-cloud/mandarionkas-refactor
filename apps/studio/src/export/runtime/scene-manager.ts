@@ -131,6 +131,7 @@ export function createSceneManager({ runtimeModel, engine }: SceneManagerOptions
       if (!activeScene) return;
       emitSceneEvent(engine, 'load', activeScene.widgets, loadedWidgetIds, 0);
       emitSceneEvent(engine, 'scene-enter', activeScene.widgets, loadedWidgetIds, 0);
+      window.dispatchEvent(new CustomEvent('smx:scene-change', { detail: { sceneIndex: activeSceneIndex, sceneId: activeScene.id } }));
     };
 
     clearSceneTimer();
