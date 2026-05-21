@@ -499,9 +499,12 @@ function mountEndCardTriggerRuntime(
   };
 
   // --- scene-visit counter via smx:scene-change custom event ---
-  let sceneChangeHandler: (() => void) | null = null;
+  let sceneChangeHandler: ((e: Event) => void) | null = null;
   if (afterSceneCount > 0) {
-    sceneChangeHandler = () => {
+    sceneChangeHandler = (e: Event) => {
+      // Don't count arriving at the target end card scene as a visit
+      const detail = (e as CustomEvent<{ sceneId?: string }>).detail;
+      if (detail?.sceneId === targetSceneId) return;
       scenesVisited += 1;
       if (scenesVisited >= afterSceneCount) fire();
     };

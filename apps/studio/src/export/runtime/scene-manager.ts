@@ -131,7 +131,12 @@ export function createSceneManager({ runtimeModel, engine }: SceneManagerOptions
       if (!activeScene) return;
       emitSceneEvent(engine, 'load', activeScene.widgets, loadedWidgetIds, 0);
       emitSceneEvent(engine, 'scene-enter', activeScene.widgets, loadedWidgetIds, 0);
-      window.dispatchEvent(new CustomEvent('smx:scene-change', { detail: { sceneIndex: activeSceneIndex, sceneId: activeScene.id } }));
+      // Only count real scene transitions — skip the initial showScene(0) at boot
+      // (previousIndex === targetIndex on the first call) to avoid off-by-one in
+      // the end card trigger scene-visit counter.
+      if (targetIndex !== previousIndex) {
+        window.dispatchEvent(new CustomEvent('smx:scene-change', { detail: { sceneIndex: activeSceneIndex, sceneId: activeScene.id } }));
+      }
     };
 
     clearSceneTimer();
