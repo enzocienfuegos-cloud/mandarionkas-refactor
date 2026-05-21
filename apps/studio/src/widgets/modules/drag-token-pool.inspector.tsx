@@ -720,21 +720,20 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 const prevVisibility = tokenEl.style.visibility;
                 tokenEl.style.visibility = 'hidden';
 
+                // Ghost visible at token position, then flies toward drop zone and fades out
+                ghost.style.opacity = '1';
                 document.body.appendChild(ghost);
+                // Force reflow so the browser registers the start state before transition begins
+                void ghost.offsetHeight;
 
-                ghost.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s';
-                ghost.style.transform = `translate(${dx}px, ${dy}px) scale(1.1)`;
-                ghost.style.opacity = '0.88';
+                ghost.style.transition = 'transform 0.52s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.42s ease-in 0.12s';
+                ghost.style.transform = `translate(${dx}px, ${dy}px) scale(1.08)`;
+                ghost.style.opacity = '0';
 
                 window.setTimeout(() => {
-                  ghost.style.transition = 'transform 0.32s ease-out, opacity 0.28s';
-                  ghost.style.transform = '';
-                  ghost.style.opacity = '';
-                  window.setTimeout(() => {
-                    ghost.remove();
-                    tokenEl.style.visibility = prevVisibility;
-                  }, 340);
-                }, 620);
+                  ghost.remove();
+                  tokenEl.style.visibility = prevVisibility;
+                }, 820);
               }}
             >
               ▶ Preview animation

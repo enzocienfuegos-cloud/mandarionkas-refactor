@@ -644,7 +644,10 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     ghost.style.textAlign = 'center';
   }
 
-  // Hide the original token while the ghost animates — prevents two visible tokens
+  // Ghost starts invisible — becomes visible only when a cycle begins
+  ghost.style.opacity = '0';
+
+  // Hide the original token while the ghost is active — prevents two visible tokens
   const prevVisibility = tokenEl.style.visibility;
   tokenEl.style.visibility = 'hidden';
 
@@ -654,22 +657,13 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
   let cycles = 0;
   let animTimer = 0;
 
-  const restore = () => {
-    ghost.style.transition = 'transform 0.32s ease-out, opacity 0.28s';
-    ghost.style.transform = '';
-    ghost.style.opacity = '';
-  };
-
   const cancel = () => {
     if (cancelled) return;
     cancelled = true;
     window.clearTimeout(animTimer);
     document.removeEventListener('pointerdown', cancel);
-    restore();
-    window.setTimeout(() => {
-      ghost.remove();
-      tokenEl.style.visibility = prevVisibility;
-    }, 340);
+    ghost.remove();
+    tokenEl.style.visibility = prevVisibility;
   };
 
   document.addEventListener('pointerdown', cancel, { once: true });
@@ -678,21 +672,22 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     if (cancelled) return;
     if (maxCycles > 0 && cycles >= maxCycles) { cancel(); return; }
 
-    // Phase 1 — slide ghost to configured offset
-    ghost.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s';
-    ghost.style.transform = `translate(${slideX}px, ${slideY}px) scale(1.1)`;
-    ghost.style.opacity = '0.88';
+    // Snap ghost back to start position with no animation (invisible reset)
+    ghost.style.transition = 'none';
+    ghost.style.transform = '';
+    ghost.style.opacity = '1';
+    // Force reflow so the browser registers the reset before the next transition
+    void ghost.offsetHeight;
 
-    // Phase 2 — return to origin
+    // Fly from token position toward drop zone, fading out on arrival
+    ghost.style.transition = 'transform 0.52s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.42s ease-in 0.12s';
+    ghost.style.transform = `translate(${slideX}px, ${slideY}px) scale(1.08)`;
+    ghost.style.opacity = '0';
+
     animTimer = window.setTimeout(() => {
-      if (cancelled) return;
-      restore();
-      // Phase 3 — brief pause, then next cycle
-      animTimer = window.setTimeout(() => {
-        cycles += 1;
-        runCycle();
-      }, 520);
-    }, 580);
+      cycles += 1;
+      runCycle();
+    }, 820);
   };
 
   animTimer = window.setTimeout(runCycle, delayMs);
