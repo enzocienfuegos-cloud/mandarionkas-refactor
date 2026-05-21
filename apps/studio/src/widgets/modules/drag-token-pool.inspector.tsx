@@ -35,6 +35,8 @@ import {
   TOKEN_SIZE_MAX,
   TOKEN_SIZE_MIN,
   type DragTokenItem,
+  type TokenMotion,
+  type TokenMotionSpeed,
   type TokenShape,
 } from './drag-token-pool.types';
 
@@ -69,6 +71,11 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const hideAccentForImageTokens = node.props.hideAccentForImageTokens === true;
   const hideShapeForImageTokens = node.props.hideShapeForImageTokens === true;
   const tokenImageMaxSizePercent = clampTokenImageMaxSizePercent(node.props.tokenImageMaxSizePercent ?? DEFAULT_TOKEN_IMAGE_MAX_SIZE_PERCENT);
+  const tokenMotion: TokenMotion = node.props.tokenMotion === 'float' || node.props.tokenMotion === 'pulse'
+    ? node.props.tokenMotion : 'none';
+  const tokenMotionSpeed: TokenMotionSpeed = node.props.tokenMotionSpeed === 'slow' || node.props.tokenMotionSpeed === 'fast'
+    ? node.props.tokenMotionSpeed : 'normal';
+
   const incentivatorEnabled = node.props.incentivatorEnabled === true;
   const incentivatorTokenId = String(node.props.incentivatorTokenId ?? '');
   const incentivatorRepeat = Math.max(0, Number(node.props.incentivatorRepeat ?? 2));
@@ -573,6 +580,37 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
           ))}
         </ul>
         <Button onClick={addToken} disabled={tokens.length >= MAX_TOKENS}>Add token</Button>
+      </div>
+
+      <div className="field-stack" style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px' }}>
+        <strong style={{ fontSize: '11px', letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.6 }}>Token motion</strong>
+        <small className="muted">Ambient animation on idle tokens. Pauses automatically while dragging.</small>
+        <div className="fields-grid">
+          <label>
+            Animation
+            <select
+              value={tokenMotion}
+              onChange={(e) => updateWidgetProps(node.id, { tokenMotion: e.target.value as TokenMotion })}
+            >
+              <option value="none">None</option>
+              <option value="float">Float</option>
+              <option value="pulse">Pulse</option>
+            </select>
+          </label>
+          {tokenMotion !== 'none' && (
+            <label>
+              Speed
+              <select
+                value={tokenMotionSpeed}
+                onChange={(e) => updateWidgetProps(node.id, { tokenMotionSpeed: e.target.value as TokenMotionSpeed })}
+              >
+                <option value="slow">Slow</option>
+                <option value="normal">Normal</option>
+                <option value="fast">Fast</option>
+              </select>
+            </label>
+          )}
+        </div>
       </div>
 
       <div className="field-stack" style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px' }}>

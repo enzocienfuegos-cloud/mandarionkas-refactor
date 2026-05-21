@@ -8,13 +8,17 @@ import {
   DEFAULT_TOKEN_IMAGE_FOCAL_Y,
   normalizeTokenImageFit,
   parseDragTokenItems,
+  tokenMotionToAnimation,
   tokenShapeToBorderRadius,
+  type TokenMotion,
+  type TokenMotionSpeed,
   type TokenShape,
 } from './drag-token-pool.types';
 import type { ExportRendererManifestEntry } from './export-registry';
 
 function renderTokenHtml(
   token: ReturnType<typeof parseDragTokenItems>[number],
+  tokenIndex: number,
   tokenSize: number,
   radius: string,
   hideAccentForImageTokens: boolean,
@@ -23,6 +27,8 @@ function renderTokenHtml(
   accentColor: string,
   sourceWidgetId: string,
   dropTargetId: string,
+  tokenMotion: TokenMotion,
+  tokenMotionSpeed: TokenMotionSpeed,
 ): string {
   const displayImageUrl = token.baseImageUrl ?? token.imageUrl ?? '';
   const imageFit = normalizeTokenImageFit(token.baseImageFit);
@@ -38,6 +44,8 @@ function renderTokenHtml(
   const imageSize = `${tokenImageMaxSizePercent}%`;
   const usesFullFrame = imageFit === 'cover' || imageFit === 'fill';
 
+  const animation = tokenMotionToAnimation(tokenMotion, tokenMotionSpeed, tokenIndex);
+
   const tokenStyle = [
     `width:${tokenSize}px`,
     `height:${tokenSize}px`,
@@ -45,6 +53,7 @@ function renderTokenHtml(
     `border:${border}`,
     `box-shadow:${boxShadow}`,
     `overflow:hidden`,
+    ...(animation ? [`animation:${animation}`] : []),
     `display:flex`,
     `align-items:center`,
     `justify-content:center`,
@@ -114,6 +123,11 @@ export function renderDragTokenPoolExport(node: WidgetNode): string {
   const accentColor = String(style.accentColor ?? '#ffffff');
   const dropTargetId = String(node.props.dropTargetId ?? '').trim();
 
+  const tokenMotion: TokenMotion = node.props.tokenMotion === 'float' || node.props.tokenMotion === 'pulse'
+    ? node.props.tokenMotion : 'none';
+  const tokenMotionSpeed: TokenMotionSpeed = node.props.tokenMotionSpeed === 'slow' || node.props.tokenMotionSpeed === 'fast'
+    ? node.props.tokenMotionSpeed : 'normal';
+
   const incentivatorEnabled = node.props.incentivatorEnabled === true;
   const incentivatorTokenId = String(node.props.incentivatorTokenId ?? '').trim();
   const incentivatorRepeat = Math.max(0, Number(node.props.incentivatorRepeat ?? 2));
@@ -147,9 +161,10 @@ export function renderDragTokenPoolExport(node: WidgetNode): string {
   ].join(';');
 
   const tokenHtml = tokens
-    .map((token) =>
+    .map((token, index) =>
       renderTokenHtml(
         token,
+        index,
         tokenSize,
         radius,
         hideAccentForImageTokens,
@@ -158,9 +173,15 @@ export function renderDragTokenPoolExport(node: WidgetNode): string {
         accentColor,
         node.id,
         dropTargetId,
+        tokenMotion,
+        tokenMotionSpeed,
       ),
     )
     .join('');
+
+  const motionStyleBlock = tokenMotion !== 'none'
+    ? `<style>@keyframes smx-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}@keyframes smx-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.13)}}.smx-drag-token[data-token-disabled=true]{animation-play-state:paused!important}</style>`
+    : '';
 
   const effectiveX = incentivatorInvert ? -incentivatorOffsetX : incentivatorOffsetX;
   const effectiveY = incentivatorInvert ? -incentivatorOffsetY : incentivatorOffsetY;
@@ -168,7 +189,7 @@ export function renderDragTokenPoolExport(node: WidgetNode): string {
     ? ` data-incentivator-enabled="true" data-incentivator-token-id="${escapeHtml(incentivatorTokenId)}" data-incentivator-repeat="${incentivatorRepeat}" data-incentivator-delay="${incentivatorDelayMs}" data-incentivator-duration="${incentivatorDurationMs}" data-incentivator-offset-x="${effectiveX}" data-incentivator-offset-y="${effectiveY}"`
     : '';
 
-  return `<div class="widget widget-drag-token-pool" data-widget-id="${escapeHtml(node.id)}" data-drop-target-id="${escapeHtml(dropTargetId)}"${incentivatorAttrs} style="${shellStyle}"><div style="${trackStyle}">${tokenHtml}</div></div>`;
+  return `${motionStyleBlock}<div class="widget widget-drag-token-pool" data-widget-id="${escapeHtml(node.id)}" data-drop-target-id="${escapeHtml(dropTargetId)}"${incentivatorAttrs} style="${shellStyle}"><div style="${trackStyle}">${tokenHtml}</div></div>`;
 }
 
 export const dragTokenPoolExportRenderer: ExportRendererManifestEntry = {

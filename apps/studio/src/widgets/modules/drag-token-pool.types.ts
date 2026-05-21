@@ -1,5 +1,7 @@
 export type TokenShape = 'circle' | 'square' | 'rounded';
 export type TokenImageFit = 'contain' | 'cover' | 'fill' | 'scale-down';
+export type TokenMotion = 'none' | 'float' | 'pulse';
+export type TokenMotionSpeed = 'slow' | 'normal' | 'fast';
 
 export type DragTokenItem = {
   id: string;
@@ -110,4 +112,25 @@ export function clampTokenImageFocal(value: unknown, fallback: number): number {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   return Math.max(TOKEN_IMAGE_FOCAL_MIN, Math.min(TOKEN_IMAGE_FOCAL_MAX, Math.round(numeric)));
+}
+
+const TOKEN_MOTION_DURATIONS: Record<TokenMotion, Record<TokenMotionSpeed, number>> = {
+  none:  { slow: 0,   normal: 0,   fast: 0 },
+  float: { slow: 3600, normal: 2200, fast: 1200 },
+  pulse: { slow: 2800, normal: 1700, fast: 950 },
+};
+
+const STAGGER_MS = 380;
+
+/** Returns a CSS `animation` shorthand string for a token, or undefined if motion is none. */
+export function tokenMotionToAnimation(
+  motion: TokenMotion,
+  speed: TokenMotionSpeed,
+  index: number,
+): string | undefined {
+  if (motion === 'none') return undefined;
+  const dur = TOKEN_MOTION_DURATIONS[motion][speed];
+  const delay = (index * STAGGER_MS) % dur; // wrap stagger so it doesn't exceed duration
+  const name = motion === 'float' ? 'smx-float' : 'smx-pulse';
+  return `${name} ${dur}ms ease-in-out ${delay}ms infinite`;
 }

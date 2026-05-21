@@ -1,5 +1,5 @@
 // render-tokenized: brand/theme split enforced by lint-color-literals.mjs
-import React, { useMemo, type CSSProperties } from 'react';
+import React, { useEffect, useMemo, type CSSProperties } from 'react';
 import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { renderCollapsedIfNeeded } from './shared-styles';
@@ -12,11 +12,28 @@ import {
   DEFAULT_TOKEN_IMAGE_FOCAL_Y,
   normalizeTokenImageFit,
   parseDragTokenItems,
+  tokenMotionToAnimation,
   tokenShapeToBorderRadius,
   type DragTokenItem,
   type TokenImageFit,
+  type TokenMotion,
+  type TokenMotionSpeed,
   type TokenShape,
 } from './drag-token-pool.types';
+
+const TOKEN_MOTION_KEYFRAMES_ID = 'smx-token-motion-keyframes';
+const TOKEN_MOTION_KEYFRAMES_CSS = `
+@keyframes smx-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes smx-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.13)}}
+`;
+
+function ensureTokenMotionKeyframes(): void {
+  if (document.getElementById(TOKEN_MOTION_KEYFRAMES_ID)) return;
+  const style = document.createElement('style');
+  style.id = TOKEN_MOTION_KEYFRAMES_ID;
+  style.textContent = TOKEN_MOTION_KEYFRAMES_CSS;
+  document.head.appendChild(style);
+}
 
 const dragTokenPoolShellStyle: CSSProperties = {
   width: '100%',
@@ -105,6 +122,9 @@ type TokenItemProps = {
   hideAccentForImageTokens: boolean;
   hideShapeForImageTokens: boolean;
   tokenImageMaxSizePercent: number;
+  tokenMotion: TokenMotion;
+  tokenMotionSpeed: TokenMotionSpeed;
+  tokenIndex: number;
 };
 
 function DragTokenItem({
@@ -116,6 +136,9 @@ function DragTokenItem({
   hideAccentForImageTokens,
   hideShapeForImageTokens,
   tokenImageMaxSizePercent,
+  tokenMotion,
+  tokenMotionSpeed,
+  tokenIndex,
 }: TokenItemProps): JSX.Element {
   const displayImageUrl = token.baseImageUrl ?? token.imageUrl;
   const imageFit = normalizeTokenImageFit(token.baseImageFit);
@@ -146,11 +169,18 @@ function DragTokenItem({
     onPointerDown(event);
   };
 
+  const animation = tokenMotion !== 'none' && !isDisabled && !isDragging
+    ? tokenMotionToAnimation(tokenMotion, tokenMotionSpeed, tokenIndex)
+    : undefined;
+
   return (
     <div
       onPointerDown={handlePointerDown}
       data-token-id={token.id}
-      style={buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, effectiveRadius, hideFrame, isDragging, hasTokenImage)}
+      style={{
+        ...buildDragTokenStyle(tokenSize, token.accentColor, isDisabled, effectiveRadius, hideFrame, isDragging, hasTokenImage),
+        animation,
+      }}
     >
       <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
         {displayImageUrl ? (
@@ -179,11 +209,21 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
   const hideShapeForImageTokens = node.props.hideShapeForImageTokens === true;
   const tokenImageMaxSizePercent = clampTokenImageMaxSizePercent(node.props.tokenImageMaxSizePercent);
   const radius = tokenShapeToBorderRadius(tokenShape);
+  const tokenMotion: TokenMotion = node.props.tokenMotion === 'float' || node.props.tokenMotion === 'pulse'
+    ? node.props.tokenMotion
+    : 'none';
+  const tokenMotionSpeed: TokenMotionSpeed = node.props.tokenMotionSpeed === 'slow' || node.props.tokenMotionSpeed === 'fast'
+    ? node.props.tokenMotionSpeed
+    : 'normal';
+
+  useEffect(() => {
+    if (tokenMotion !== 'none') ensureTokenMotionKeyframes();
+  }, [tokenMotion]);
 
   return (
     <div style={dragTokenPoolShellStyle} data-widget-id={node.id}>
       <div style={{ ...dragTokenPoolTrackBaseStyle, gap }}>
-        {tokens.map((token) => (
+        {tokens.map((token, index) => (
           <DragTokenItem
             key={token.id}
             token={token}
@@ -194,6 +234,9 @@ function DragTokenPoolRenderer({ node }: { node: WidgetNode; ctx: RenderContext 
             hideAccentForImageTokens={hideAccentForImageTokens}
             hideShapeForImageTokens={hideShapeForImageTokens}
             tokenImageMaxSizePercent={tokenImageMaxSizePercent}
+            tokenMotion={tokenMotion}
+            tokenMotionSpeed={tokenMotionSpeed}
+            tokenIndex={index}
           />
         ))}
       </div>
