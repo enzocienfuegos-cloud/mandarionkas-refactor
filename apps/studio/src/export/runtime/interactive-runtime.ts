@@ -528,11 +528,96 @@ function mountEndCardTriggerRuntime(
   return cleanup;
 }
 
+/**
+ * Drag incentivator for a single token-pool widget.
+ *
+ * Animates the configured token sliding 45% toward the drop zone, then
+ * returning — repeating `maxCycles` times (0 = infinite loop). Cancels
+ * immediately on the first pointerdown anywhere on the document.
+ *
+ * Returns a dispose function.
+ */
+function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
+  if (poolRoot.getAttribute('data-incentivator-enabled') !== 'true') return () => undefined;
+
+  const tokenId = poolRoot.getAttribute('data-incentivator-token-id') || '';
+  const maxCycles = Math.max(0, Number(poolRoot.getAttribute('data-incentivator-repeat') || 2));
+  const delayMs = Math.max(0, Number(poolRoot.getAttribute('data-incentivator-delay') || 1000));
+  const dropTargetId = poolRoot.getAttribute('data-drop-target-id') || '';
+
+  const tokenEl = tokenId
+    ? poolRoot.querySelector<HTMLElement>(`[data-token-id="${tokenId}"]`)
+    : poolRoot.querySelector<HTMLElement>('[data-smx-action="token-drag"]');
+  const dropZone = dropTargetId
+    ? (document.querySelector<HTMLElement>(`[data-drop-zone-id="${dropTargetId}"]`) ?? document.querySelector<HTMLElement>('[data-smx-action="drop-zone"]'))
+    : document.querySelector<HTMLElement>('[data-smx-action="drop-zone"]');
+
+  if (!tokenEl || !dropZone) return () => undefined;
+
+  let cancelled = false;
+  let cycles = 0;
+  let animTimer = 0;
+
+  const restore = (fast = false) => {
+    tokenEl.style.transition = fast
+      ? 'none'
+      : 'transform 0.32s ease-out, box-shadow 0.28s, opacity 0.28s';
+    tokenEl.style.transform = '';
+    tokenEl.style.boxShadow = '';
+    tokenEl.style.opacity = '';
+  };
+
+  const cancel = () => {
+    if (cancelled) return;
+    cancelled = true;
+    window.clearTimeout(animTimer);
+    document.removeEventListener('pointerdown', cancel);
+    restore();
+  };
+
+  document.addEventListener('pointerdown', cancel, { once: true });
+
+  const runCycle = () => {
+    if (cancelled) return;
+    if (maxCycles > 0 && cycles >= maxCycles) { cancel(); return; }
+
+    const tokenRect = tokenEl.getBoundingClientRect();
+    const dropRect = dropZone.getBoundingClientRect();
+    const dx = (dropRect.left + dropRect.width / 2) - (tokenRect.left + tokenRect.width / 2);
+    const dy = (dropRect.top + dropRect.height / 2) - (tokenRect.top + tokenRect.height / 2);
+    const slideX = dx * 0.45;
+    const slideY = dy * 0.45;
+
+    // Phase 1 — lift and slide toward drop zone
+    tokenEl.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, opacity 0.3s';
+    tokenEl.style.transform = `translate(${slideX}px, ${slideY}px) scale(1.1)`;
+    tokenEl.style.boxShadow = '0 10px 28px rgba(0,0,0,0.45)';
+    tokenEl.style.opacity = '0.88';
+
+    // Phase 2 — return to origin
+    animTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      restore();
+      // Phase 3 — pause, then next cycle
+      animTimer = window.setTimeout(() => {
+        cycles += 1;
+        runCycle();
+      }, 520);
+    }, 580);
+  };
+
+  animTimer = window.setTimeout(runCycle, delayMs);
+  return cancel;
+}
+
 export function mountInteractiveRuntime({ runtimeModel, performExit, resolveExitUrl, sceneManager }: InteractiveRuntimeOptions): { dispose(): void } {
   const shoppableIntervals = new Set<number>();
   const speedTestRafs = new Map<string, number>();
   const disposeDragRuntime = mountDragTokenRuntime(sceneManager, runtimeModel);
   const disposeEndCardTrigger = mountEndCardTriggerRuntime(sceneManager, runtimeModel);
+  const incentivatorDisposers = Array.from(
+    document.querySelectorAll<HTMLElement>('.widget-drag-token-pool[data-incentivator-enabled="true"]'),
+  ).map(mountTokenPoolIncentivator);
 
   const handleClick = (event: MouseEvent): void => {
     if (!isHTMLElement(event.target)) return;
@@ -702,6 +787,7 @@ export function mountInteractiveRuntime({ runtimeModel, performExit, resolveExit
       document.removeEventListener('submit', handleSubmit);
       disposeDragRuntime();
       disposeEndCardTrigger();
+      incentivatorDisposers.forEach((dispose) => dispose());
       shoppableIntervals.forEach((intervalId) => window.clearInterval(intervalId));
       shoppableIntervals.clear();
       speedTestRafs.forEach((rafId) => window.cancelAnimationFrame(rafId));

@@ -69,6 +69,10 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
   const hideAccentForImageTokens = node.props.hideAccentForImageTokens === true;
   const hideShapeForImageTokens = node.props.hideShapeForImageTokens === true;
   const tokenImageMaxSizePercent = clampTokenImageMaxSizePercent(node.props.tokenImageMaxSizePercent ?? DEFAULT_TOKEN_IMAGE_MAX_SIZE_PERCENT);
+  const incentivatorEnabled = node.props.incentivatorEnabled === true;
+  const incentivatorTokenId = String(node.props.incentivatorTokenId ?? '');
+  const incentivatorRepeat = Math.max(0, Number(node.props.incentivatorRepeat ?? 2));
+  const incentivatorDelayMs = Math.max(0, Number(node.props.incentivatorDelayMs ?? 1000));
 
   useEffect(() => {
     if (!platform.session.isAuthenticated || !platform.session.sessionId) {
@@ -565,6 +569,58 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
           ))}
         </ul>
         <Button onClick={addToken} disabled={tokens.length >= MAX_TOKENS}>Add token</Button>
+      </div>
+
+      <div className="field-stack" style={{ marginTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '14px' }}>
+        <strong style={{ fontSize: '11px', letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.6 }}>Drag incentivator</strong>
+        <small className="muted">Animates a token sliding toward the drop zone as a drag-hint. Stops the moment the user interacts.</small>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={incentivatorEnabled}
+            onChange={(e) => updateWidgetProps(node.id, { incentivatorEnabled: e.target.checked })}
+          />
+          Enable incentivator
+        </label>
+        {incentivatorEnabled && (
+          <>
+            <label>
+              Token to animate
+              <select
+                value={incentivatorTokenId}
+                onChange={(e) => updateWidgetProps(node.id, { incentivatorTokenId: e.target.value })}
+              >
+                <option value="">— select a token —</option>
+                {tokens.map((token) => (
+                  <option key={token.id} value={token.id}>{token.label}</option>
+                ))}
+              </select>
+            </label>
+            <div className="fields-grid">
+              <label>
+                Repeat (0 = loop)
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={incentivatorRepeat}
+                  onChange={(e) => updateWidgetProps(node.id, { incentivatorRepeat: Math.max(0, Number(e.target.value)) })}
+                />
+              </label>
+              <label>
+                Start delay (ms)
+                <input
+                  type="number"
+                  min={0}
+                  max={10000}
+                  step={100}
+                  value={incentivatorDelayMs}
+                  onChange={(e) => updateWidgetProps(node.id, { incentivatorDelayMs: Math.max(0, Number(e.target.value)) })}
+                />
+              </label>
+            </div>
+          </>
+        )}
       </div>
     </section>
   );

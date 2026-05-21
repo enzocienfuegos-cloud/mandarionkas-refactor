@@ -114,6 +114,11 @@ export function renderDragTokenPoolExport(node: WidgetNode): string {
   const accentColor = String(style.accentColor ?? '#ffffff');
   const dropTargetId = String(node.props.dropTargetId ?? '').trim();
 
+  const incentivatorEnabled = node.props.incentivatorEnabled === true;
+  const incentivatorTokenId = String(node.props.incentivatorTokenId ?? '').trim();
+  const incentivatorRepeat = Math.max(0, Number(node.props.incentivatorRepeat ?? 2));
+  const incentivatorDelayMs = Math.max(0, Number(node.props.incentivatorDelayMs ?? 1000));
+
   const shellStyle = [
     `position:absolute`,
     `left:${frame.x}px`,
@@ -153,7 +158,11 @@ export function renderDragTokenPoolExport(node: WidgetNode): string {
     )
     .join('');
 
-  return `<div class="widget widget-drag-token-pool" data-widget-id="${escapeHtml(node.id)}" data-drop-target-id="${escapeHtml(dropTargetId)}" style="${shellStyle}"><div style="${trackStyle}">${tokenHtml}</div></div>`;
+  const incentivatorAttrs = incentivatorEnabled
+    ? ` data-incentivator-enabled="true" data-incentivator-token-id="${escapeHtml(incentivatorTokenId)}" data-incentivator-repeat="${incentivatorRepeat}" data-incentivator-delay="${incentivatorDelayMs}"`
+    : '';
+
+  return `<div class="widget widget-drag-token-pool" data-widget-id="${escapeHtml(node.id)}" data-drop-target-id="${escapeHtml(dropTargetId)}"${incentivatorAttrs} style="${shellStyle}"><div style="${trackStyle}">${tokenHtml}</div></div>`;
 }
 
 export const dragTokenPoolExportRenderer: ExportRendererManifestEntry = {
