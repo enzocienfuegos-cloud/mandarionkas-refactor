@@ -664,20 +664,38 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 const dx = incentivatorInvert ? -incentivatorOffsetX : incentivatorOffsetX;
                 const dy = incentivatorInvert ? -incentivatorOffsetY : incentivatorOffsetY;
 
-                // Lift the token and its nearest z-index ancestor so it renders above all sibling widgets
-                const liftStack: Array<{ el: HTMLElement; prev: string }> = [];
-                const liftEl = (el: HTMLElement | null) => {
-                  if (!el) return;
-                  liftStack.push({ el, prev: el.style.zIndex });
+                // Collect elements whose styles we'll temporarily override
+                type SavedStyle = { el: HTMLElement; zIndex: string; contain: string; overflow: string };
+                const saved: SavedStyle[] = [];
+
+                const patchEl = (el: HTMLElement) => {
+                  saved.push({ el, zIndex: el.style.zIndex, contain: el.style.contain, overflow: el.style.overflow });
                   el.style.zIndex = '9999';
+                  // Remove CSS containment — 'contain:layout paint' clips painted content to the element box
+                  el.style.contain = 'none';
+                  el.style.overflow = 'visible';
                 };
-                liftEl(tokenEl);
-                // Walk up to find the widget shell (first ancestor with an inline z-index)
-                let ancestor: HTMLElement | null = tokenEl.parentElement;
-                while (ancestor && ancestor !== document.body) {
-                  if (ancestor.style.zIndex) { liftEl(ancestor); break; }
-                  ancestor = ancestor.parentElement;
+
+                // Patch the stage widget shell (has data-stage-widget-id)
+                const shell = document.querySelector<HTMLElement>(`[data-stage-widget-id="${node.id}"]`);
+                if (shell) patchEl(shell);
+
+                // Also patch any overflow:hidden ancestors between token and the stage root
+                let anc: HTMLElement | null = tokenEl.parentElement;
+                while (anc && !anc.hasAttribute('data-stage-widget-id') && anc !== document.body) {
+                  const cs = window.getComputedStyle(anc);
+                  if (cs.overflow === 'hidden' || cs.overflowX === 'hidden' || cs.overflowY === 'hidden') {
+                    saved.push({ el: anc, zIndex: anc.style.zIndex, contain: anc.style.contain, overflow: anc.style.overflow });
+                    anc.style.overflow = 'visible';
+                  }
+                  anc = anc.parentElement;
                 }
+
+                const restoreAll = () => saved.forEach(({ el, zIndex, contain, overflow }) => {
+                  el.style.zIndex = zIndex;
+                  el.style.contain = contain;
+                  el.style.overflow = overflow;
+                });
 
                 tokenEl.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, opacity 0.3s';
                 tokenEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.1)`;
@@ -689,9 +707,7 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                   tokenEl.style.transform = '';
                   tokenEl.style.boxShadow = '';
                   tokenEl.style.opacity = '';
-                  window.setTimeout(() => {
-                    liftStack.forEach(({ el, prev }) => { el.style.zIndex = prev; });
-                  }, 340);
+                  window.setTimeout(restoreAll, 340);
                 }, 620);
               }}
             >
