@@ -2,6 +2,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import { escapeHtml, getBaseWidgetStyle, renderGenericExport, resolveExportHorizontalAlign, resolveExportTextAlign, resolveExportVerticalAlign } from './export-helpers';
 import { resolveShapeKind } from '../shape/shape-shared';
 import { readShadowFromStyle, shadowConfigToBoxShadow, shadowConfigToTextShadow } from '../../shared/style/shadow';
+import { readOverlayFromStyle, overlayToInlineStyle } from '../../shared/style/overlay';
 
 export function renderTextExport(node: WidgetNode): string {
   const textShadow = escapeHtml(shadowConfigToTextShadow(readShadowFromStyle(node.style)));
@@ -44,7 +45,9 @@ export function renderImageExport(node: WidgetNode, kind: 'image' | 'hero-image'
   const onerrorAttr = src !== originalSrc && originalSrc
     ? ` onerror="this.onerror=null;this.src='${escapeHtml(originalSrc)}'"`
     : '';
-  return `<div class="widget widget-${kind}" data-widget-id="${node.id}" style="${base}"><img src="${escapeHtml(src)}" alt="${alt}"${onerrorAttr} style="width:100%;height:100%;display:block;object-fit:${escapeHtml(fit)};" /></div>`;
+  const overlayInlineStyle = overlayToInlineStyle(readOverlayFromStyle(style), borderRadius);
+  const overlayHtml = overlayInlineStyle ? `<div style="${escapeHtml(overlayInlineStyle)}"></div>` : '';
+  return `<div class="widget widget-${kind}" data-widget-id="${node.id}" style="${base}"><img src="${escapeHtml(src)}" alt="${alt}"${onerrorAttr} style="width:100%;height:100%;display:block;object-fit:${escapeHtml(fit)};" />${overlayHtml}</div>`;
 }
 
 export function renderVideoExport(node: WidgetNode): string {

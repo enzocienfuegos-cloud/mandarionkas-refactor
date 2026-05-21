@@ -3,6 +3,7 @@ import type { WidgetNode } from '../../domain/document/types';
 import type { RenderContext } from '../../canvas/stage/render-context';
 import { resolveWidgetBackground, resolveWidgetBorder, resolveWidgetOpacity } from '../../canvas/stage/render-helpers';
 import { readShadowFromStyle, shadowConfigToBoxShadow } from '../../shared/style/shadow';
+import { readOverlayFromStyle, overlayToCssProperties } from '../../shared/style/overlay';
 
 function buildImageMediaStyle(
   node: WidgetNode,
@@ -47,20 +48,28 @@ function buildImagePlaceholderStyle(
 export function renderImageWidget(node: WidgetNode, ctx: RenderContext): JSX.Element {
   const borderRadius = Number(node.style.borderRadius ?? 12);
   const src = String(node.props.src ?? '').trim();
+  const overlayStyle = overlayToCssProperties(readOverlayFromStyle(node.style));
+
   if (src) {
     return (
-      <img
-        src={src}
-        alt={String(node.props.alt ?? node.name)}
-        decoding="async"
-        draggable={false}
-        style={buildImageMediaStyle(node, ctx, borderRadius)}
-      />
+      <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <img
+          src={src}
+          alt={String(node.props.alt ?? node.name)}
+          decoding="async"
+          draggable={false}
+          style={buildImageMediaStyle(node, ctx, borderRadius)}
+        />
+        {overlayStyle ? <div style={overlayStyle} /> : null}
+      </div>
     );
   }
   return (
-    <div style={buildImagePlaceholderStyle(node, ctx, borderRadius)}>
-      Image placeholder
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div style={buildImagePlaceholderStyle(node, ctx, borderRadius)}>
+        Image placeholder
+      </div>
+      {overlayStyle ? <div style={overlayStyle} /> : null}
     </div>
   );
 }

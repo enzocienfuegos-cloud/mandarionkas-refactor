@@ -20,9 +20,9 @@ export const heroImageDefinition: WidgetDefinition = {
     style: { backgroundColor: '#223142', fit: 'cover', borderRadius: 20 },
     timeline: { startMs: 0, endMs: 15000 },
   }),
-  inspectorSections: ['position-size', 'fill', 'timing', 'states', 'data-bindings', 'variants'],
+  inspectorSections: ['position-size', 'fill', 'overlay', 'shadow', 'timing', 'states', 'data-bindings', 'variants'],
   inspectorTabs: createInspectorTabs([
-    { id: 'basics', label: 'Basics', panels: ['position-size', 'widget-fields', 'fill', 'timing'] },
+    { id: 'basics', label: 'Basics', panels: ['position-size', 'widget-fields', 'fill', 'overlay', 'shadow', 'timing'] },
     { id: 'behavior', label: 'Behavior', panels: ['conditions', 'actions', 'states', 'keyframes'] },
     { id: 'data', label: 'Data', panels: ['data-bindings', 'variants'] },
   ]),

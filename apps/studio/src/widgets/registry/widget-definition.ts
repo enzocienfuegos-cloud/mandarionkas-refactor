@@ -24,6 +24,7 @@ export type WidgetInspectorPanelKey =
   | 'widget-fields'
   | 'module-config'
   | 'fill'
+  | 'overlay'
   | 'shadow'
   | 'timing'
   | 'conditions'
