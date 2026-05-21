@@ -664,59 +664,69 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                 const dx = incentivatorInvert ? -incentivatorOffsetX : incentivatorOffsetX;
                 const dy = incentivatorInvert ? -incentivatorOffsetY : incentivatorOffsetY;
 
-                // Collect elements whose styles we'll temporarily override
-                type SavedStyle = { el: HTMLElement; zIndex: string; contain: string; overflow: string };
-                const saved: SavedStyle[] = [];
+                // Build a clean ghost fixed over the token's viewport position.
+                // This avoids overflow:hidden + padding creating a visible transparent
+                // "recuadro" around the image as the token slides.
+                const rect = tokenEl.getBoundingClientRect();
+                const imgEl = tokenEl.querySelector<HTMLImageElement>('img');
 
-                const patchEl = (el: HTMLElement) => {
-                  saved.push({ el, zIndex: el.style.zIndex, contain: el.style.contain, overflow: el.style.overflow });
-                  el.style.zIndex = '9999';
-                  // Remove CSS containment — 'contain:layout paint' clips painted content to the element box
-                  el.style.contain = 'none';
-                  el.style.overflow = 'visible';
-                };
+                const ghost = document.createElement('div');
+                ghost.style.cssText = [
+                  'position:fixed',
+                  `left:${rect.left}px`,
+                  `top:${rect.top}px`,
+                  `width:${rect.width}px`,
+                  `height:${rect.height}px`,
+                  'pointer-events:none',
+                  'z-index:9999',
+                  'overflow:visible',
+                  'background:transparent',
+                  'border:none',
+                  'box-shadow:none',
+                  'margin:0',
+                  'padding:0',
+                  'display:flex',
+                  'align-items:center',
+                  'justify-content:center',
+                  'transform-origin:center center',
+                  'will-change:transform,opacity',
+                ].join(';');
 
-                // Patch the stage widget shell (has data-stage-widget-id)
-                const shell = document.querySelector<HTMLElement>(`[data-stage-widget-id="${node.id}"]`);
-                if (shell) patchEl(shell);
-
-                // Also patch any overflow:hidden ancestors between token and the stage root
-                let anc: HTMLElement | null = tokenEl.parentElement;
-                while (anc && !anc.hasAttribute('data-stage-widget-id') && anc !== document.body) {
-                  const cs = window.getComputedStyle(anc);
-                  if (cs.overflow === 'hidden' || cs.overflowX === 'hidden' || cs.overflowY === 'hidden') {
-                    saved.push({ el: anc, zIndex: anc.style.zIndex, contain: anc.style.contain, overflow: anc.style.overflow });
-                    anc.style.overflow = 'visible';
-                  }
-                  anc = anc.parentElement;
+                if (imgEl) {
+                  const clonedImg = document.createElement('img');
+                  clonedImg.src = imgEl.src || imgEl.currentSrc || '';
+                  clonedImg.alt = imgEl.alt || '';
+                  clonedImg.draggable = false;
+                  clonedImg.style.cssText = [
+                    'width:100%',
+                    'height:100%',
+                    `object-fit:${imgEl.style.objectFit || window.getComputedStyle(imgEl).objectFit || 'contain'}`,
+                    `object-position:${imgEl.style.objectPosition || window.getComputedStyle(imgEl).objectPosition || '50% 50%'}`,
+                    'pointer-events:none',
+                    'user-select:none',
+                    'border:none',
+                    'box-shadow:none',
+                  ].join(';');
+                  ghost.appendChild(clonedImg);
+                } else {
+                  ghost.textContent = tokenEl.textContent || '';
+                  ghost.style.color = '#e5e7eb';
+                  ghost.style.fontSize = '11px';
+                  ghost.style.fontWeight = '700';
+                  ghost.style.textAlign = 'center';
                 }
 
-                const restoreAll = () => saved.forEach(({ el, zIndex, contain, overflow }) => {
-                  el.style.zIndex = zIndex;
-                  el.style.contain = contain;
-                  el.style.overflow = overflow;
-                });
+                document.body.appendChild(ghost);
 
-                // Image tokens without a visible frame should not get a box-shadow during animation
-                const hasTokenImage = Boolean(tokenEl.querySelector('img'));
-                const computedBorder = window.getComputedStyle(tokenEl).border;
-                const tokenHasFrame = !hasTokenImage || (computedBorder !== 'none' && computedBorder !== '');
-
-                tokenEl.style.transition = tokenHasFrame
-                  ? 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, opacity 0.3s'
-                  : 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s';
-                tokenEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.1)`;
-                if (tokenHasFrame) tokenEl.style.boxShadow = '0 10px 28px rgba(0,0,0,0.45)';
-                tokenEl.style.opacity = '0.88';
+                ghost.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s';
+                ghost.style.transform = `translate(${dx}px, ${dy}px) scale(1.1)`;
+                ghost.style.opacity = '0.88';
 
                 window.setTimeout(() => {
-                  tokenEl.style.transition = tokenHasFrame
-                    ? 'transform 0.32s ease-out, box-shadow 0.28s, opacity 0.28s'
-                    : 'transform 0.32s ease-out, opacity 0.28s';
-                  tokenEl.style.transform = '';
-                  tokenEl.style.boxShadow = '';
-                  tokenEl.style.opacity = '';
-                  window.setTimeout(restoreAll, 340);
+                  ghost.style.transition = 'transform 0.32s ease-out, opacity 0.28s';
+                  ghost.style.transform = '';
+                  ghost.style.opacity = '';
+                  window.setTimeout(() => ghost.remove(), 340);
                 }, 620);
               }}
             >

@@ -282,9 +282,13 @@ type DragState = {
 };
 
 function createDragGhost(tokenEl: HTMLElement): HTMLElement {
-  const ghost = tokenEl.cloneNode(true) as HTMLElement;
   const rect = tokenEl.getBoundingClientRect();
-  // Use direct property setters — avoids conflicts with pre-existing inline cssText
+  const imgEl = tokenEl.querySelector<HTMLImageElement>('img');
+
+  // Build a clean ghost instead of cloneNode — cloning carries over overflow:hidden,
+  // padding, and inline styles that create a visible transparent "recuadro" around
+  // image tokens while dragging.
+  const ghost = document.createElement('div');
   ghost.style.setProperty('position', 'fixed', 'important');
   ghost.style.setProperty('width', `${rect.width}px`, 'important');
   ghost.style.setProperty('height', `${rect.height}px`, 'important');
@@ -298,10 +302,40 @@ function createDragGhost(tokenEl: HTMLElement): HTMLElement {
   ghost.style.setProperty('will-change', 'transform,left,top', 'important');
   ghost.style.setProperty('cursor', 'grabbing', 'important');
   ghost.style.setProperty('margin', '0', 'important');
-  // Strip border/box-shadow so image tokens don't show an ugly frame while dragging
+  ghost.style.setProperty('padding', '0', 'important');
   ghost.style.setProperty('border', 'none', 'important');
   ghost.style.setProperty('box-shadow', 'none', 'important');
-  ghost.removeAttribute('data-smx-action');
+  ghost.style.setProperty('background', 'transparent', 'important');
+  ghost.style.setProperty('overflow', 'visible', 'important');
+  ghost.style.setProperty('display', 'flex', 'important');
+  ghost.style.setProperty('align-items', 'center', 'important');
+  ghost.style.setProperty('justify-content', 'center', 'important');
+
+  if (imgEl) {
+    const clonedImg = document.createElement('img');
+    clonedImg.src = imgEl.src;
+    clonedImg.alt = imgEl.alt || '';
+    clonedImg.draggable = false;
+    clonedImg.style.cssText = [
+      'width:100%',
+      'height:100%',
+      `object-fit:${imgEl.style.objectFit || 'contain'}`,
+      `object-position:${imgEl.style.objectPosition || '50% 50%'}`,
+      'pointer-events:none',
+      'user-select:none',
+      'border:none',
+      'box-shadow:none',
+    ].join(';');
+    ghost.appendChild(clonedImg);
+  } else {
+    // Text token — copy text with styling
+    ghost.textContent = tokenEl.textContent || '';
+    ghost.style.setProperty('color', '#e5e7eb', 'important');
+    ghost.style.setProperty('font-size', '11px', 'important');
+    ghost.style.setProperty('font-weight', '700', 'important');
+    ghost.style.setProperty('text-align', 'center', 'important');
+  }
+
   document.body.appendChild(ghost);
   return ghost;
 }
@@ -555,51 +589,71 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
 
   if (!tokenEl || (slideX === 0 && slideY === 0)) return () => undefined;
 
-  // Lift token and its widget shell above all other widgets during animation
-  const liftStack: Array<{ el: HTMLElement; prev: string }> = [];
-  const liftEl = (el: HTMLElement | null) => {
-    if (!el) return;
-    liftStack.push({ el, prev: el.style.zIndex });
-    el.style.zIndex = '9999';
-  };
-  liftEl(tokenEl);
-  let ancestor: HTMLElement | null = tokenEl.parentElement;
-  while (ancestor && ancestor !== document.body) {
-    if (ancestor.style.zIndex) { liftEl(ancestor); break; }
-    ancestor = ancestor.parentElement;
+  // Build a clean ghost fixed over the token's viewport position.
+  // Animating a ghost (instead of the token itself) eliminates:
+  //   • overflow:hidden on the token clipping the scaled image to a visible square
+  //   • padding gaps leaving a transparent "recuadro" around the image
+  //   • need to patch ancestor overflow:hidden elements
+  const rect = tokenEl.getBoundingClientRect();
+  const imgEl = tokenEl.querySelector<HTMLImageElement>('img');
+
+  const ghost = document.createElement('div');
+  ghost.style.cssText = [
+    'position:fixed',
+    `left:${rect.left}px`,
+    `top:${rect.top}px`,
+    `width:${rect.width}px`,
+    `height:${rect.height}px`,
+    'pointer-events:none',
+    'z-index:9999',
+    'overflow:visible',
+    'background:transparent',
+    'border:none',
+    'box-shadow:none',
+    'margin:0',
+    'padding:0',
+    'display:flex',
+    'align-items:center',
+    'justify-content:center',
+    'transform-origin:center center',
+    'will-change:transform,opacity',
+  ].join(';');
+
+  if (imgEl) {
+    const clonedImg = document.createElement('img');
+    clonedImg.src = imgEl.src;
+    clonedImg.alt = imgEl.alt || '';
+    clonedImg.draggable = false;
+    clonedImg.style.cssText = [
+      'width:100%',
+      'height:100%',
+      `object-fit:${imgEl.style.objectFit || 'contain'}`,
+      `object-position:${imgEl.style.objectPosition || '50% 50%'}`,
+      'pointer-events:none',
+      'user-select:none',
+      'border:none',
+      'box-shadow:none',
+    ].join(';');
+    ghost.appendChild(clonedImg);
+  } else {
+    // Text token — copy text content with matching styles
+    ghost.textContent = tokenEl.textContent || '';
+    ghost.style.color = '#e5e7eb';
+    ghost.style.fontSize = '11px';
+    ghost.style.fontWeight = '700';
+    ghost.style.textAlign = 'center';
   }
 
-  // Temporarily un-clip any overflow:hidden ancestors so the token can slide
-  // outside the banner/scene container bounds without being cut off.
-  const overflowStack: Array<{ el: HTMLElement; prev: string }> = [];
-  let ovfAnc: HTMLElement | null = tokenEl.parentElement;
-  while (ovfAnc && ovfAnc !== document.body) {
-    const cs = window.getComputedStyle(ovfAnc);
-    if (cs.overflow === 'hidden' || cs.overflowX === 'hidden' || cs.overflowY === 'hidden') {
-      overflowStack.push({ el: ovfAnc, prev: ovfAnc.style.overflow });
-      ovfAnc.style.overflow = 'visible';
-    }
-    ovfAnc = ovfAnc.parentElement;
-  }
-
-  // Detect if the token already has a visible border — image tokens with hideAccentForImageTokens
-  // have border:none and no box-shadow. We don't want to force a box-shadow onto them during
-  // animation because it creates an ugly visible frame around the image.
-  const hasTokenImage = Boolean(tokenEl.querySelector('img'));
-  const computedBorder = window.getComputedStyle(tokenEl).border;
-  const tokenHasFrame = !hasTokenImage || (computedBorder !== 'none' && computedBorder !== '');
+  document.body.appendChild(ghost);
 
   let cancelled = false;
   let cycles = 0;
   let animTimer = 0;
 
   const restore = () => {
-    tokenEl.style.transition = tokenHasFrame
-      ? 'transform 0.32s ease-out, box-shadow 0.28s, opacity 0.28s'
-      : 'transform 0.32s ease-out, opacity 0.28s';
-    tokenEl.style.transform = '';
-    tokenEl.style.boxShadow = '';
-    tokenEl.style.opacity = '';
+    ghost.style.transition = 'transform 0.32s ease-out, opacity 0.28s';
+    ghost.style.transform = '';
+    ghost.style.opacity = '';
   };
 
   const cancel = () => {
@@ -608,11 +662,7 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     window.clearTimeout(animTimer);
     document.removeEventListener('pointerdown', cancel);
     restore();
-    // Restore z-index and overflow after transition completes
-    window.setTimeout(() => {
-      liftStack.forEach(({ el, prev }) => { el.style.zIndex = prev; });
-      overflowStack.forEach(({ el, prev }) => { el.style.overflow = prev; });
-    }, 340);
+    window.setTimeout(() => { ghost.remove(); }, 340);
   };
 
   document.addEventListener('pointerdown', cancel, { once: true });
@@ -621,16 +671,10 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     if (cancelled) return;
     if (maxCycles > 0 && cycles >= maxCycles) { cancel(); return; }
 
-    // Phase 1 — lift and slide to configured offset
-    // Only apply box-shadow for tokens that already have a visible frame (text tokens,
-    // or image tokens that opted into the accent border). Image-only tokens skip it
-    // to avoid an ugly transparent rectangle appearing during animation.
-    tokenEl.style.transition = tokenHasFrame
-      ? 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, opacity 0.3s'
-      : 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s';
-    tokenEl.style.transform = `translate(${slideX}px, ${slideY}px) scale(1.1)`;
-    if (tokenHasFrame) tokenEl.style.boxShadow = '0 10px 28px rgba(0,0,0,0.45)';
-    tokenEl.style.opacity = '0.88';
+    // Phase 1 — slide ghost to configured offset
+    ghost.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s';
+    ghost.style.transform = `translate(${slideX}px, ${slideY}px) scale(1.1)`;
+    ghost.style.opacity = '0.88';
 
     // Phase 2 — return to origin
     animTimer = window.setTimeout(() => {
