@@ -298,6 +298,9 @@ function createDragGhost(tokenEl: HTMLElement): HTMLElement {
   ghost.style.setProperty('will-change', 'transform,left,top', 'important');
   ghost.style.setProperty('cursor', 'grabbing', 'important');
   ghost.style.setProperty('margin', '0', 'important');
+  // Strip border/box-shadow so image tokens don't show an ugly frame while dragging
+  ghost.style.setProperty('border', 'none', 'important');
+  ghost.style.setProperty('box-shadow', 'none', 'important');
   ghost.removeAttribute('data-smx-action');
   document.body.appendChild(ghost);
   return ghost;
@@ -566,6 +569,19 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     ancestor = ancestor.parentElement;
   }
 
+  // Temporarily un-clip any overflow:hidden ancestors so the token can slide
+  // outside the banner/scene container bounds without being cut off.
+  const overflowStack: Array<{ el: HTMLElement; prev: string }> = [];
+  let ovfAnc: HTMLElement | null = tokenEl.parentElement;
+  while (ovfAnc && ovfAnc !== document.body) {
+    const cs = window.getComputedStyle(ovfAnc);
+    if (cs.overflow === 'hidden' || cs.overflowX === 'hidden' || cs.overflowY === 'hidden') {
+      overflowStack.push({ el: ovfAnc, prev: ovfAnc.style.overflow });
+      ovfAnc.style.overflow = 'visible';
+    }
+    ovfAnc = ovfAnc.parentElement;
+  }
+
   let cancelled = false;
   let cycles = 0;
   let animTimer = 0;
@@ -583,9 +599,10 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     window.clearTimeout(animTimer);
     document.removeEventListener('pointerdown', cancel);
     restore();
-    // Restore z-index after transition completes
+    // Restore z-index and overflow after transition completes
     window.setTimeout(() => {
       liftStack.forEach(({ el, prev }) => { el.style.zIndex = prev; });
+      overflowStack.forEach(({ el, prev }) => { el.style.overflow = prev; });
     }, 340);
   };
 

@@ -66,6 +66,8 @@ export function DragGhostLayer({ store }: Props): JSX.Element | null {
     }
   };
 
+  const hasImage = Boolean(source.tokenImageUrl);
+
   return (
     <div
       ref={ghostCallbackRef}
@@ -74,9 +76,10 @@ export function DragGhostLayer({ store }: Props): JSX.Element | null {
         width: 72,
         height: 72,
         borderRadius: '50%',
-        border: '2px solid var(--white-a-35)',
-        boxShadow: '0 14px 30px hsl(0 0% 0% / 0.28), 0 0 18px var(--white-a-24)',
+        border: hasImage ? 'none' : '2px solid var(--white-a-35)',
+        boxShadow: hasImage ? 'none' : '0 14px 30px hsl(0 0% 0% / 0.28), 0 0 18px var(--white-a-24)',
         overflow: 'hidden',
+        padding: hasImage ? 0 : 6,
       }}
     >
       <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
@@ -86,7 +89,7 @@ export function DragGhostLayer({ store }: Props): JSX.Element | null {
             alt={source.tokenLabel ?? ''}
             decoding="async"
             draggable={false}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', pointerEvents: 'none' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none', borderRadius: '50%' }}
           />
         ) : (source.tokenLabel ?? '')}
       </span>
