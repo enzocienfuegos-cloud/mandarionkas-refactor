@@ -716,6 +716,10 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                   ghost.style.textAlign = 'center';
                 }
 
+                // Hide original token while ghost animates — prevents two visible tokens
+                const prevVisibility = tokenEl.style.visibility;
+                tokenEl.style.visibility = 'hidden';
+
                 document.body.appendChild(ghost);
 
                 ghost.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s';
@@ -726,7 +730,10 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                   ghost.style.transition = 'transform 0.32s ease-out, opacity 0.28s';
                   ghost.style.transform = '';
                   ghost.style.opacity = '';
-                  window.setTimeout(() => ghost.remove(), 340);
+                  window.setTimeout(() => {
+                    ghost.remove();
+                    tokenEl.style.visibility = prevVisibility;
+                  }, 340);
                 }, 620);
               }}
             >

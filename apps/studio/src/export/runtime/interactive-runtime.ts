@@ -644,6 +644,10 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     ghost.style.textAlign = 'center';
   }
 
+  // Hide the original token while the ghost animates — prevents two visible tokens
+  const prevVisibility = tokenEl.style.visibility;
+  tokenEl.style.visibility = 'hidden';
+
   document.body.appendChild(ghost);
 
   let cancelled = false;
@@ -662,7 +666,10 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     window.clearTimeout(animTimer);
     document.removeEventListener('pointerdown', cancel);
     restore();
-    window.setTimeout(() => { ghost.remove(); }, 340);
+    window.setTimeout(() => {
+      ghost.remove();
+      tokenEl.style.visibility = prevVisibility;
+    }, 340);
   };
 
   document.addEventListener('pointerdown', cancel, { once: true });
