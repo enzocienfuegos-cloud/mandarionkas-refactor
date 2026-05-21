@@ -1,8 +1,10 @@
+import { createElement } from 'react';
 import { createId } from '../../domain/document/factories';
 import { renderHeroImageWidget } from './hero-image.renderer';
 import { createInspectorTabs, type WidgetDefinition } from '../registry/widget-definition';
 import { renderImageExport } from '../registry/base-exporters';
 import { HeroImageThumb } from '../registry/widget-thumbnails';
+import { HeroImageInspector } from './hero-image.inspector';
 
 export const heroImageDefinition: WidgetDefinition = {
   type: 'hero-image',
@@ -26,22 +28,7 @@ export const heroImageDefinition: WidgetDefinition = {
     { id: 'behavior', label: 'Behavior', panels: ['conditions', 'actions', 'states', 'keyframes'] },
     { id: 'data', label: 'Data', panels: ['data-bindings', 'variants'] },
   ]),
-  inspectorTitle: 'Hero image',
-  inspectorFields: [
-    { key: 'alt', label: 'Alt text' },
-    { key: 'focalX', label: 'Focal X', type: 'number' },
-    { key: 'focalY', label: 'Focal Y', type: 'number' },
-    {
-      key: 'cornerStyle',
-      label: 'Corners',
-      type: 'select',
-      options: [
-        { label: 'Rounded', value: 'rounded' },
-        { label: 'Square', value: 'square' },
-        { label: 'Pill', value: 'pill' },
-      ],
-    },
-  ],
+  renderInspector: (widget) => createElement(HeroImageInspector, { widget }),
   capabilities: {
     supportsMotion: true,
     supportsHoverMotion: true,

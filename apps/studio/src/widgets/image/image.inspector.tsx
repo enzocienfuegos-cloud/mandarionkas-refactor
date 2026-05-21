@@ -43,7 +43,8 @@ function useImageAssets(): AssetRecord[] {
 }
 
 export function ImageInspector({ widget }: { widget: WidgetNode }): JSX.Element {
-  const { updateWidgetProps } = useWidgetActions();
+  const { updateWidgetProps, updateWidgetFrame } = useWidgetActions();
+  const canvas = useStudioStore((state) => state.document.canvas);
   const assets = useImageAssets();
   const targetChannel = useStudioStore((state) => state.document.metadata.release.targetChannel);
   const currentSrc = String(widget.props.src ?? '').trim();
@@ -88,6 +89,15 @@ export function ImageInspector({ widget }: { widget: WidgetNode }): JSX.Element 
             Remove image
           </Button>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="compact-action"
+          title="Resize and reposition this widget to cover the full canvas"
+          onClick={() => updateWidgetFrame(widget.id, { x: 0, y: 0, width: canvas.width, height: canvas.height, rotation: 0 })}
+        >
+          Fit to canvas
+        </Button>
       </div>
     </section>
   );
