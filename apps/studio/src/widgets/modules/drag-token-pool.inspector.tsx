@@ -697,13 +697,22 @@ export function DragTokenPoolInspector({ node }: { node: WidgetNode }): JSX.Elem
                   el.style.overflow = overflow;
                 });
 
-                tokenEl.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, opacity 0.3s';
+                // Image tokens without a visible frame should not get a box-shadow during animation
+                const hasTokenImage = Boolean(tokenEl.querySelector('img'));
+                const computedBorder = window.getComputedStyle(tokenEl).border;
+                const tokenHasFrame = !hasTokenImage || (computedBorder !== 'none' && computedBorder !== '');
+
+                tokenEl.style.transition = tokenHasFrame
+                  ? 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, opacity 0.3s'
+                  : 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s';
                 tokenEl.style.transform = `translate(${dx}px, ${dy}px) scale(1.1)`;
-                tokenEl.style.boxShadow = '0 10px 28px rgba(0,0,0,0.45)';
+                if (tokenHasFrame) tokenEl.style.boxShadow = '0 10px 28px rgba(0,0,0,0.45)';
                 tokenEl.style.opacity = '0.88';
 
                 window.setTimeout(() => {
-                  tokenEl.style.transition = 'transform 0.32s ease-out, box-shadow 0.28s, opacity 0.28s';
+                  tokenEl.style.transition = tokenHasFrame
+                    ? 'transform 0.32s ease-out, box-shadow 0.28s, opacity 0.28s'
+                    : 'transform 0.32s ease-out, opacity 0.28s';
                   tokenEl.style.transform = '';
                   tokenEl.style.boxShadow = '';
                   tokenEl.style.opacity = '';

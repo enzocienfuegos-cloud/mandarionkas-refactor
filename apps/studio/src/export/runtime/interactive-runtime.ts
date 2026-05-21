@@ -582,12 +582,21 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     ovfAnc = ovfAnc.parentElement;
   }
 
+  // Detect if the token already has a visible border — image tokens with hideAccentForImageTokens
+  // have border:none and no box-shadow. We don't want to force a box-shadow onto them during
+  // animation because it creates an ugly visible frame around the image.
+  const hasTokenImage = Boolean(tokenEl.querySelector('img'));
+  const computedBorder = window.getComputedStyle(tokenEl).border;
+  const tokenHasFrame = !hasTokenImage || (computedBorder !== 'none' && computedBorder !== '');
+
   let cancelled = false;
   let cycles = 0;
   let animTimer = 0;
 
   const restore = () => {
-    tokenEl.style.transition = 'transform 0.32s ease-out, box-shadow 0.28s, opacity 0.28s';
+    tokenEl.style.transition = tokenHasFrame
+      ? 'transform 0.32s ease-out, box-shadow 0.28s, opacity 0.28s'
+      : 'transform 0.32s ease-out, opacity 0.28s';
     tokenEl.style.transform = '';
     tokenEl.style.boxShadow = '';
     tokenEl.style.opacity = '';
@@ -613,9 +622,14 @@ function mountTokenPoolIncentivator(poolRoot: HTMLElement): () => void {
     if (maxCycles > 0 && cycles >= maxCycles) { cancel(); return; }
 
     // Phase 1 — lift and slide to configured offset
-    tokenEl.style.transition = 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, opacity 0.3s';
+    // Only apply box-shadow for tokens that already have a visible frame (text tokens,
+    // or image tokens that opted into the accent border). Image-only tokens skip it
+    // to avoid an ugly transparent rectangle appearing during animation.
+    tokenEl.style.transition = tokenHasFrame
+      ? 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, opacity 0.3s'
+      : 'transform 0.46s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s';
     tokenEl.style.transform = `translate(${slideX}px, ${slideY}px) scale(1.1)`;
-    tokenEl.style.boxShadow = '0 10px 28px rgba(0,0,0,0.45)';
+    if (tokenHasFrame) tokenEl.style.boxShadow = '0 10px 28px rgba(0,0,0,0.45)';
     tokenEl.style.opacity = '0.88';
 
     // Phase 2 — return to origin
